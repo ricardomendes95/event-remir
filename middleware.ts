@@ -12,7 +12,11 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rotas que não precisam de autenticação (exceções)
-  const publicRoutes = ["/admin/login", "/admin/access-denied"];
+  const publicRoutes = [
+    "/admin/login",
+    "/admin/access-denied",
+    "/api/events/active",
+  ];
 
   // Verificar se é uma rota pública
   const isPublicRoute = publicRoutes.some((route) => pathname === route);

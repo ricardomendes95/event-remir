@@ -52,14 +52,16 @@ Desenvolver uma aplicação fullstack Next.js para inscrições em eventos com p
 - [x] **4.5** - Validação completa com Zod
 - [x] **4.6** - Tratamento de erros e feedback
 
-### **FASE 5: Página Principal e Modal de Inscrição** 🏠
+### ✅ **FASE 5: Página Principal e Modal de Inscrição** 🏠
 
-- [ ] **5.1** - Layout responsivo da página inicial
-- [ ] **5.2** - Componente de exibição do evento
-- [ ] **5.3** - Modal de inscrição
-- [ ] **5.4** - Formulário de inscrição com validação Zod
-- [ ] **5.5** - Estado "Nenhum evento disponível"
-- [ ] **5.6** - Responsividade mobile-first
+**Status: 6/6 COMPLETED** ✅
+
+- [x] **5.1** - Layout responsivo da página inicial
+- [x] **5.2** - Componente de exibição do evento
+- [x] **5.3** - Modal de inscrição
+- [x] **5.4** - Formulário de inscrição com validação Zod
+- [x] **5.5** - Estado "Nenhum evento disponível"
+- [x] **5.6** - Responsividade mobile-first
 
 ### **FASE 6: Integração Mercado Pago** 💳
 
