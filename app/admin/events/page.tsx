@@ -25,6 +25,7 @@ import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { z } from "zod";
 import { ImageUpload } from "../../../components/ImageUpload";
+import Image from "next/image";
 
 const { TextArea } = Input;
 
@@ -38,8 +39,8 @@ const eventSchema = z.object({
   registrationStartDate: z.any(),
   registrationEndDate: z.any(),
   location: z.string().min(1, "Local é obrigatório"),
-  maxParticipants: z.number().min(1, "Número máximo de participantes deve ser maior que 0"),
-  price: z.number().min(0, "Preço deve ser maior ou igual a 0"),
+  maxParticipants: z.union([z.string(), z.number()]),
+  price: z.union([z.string(), z.number()]),
   bannerUrl: z.string().optional(),
   isActive: z.boolean().default(true),
 });
@@ -76,12 +77,12 @@ export default function EventsPage() {
     try {
       const response = await fetch("/api/events?includeStats=true");
       const data = await response.json();
-      
-      console.log('API Response:', data); // Debug log
-      
+
+      console.log("API Response:", data); // Debug log
+
       if (data.success) {
         const eventsList = data.data.items || [];
-        console.log('Events List:', eventsList); // Debug log
+        console.log("Events List:", eventsList); // Debug log
         setEvents(eventsList);
       } else {
         message.error("Erro ao carregar eventos");
@@ -101,14 +102,30 @@ export default function EventsPage() {
   // Salvar evento (criar ou editar)
   const handleSave = async (values: z.infer<typeof eventSchema>) => {
     try {
+      // Validação customizada
+      const maxParticipants = parseInt(values.maxParticipants.toString());
+      const price = parseFloat(values.price.toString());
+
+      if (isNaN(maxParticipants) || maxParticipants <= 0) {
+        message.error("Número máximo de participantes deve ser maior que 0");
+        return;
+      }
+
+      if (isNaN(price) || price < 0) {
+        message.error("Preço deve ser maior ou igual a 0");
+        return;
+      }
+
       const eventData = {
         ...values,
         startDate: dayjs(values.startDate).toISOString(),
         endDate: dayjs(values.endDate).toISOString(),
-        registrationStartDate: dayjs(values.registrationStartDate).toISOString(),
+        registrationStartDate: dayjs(
+          values.registrationStartDate
+        ).toISOString(),
         registrationEndDate: dayjs(values.registrationEndDate).toISOString(),
-        maxParticipants: parseInt(values.maxParticipants.toString()),
-        price: parseFloat(values.price.toString()),
+        maxParticipants,
+        price,
       };
 
       let response;
@@ -134,7 +151,9 @@ export default function EventsPage() {
 
       if (result.success) {
         message.success(
-          editingEvent ? "Evento atualizado com sucesso!" : "Evento criado com sucesso!"
+          editingEvent
+            ? "Evento atualizado com sucesso!"
+            : "Evento criado com sucesso!"
         );
         setIsModalVisible(false);
         form.resetFields();
@@ -234,10 +253,12 @@ export default function EventsPage() {
       render: (bannerUrl: string) => (
         <div className="w-16 h-16 rounded overflow-hidden bg-gray-100">
           {bannerUrl ? (
-            <img
+            <Image
               src={bannerUrl}
               alt="Event"
               className="w-full h-full object-cover"
+              width={64}
+              height={64}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -296,7 +317,9 @@ export default function EventsPage() {
       sorter: (a, b) => a.maxParticipants - b.maxParticipants,
       render: (maxParticipants: number, record) => (
         <div>
-          <div>{record._count?.registrations || 0} / {maxParticipants}</div>
+          <div>
+            {record._count?.registrations || 0} / {maxParticipants}
+          </div>
         </div>
       ),
     },
@@ -305,8 +328,8 @@ export default function EventsPage() {
       dataIndex: "price",
       key: "price",
       sorter: (a, b) => a.price - b.price,
-      render: (price: number) => 
-        price === 0 ? "Gratuito" : `R$ ${price.toFixed(2).replace('.', ',')}`
+      render: (price: number) =>
+        price === 0 ? "Gratuito" : `R$ ${price.toFixed(2).replace(".", ",")}`,
     },
     {
       title: "Status",
@@ -424,7 +447,9 @@ export default function EventsPage() {
             <Form.Item
               name="startDate"
               label="Data de Início do Evento"
-              rules={[{ required: true, message: "Data de início é obrigatória" }]}
+              rules={[
+                { required: true, message: "Data de início é obrigatória" },
+              ]}
             >
               <DatePicker
                 showTime
@@ -452,7 +477,12 @@ export default function EventsPage() {
             <Form.Item
               name="registrationStartDate"
               label="Início das Inscrições"
-              rules={[{ required: true, message: "Data de início das inscrições é obrigatória" }]}
+              rules={[
+                {
+                  required: true,
+                  message: "Data de início das inscrições é obrigatória",
+                },
+              ]}
             >
               <DatePicker
                 showTime
@@ -465,7 +495,12 @@ export default function EventsPage() {
             <Form.Item
               name="registrationEndDate"
               label="Fim das Inscrições"
-              rules={[{ required: true, message: "Data de fim das inscrições é obrigatória" }]}
+              rules={[
+                {
+                  required: true,
+                  message: "Data de fim das inscrições é obrigatória",
+                },
+              ]}
             >
               <DatePicker
                 showTime
@@ -481,11 +516,16 @@ export default function EventsPage() {
               name="maxParticipants"
               label="Número Máximo de Participantes"
               rules={[
-                { required: true, message: "Número máximo de participantes é obrigatório" },
-                { type: "number", min: 1, message: "Deve ser maior que 0" },
+                {
+                  required: true,
+                  message: "Número máximo de participantes é obrigatório",
+                },
               ]}
             >
-              <Input type="number" placeholder="Número máximo de participantes" />
+              <Input
+                type="number"
+                placeholder="Número máximo de participantes"
+              />
             </Form.Item>
 
             <Form.Item
@@ -493,13 +533,12 @@ export default function EventsPage() {
               label="Preço (R$)"
               rules={[
                 { required: true, message: "Preço é obrigatório" },
-                { type: "number", min: 0, message: "Preço deve ser maior ou igual a 0" },
               ]}
             >
-              <Input 
-                type="number" 
+              <Input
+                type="number"
                 step="0.01"
-                placeholder="0.00 (digite 0 para evento gratuito)" 
+                placeholder="0.00 (digite 0 para evento gratuito)"
               />
             </Form.Item>
           </div>
