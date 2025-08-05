@@ -39,3 +39,28 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma
+/src/generated/prisma
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+
+# Database
+*.db
+*.sqlite
+
+# Temporary files
+cookies.txt
+temp/
+tmp/
+
+# OS generated files
+Thumbs.db

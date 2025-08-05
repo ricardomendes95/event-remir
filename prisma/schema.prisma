@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id                     String   @id @default(cuid())
+  title                  String
+  description            String
+  slug                   String   @unique
+  startDate              DateTime
+  endDate                DateTime
+  registrationStartDate  DateTime
+  registrationEndDate    DateTime
+  location               String
+  maxParticipants        Int
+  price                  Float
+  isActive               Boolean  @default(true)
+  bannerUrl              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  registrations          Registration[]
+
+  @@map("events")
+}
+
+model Registration {
+  id             String            @id @default(cuid())
+  eventId        String
+  event          Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name           String
+  email          String
+  cpf            String
+  phone          String
+  status         RegistrationStatus @default(PENDING)
+  paymentId      String?
+  checkedInAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("registrations")
+}
+
+model Admin {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  password    String
+  role        AdminRole @default(ADMIN)
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("admins")
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum AdminRole {
+  ADMIN
+  SUPER_ADMIN
+}
