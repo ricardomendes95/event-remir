@@ -531,9 +531,7 @@ export default function EventsPage() {
             <Form.Item
               name="price"
               label="Preço (R$)"
-              rules={[
-                { required: true, message: "Preço é obrigatório" },
-              ]}
+              rules={[{ required: true, message: "Preço é obrigatório" }]}
             >
               <Input
                 type="number"
