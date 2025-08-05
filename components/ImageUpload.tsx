@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Upload, Image as ImageIcon, X, AlertCircle } from "lucide-react";
+import { Upload, X, AlertCircle } from "lucide-react";
 import { useImageUpload } from "../hooks/useImageUpload";
 
 interface ImageUploadProps {
@@ -140,42 +140,21 @@ export function ImageUpload({
 
       {/* Preview da Imagem */}
       {preview && value && !uploading && (
-        <div className="relative">
-          <div className="relative group">
+        <div className="mt-4">
+          <p className="text-sm text-gray-600 mb-2">Preview:</p>
+          <div className="w-full aspect-video rounded-lg overflow-hidden border relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={value}
               alt="Preview"
-              className="w-full h-48 object-cover rounded-lg border"
+              className="w-full h-full object-cover"
             />
-
-            {/* Overlay com botão de remover */}
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 rounded-lg flex items-center justify-center">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeImage();
-                }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Informações da imagem */}
-          <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-            <span className="flex items-center space-x-1">
-              <ImageIcon className="w-3 h-3" />
-              <span>Imagem carregada</span>
-            </span>
             <button
               type="button"
               onClick={removeImage}
-              className="text-red-600 hover:text-red-700"
+              className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
             >
-              Remover
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
