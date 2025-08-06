@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { EventDisplay } from "@/components/EventDisplay";
 import { SearchComprovante } from "@/components/SearchComprovante";
+import { AutoShowProofModal } from "@/components/AutoShowProofModal";
 
 export default function HomePage() {
   return (
@@ -70,6 +71,9 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
+
+      {/* Auto Show Proof Modal */}
+      <AutoShowProofModal />
     </div>
   );
 }

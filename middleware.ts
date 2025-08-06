@@ -16,9 +16,11 @@ export async function middleware(request: NextRequest) {
     "/admin/login",
     "/admin/access-denied",
     "/api/events/active",
-  ];
-
-  // Verificar se é uma rota pública
+    "/api/payments/webhook",
+    "/payment/success",
+    "/payment/failure",
+    "/payment/pending",
+  ]; // Verificar se é uma rota pública
   const isPublicRoute = publicRoutes.some((route) => pathname === route);
 
   // Se for rota pública, deixar passar

@@ -20,6 +20,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/mercadopago": "^1.5.11",
     "antd": "^5.26.7",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",

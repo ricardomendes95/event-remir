@@ -53,7 +53,7 @@ export function EventRegistrationModal({
         phone: values.phone.replace(/\D/g, ""),
       });
 
-      // Criar preferência de pagamento
+      // 🎭 MODO MOCKADO: Criar inscrição mockada
       const response = await fetch("/api/payments/create-preference", {
         method: "POST",
         headers: {
@@ -66,13 +66,26 @@ export function EventRegistrationModal({
       });
 
       if (!response.ok) {
-        throw new Error("Erro ao processar inscrição");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erro ao processar inscrição");
       }
 
-      const { checkoutUrl } = await response.json();
+      const responseData = await response.json();
+      const { checkoutUrl, mockData } = responseData;
 
-      // Redirecionar para o checkout do Mercado Pago
-      window.location.href = checkoutUrl;
+      // 🎭 MODO MOCKADO: Mostrar mensagem de sucesso e redirecionar para página de sucesso
+      if (mockData) {
+        message.success(mockData.message);
+        console.log("🎭 Inscrição mockada:", mockData);
+
+        // Aguardar um momento para o usuário ver a mensagem
+        setTimeout(() => {
+          window.location.href = checkoutUrl;
+        }, 1500);
+      } else {
+        // Redirecionar diretamente para o checkout do Mercado Pago (código real)
+        window.location.href = checkoutUrl;
+      }
     } catch (error) {
       console.error("Erro na inscrição:", error);
 
@@ -81,13 +94,16 @@ export function EventRegistrationModal({
           message.error(issue.message);
         });
       } else {
-        message.error("Erro ao processar inscrição. Tente novamente.");
+        message.error(
+          error instanceof Error
+            ? error.message
+            : "Erro ao processar inscrição. Tente novamente."
+        );
       }
     } finally {
       setLoading(false);
     }
   };
-
   const handleClose = () => {
     form.resetFields();
     onClose();
@@ -105,7 +121,7 @@ export function EventRegistrationModal({
       onCancel={handleClose}
       footer={null}
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <div className="py-4">
         {/* Resumo do Evento */}

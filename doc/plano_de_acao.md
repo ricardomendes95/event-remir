@@ -63,14 +63,16 @@ Desenvolver uma aplicação fullstack Next.js para inscrições em eventos com p
 - [x] **5.5** - Estado "Nenhum evento disponível"
 - [x] **5.6** - Responsividade mobile-first
 
-### **FASE 6: Integração Mercado Pago** 💳
+### ✅ **FASE 6: Integração Mercado Pago** 💳
 
-- [ ] **6.1** - Configuração do SDK Mercado Pago
-- [ ] **6.2** - API para criar preferências de pagamento
-- [ ] **6.3** - Integração do checkout no frontend
-- [ ] **6.4** - Webhook para confirmação de pagamentos
-- [ ] **6.5** - API para verificar status de pagamento
-- [ ] **6.6** - Salvamento de inscrições após pagamento
+**Status: 6/6 COMPLETED** ✅
+
+- [x] **6.1** - Configuração do SDK Mercado Pago
+- [x] **6.2** - API para criar preferências de pagamento
+- [x] **6.3** - Integração do checkout no frontend
+- [x] **6.4** - Webhook para confirmação de pagamentos
+- [x] **6.5** - API para verificar status de pagamento
+- [x] **6.6** - Salvamento de inscrições após pagamento
 
 ### **FASE 7: Sistema de Comprovantes** 📜
 
