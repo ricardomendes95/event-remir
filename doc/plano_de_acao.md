@@ -74,30 +74,36 @@ Desenvolver uma aplicação fullstack Next.js para inscrições em eventos com p
 - [x] **6.5** - API para verificar status de pagamento
 - [x] **6.6** - Salvamento de inscrições após pagamento
 
-### **FASE 7: Sistema de Comprovantes** 📜
+### ✅ **FASE 7: Sistema de Comprovantes** 📜
 
-- [ ] **7.1** - API de busca por CPF/email
-- [ ] **7.2** - Modal de comprovante de inscrição
-- [ ] **7.3** - Geração de PDF (opcional)
-- [ ] **7.4** - Componente de busca na página inicial
-- [ ] **7.5** - Validação e tratamento de erros
+**Status: 5/5 COMPLETED** ✅
 
-### **FASE 8: Painel Administrativo** 📊
+- [x] **7.1** - API de busca por CPF/email
+- [x] **7.2** - Modal de comprovante de inscrição
+- [x] **7.3** - Geração de PDF (opcional) - Função de impressão implementada
+- [x] **7.4** - Componente de busca na página inicial
+- [x] **7.5** - Validação e tratamento de erros
 
-- [ ] **8.1** - Layout do dashboard com abas
-- [ ] **8.2** - Aba de gestão de eventos
-- [ ] **8.3** - Aba de lista de inscritos
-- [ ] **8.4** - Cadastro manual de inscrições
-- [ ] **8.5** - Aba de resumo financeiro
-- [ ] **8.6** - Filtros e buscas na lista de inscritos
+### ✅ **FASE 8: Painel Administrativo** 📊
 
-### **FASE 9: Sistema de Check-in** 📲
+**Status: 6/6 COMPLETED** ✅
 
-- [ ] **9.1** - API de busca de inscritos
-- [ ] **9.2** - API para confirmar check-in
-- [ ] **9.3** - Página de check-in (/checkin)
-- [ ] **9.4** - Interface de busca e confirmação
-- [ ] **9.5** - Feedback visual para check-ins realizados
+- [x] **8.1** - Layout do dashboard com abas
+- [x] **8.2** - Aba de gestão de eventos
+- [x] **8.3** - Aba de lista de inscritos
+- [x] **8.4** - Cadastro manual de inscrições
+- [x] **8.5** - Aba de resumo financeiro
+- [x] **8.6** - Filtros e buscas na lista de inscritos
+
+### ✅ **FASE 9: Sistema de Check-in** 📲
+
+**Status: 5/5 COMPLETED** ✅
+
+- [x] **9.1** - API de busca de inscritos
+- [x] **9.2** - API para confirmar check-in
+- [x] **9.3** - Página de check-in (/checkin)
+- [x] **9.4** - Interface de busca e confirmação
+- [x] **9.5** - Feedback visual para check-ins realizados
 
 ### **FASE 10: Melhorias e Deploy** 🚀
 

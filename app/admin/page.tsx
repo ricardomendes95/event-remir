@@ -38,13 +38,19 @@ export default function AdminDashboard() {
             <Text type="secondary">Gerenciar eventos</Text>
           </Card>
 
-          <Card className="text-center">
+          <Card
+            className="text-center cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => router.push("/admin/registrations")}
+          >
             <UserOutlined className="text-3xl text-green-500 mb-2" />
             <Title level={4}>Inscrições</Title>
             <Text type="secondary">Controlar inscrições</Text>
           </Card>
 
-          <Card className="text-center">
+          <Card
+            className="text-center cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => router.push("/admin/financial")}
+          >
             <DollarOutlined className="text-3xl text-yellow-500 mb-2" />
             <Title level={4}>Financeiro</Title>
             <Text type="secondary">Relatórios financeiros</Text>

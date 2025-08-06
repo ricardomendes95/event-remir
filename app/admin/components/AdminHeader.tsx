@@ -7,6 +7,7 @@ import {
   LogoutOutlined,
   UserOutlined,
   SettingOutlined,
+  QrcodeOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 
@@ -71,6 +72,13 @@ export default function AdminHeader({ adminName = "Admin" }: AdminHeaderProps) {
       </div>
 
       <Space>
+        <Button
+          type="primary"
+          icon={<QrcodeOutlined />}
+          onClick={() => router.push("/checkin")}
+        >
+          Check-in
+        </Button>
         <Text>Olá, {adminName}</Text>
         <Dropdown
           menu={{ items: menuItems }}

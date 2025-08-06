@@ -3,10 +3,10 @@ import type { NextRequest } from "next/server";
 import { verifyTokenEdge } from "./lib/jwt-edge";
 
 // Rotas que requerem autenticação de admin
-const adminRoutes = ["/admin", "/api/admin", "/api/events", "/api/upload"];
+const adminRoutes = ["/admin", "/checkin", "/api/admin", "/api/events", "/api/upload", "/api/checkin", "/api/registrations"];
 
 // Rotas que devem redirecionar para login se não autenticado
-const protectedRoutes = ["/admin"];
+const protectedRoutes = ["/admin", "/checkin"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -17,6 +17,8 @@ export async function middleware(request: NextRequest) {
     "/admin/access-denied",
     "/api/events/active",
     "/api/payments/webhook",
+    "/api/registrations/search-by-cpf",
+    "/api/registrations/get-by-id",
     "/payment/success",
     "/payment/failure",
     "/payment/pending",
@@ -129,9 +131,13 @@ export const config = {
   matcher: [
     // Rotas admin
     "/admin/:path*",
+    // Rota de check-in
+    "/checkin/:path*",
     // APIs protegidas
     "/api/admin/:path*",
     "/api/events/:path*",
     "/api/upload/:path*",
+    "/api/checkin/:path*",
+    "/api/registrations/:path*",
   ],
 };
