@@ -11,7 +11,7 @@ import {
   ArrowLeftOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
-import { useAuth } from "../../../hooks/useAuth";
+import { useAuth } from "../../hooks/useAuth";
 
 const { Header } = Layout;
 const { Text } = Typography;

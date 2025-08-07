@@ -3,7 +3,7 @@
 import React from "react";
 import { Layout } from "antd";
 import { usePathname } from "next/navigation";
-import AdminHeader from "./components/AdminHeader";
+import AdminHeader from "../../components/admin/AdminHeader";
 
 const { Content } = Layout;
 

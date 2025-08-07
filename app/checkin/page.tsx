@@ -26,7 +26,7 @@ import {
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import AdminHeader from "../admin/components/AdminHeader";
+import AdminHeader from "../../components/admin/AdminHeader";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
