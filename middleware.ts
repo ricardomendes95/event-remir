@@ -3,7 +3,15 @@ import type { NextRequest } from "next/server";
 import { verifyTokenEdge } from "./lib/jwt-edge";
 
 // Rotas que requerem autenticação de admin
-const adminRoutes = ["/admin", "/checkin", "/api/admin", "/api/events", "/api/upload", "/api/checkin", "/api/registrations"];
+const adminRoutes = [
+  "/admin",
+  "/checkin",
+  "/api/admin",
+  "/api/events",
+  "/api/upload",
+  "/api/checkin",
+  "/api/registrations",
+];
 
 // Rotas que devem redirecionar para login se não autenticado
 const protectedRoutes = ["/admin", "/checkin"];

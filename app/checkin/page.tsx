@@ -346,9 +346,7 @@ export default function CheckinPage() {
             <QrcodeOutlined className="mr-3" />
             Sistema de Check-in
           </Title>
-          <Text type="secondary">
-            Controle de presença dos participantes
-          </Text>
+          <Text type="secondary">Controle de presença dos participantes</Text>
         </div>
         {/* Estatísticas */}
         <Row gutter={16} className="mb-6">
@@ -455,10 +453,7 @@ export default function CheckinPage() {
               Participantes Confirmados
             </Title>
             <Space>
-              <Button
-                onClick={fetchRegistrations}
-                size="large"
-              >
+              <Button onClick={fetchRegistrations} size="large">
                 Atualizar Lista
               </Button>
               <Badge count={registrations.length} showZero color="#1890ff" />
