@@ -21,6 +21,7 @@ import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { EventModal } from "../../../components/admin";
 import Image from "next/image";
+import AdminHeader from "../components/AdminHeader";
 
 interface Event {
   id: string;
@@ -278,37 +279,44 @@ export default function EventsPage() {
   ];
 
   return (
-    <div className="p-6">
-      <Card
-        title="Gestão de Eventos"
-        extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-            Novo Evento
-          </Button>
-        }
-      >
-        <Table
-          columns={columns}
-          dataSource={events}
-          rowKey="id"
-          loading={loading}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} de ${total} eventos`,
-          }}
-          scroll={{ x: 1200 }}
-        />
-      </Card>
+    <div className="min-h-screen bg-gray-50">
+      <AdminHeader />
+      <div className="p-6">
+        <Card
+          title="Gestão de Eventos"
+          extra={
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleCreate}
+            >
+              Novo Evento
+            </Button>
+          }
+        >
+          <Table
+            columns={columns}
+            dataSource={events}
+            rowKey="id"
+            loading={loading}
+            pagination={{
+              pageSize: 10,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} de ${total} eventos`,
+            }}
+            scroll={{ x: 1200 }}
+          />
+        </Card>
 
-      <EventModal
-        visible={isModalVisible}
-        editingEvent={editingEvent}
-        onCancel={handleModalCancel}
-        onSuccess={handleModalSuccess}
-      />
+        <EventModal
+          visible={isModalVisible}
+          editingEvent={editingEvent}
+          onCancel={handleModalCancel}
+          onSuccess={handleModalSuccess}
+        />
+      </div>
     </div>
   );
 }
