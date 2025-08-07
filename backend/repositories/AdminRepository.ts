@@ -307,4 +307,126 @@ export class AdminRepository extends BaseRepository<Admin> {
       throw new Error("Erro ao contar administradores");
     }
   }
+
+  // Método para buscar com paginação e pesquisa
+  async findAllWithPagination(options: {
+    page: number;
+    limit: number;
+    search?: string;
+    searchFields?: string[];
+    role?: "SUPER_ADMIN" | "ADMIN";
+    isActive?: boolean;
+  }): Promise<{
+    data: SafeAdmin[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    try {
+      const {
+        page,
+        limit,
+        search,
+        searchFields = [],
+        role,
+        isActive,
+      } = options;
+      const skip = (page - 1) * limit;
+
+      // Construir where clause
+      type WhereClause = {
+        role?: "SUPER_ADMIN" | "ADMIN";
+        isActive?: boolean;
+        OR?: Array<{
+          [key: string]: {
+            contains: string;
+            mode: "insensitive";
+          };
+        }>;
+      };
+
+      const where: WhereClause = {};
+
+      if (role) {
+        where.role = role;
+      }
+
+      if (isActive !== undefined) {
+        where.isActive = isActive;
+      }
+
+      // Adicionar pesquisa se fornecida
+      if (search && searchFields.length > 0) {
+        where.OR = searchFields.map((field) => ({
+          [field]: {
+            contains: search,
+            mode: "insensitive",
+          },
+        }));
+      }
+
+      // Buscar dados e contar total
+      const [data, total] = await Promise.all([
+        prisma.admin.findMany({
+          where,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            isActive: true,
+            lastLoginAt: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          skip,
+          take: limit,
+          orderBy: {
+            createdAt: "desc",
+          },
+        }),
+        prisma.admin.count({ where }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+        },
+      };
+    } catch (error) {
+      console.error("Error finding admins with pagination:", error);
+      throw new Error("Erro ao buscar administradores com paginação");
+    }
+  }
+
+  // Método para buscar por ID sem senha
+  async findByIdSafe(id: string): Promise<SafeAdmin | null> {
+    try {
+      return await prisma.admin.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          isActive: true,
+          lastLoginAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } catch (error) {
+      console.error("Error finding admin by id (safe):", error);
+      throw new Error("Erro ao buscar administrador por ID");
+    }
+  }
 }

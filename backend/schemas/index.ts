@@ -2,3 +2,4 @@
 export * from "./authSchemas";
 export * from "./eventSchemas";
 export * from "./registrationSchemas";
+export * from "./userSchemas";

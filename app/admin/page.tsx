@@ -56,10 +56,13 @@ export default function AdminDashboard() {
             <Text type="secondary">Relatórios financeiros</Text>
           </Card>
 
-          <Card className="text-center">
+          <Card
+            className="text-center cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => router.push("/admin/users")}
+          >
             <SettingOutlined className="text-3xl text-purple-500 mb-2" />
-            <Title level={4}>Configurações</Title>
-            <Text type="secondary">Configurações do sistema</Text>
+            <Title level={4}>Usuários</Title>
+            <Text type="secondary">Gerenciar usuários</Text>
           </Card>
         </div>
 
