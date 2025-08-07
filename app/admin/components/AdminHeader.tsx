@@ -11,18 +11,24 @@ import {
   ArrowLeftOutlined,
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
+import { useAuth } from "../../../hooks/useAuth";
 
 const { Header } = Layout;
 const { Text } = Typography;
 
 interface AdminHeaderProps {
+  // Propriedade adminName agora é opcional, pois vamos obter do token
   adminName?: string;
 }
 
-export default function AdminHeader({ adminName = "Admin" }: AdminHeaderProps) {
+export default function AdminHeader({ adminName }: AdminHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [screenWidth, setScreenWidth] = useState(0);
+  const { user, logout: authLogout } = useAuth();
+
+  // Usar nome do token JWT, com fallback para prop ou "Admin"
+  const displayName = user?.name || adminName || "Admin";
 
   // Hook para detectar tamanho da tela
   useEffect(() => {
@@ -48,13 +54,17 @@ export default function AdminHeader({ adminName = "Admin" }: AdminHeaderProps) {
       });
 
       if (response.ok) {
-        localStorage.removeItem("token");
+        // Usar o logout do hook para limpar o estado local
+        authLogout();
         router.push("/admin/login");
       } else {
         console.error("Erro ao fazer logout");
       }
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
+      // Mesmo em caso de erro, limpar estado local e redirecionar
+      authLogout();
+      router.push("/admin/login");
     }
   };
 
@@ -198,7 +208,7 @@ export default function AdminHeader({ adminName = "Admin" }: AdminHeaderProps) {
             display: screenWidth >= 640 ? "inline" : "none",
           }}
         >
-          Olá, {adminName}
+          Olá, {displayName}
         </Text>
 
         {/* Dropdown do usuário */}
@@ -235,7 +245,7 @@ export default function AdminHeader({ adminName = "Admin" }: AdminHeaderProps) {
                   fontWeight: 500,
                 }}
               >
-                {adminName}
+                {displayName}
               </span>
             )}
           </Button>

@@ -109,6 +109,9 @@ export async function middleware(request: NextRequest) {
       response.headers.set("x-user-id", decoded.id);
       response.headers.set("x-user-email", decoded.email);
       response.headers.set("x-user-role", decoded.role);
+      if (decoded.name) {
+        response.headers.set("x-user-name", decoded.name);
+      }
 
       return response;
     } catch {

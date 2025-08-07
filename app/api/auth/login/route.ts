@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
     const token = generateToken({
       id: admin.id,
       email: admin.email,
+      name: admin.name,
       role: admin.role,
     });
 

@@ -8,6 +8,7 @@ export interface AuthUser {
 export interface JWTPayload {
   id: string;
   email: string;
+  name?: string;
   role: "ADMIN" | "SUPER_ADMIN";
   iat?: number;
   exp?: number;
