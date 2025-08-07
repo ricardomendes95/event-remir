@@ -64,7 +64,7 @@ export default function UserModal({
       onCancel={onCancel}
       footer={null}
       width={600}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={onSave} className="mt-4">
         <Row gutter={16}>

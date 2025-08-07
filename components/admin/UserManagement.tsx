@@ -38,6 +38,7 @@ interface UserFormData {
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isPasswordModalVisible, setIsPasswordModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -45,6 +46,7 @@ export const UserManagement: React.FC = () => {
 
   // Formulários
   const [form] = Form.useForm();
+  const [passwordForm] = Form.useForm();
 
   // Filtros e paginação
   const [searchInput, setSearchInput] = useState("");
@@ -126,6 +128,7 @@ export const UserManagement: React.FC = () => {
   const handleChangePassword = (user: User) => {
     setSelectedUser(user);
     setIsPasswordModalVisible(true);
+    passwordForm.resetFields();
   };
 
   // Função para salvar usuário
@@ -168,19 +171,20 @@ export const UserManagement: React.FC = () => {
   };
 
   // Função para alterar senha
-  const handlePasswordSubmit = async (data: {
+  const handlePasswordSave = async (values: {
     newPassword: string;
     confirmPassword: string;
   }) => {
     if (!selectedUser) return;
 
+    setPasswordLoading(true);
     try {
       const response = await fetch(
         `/api/admin/users/${selectedUser.id}/change-password`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify(values),
         }
       );
 
@@ -189,6 +193,7 @@ export const UserManagement: React.FC = () => {
       if (result.success) {
         message.success("Senha alterada com sucesso!");
         setIsPasswordModalVisible(false);
+        passwordForm.resetFields();
       } else {
         if (result.details) {
           result.details.forEach((detail) => {
@@ -201,6 +206,8 @@ export const UserManagement: React.FC = () => {
     } catch (error) {
       console.error("Error changing password:", error);
       message.error("Erro ao alterar senha");
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -415,10 +422,15 @@ export const UserManagement: React.FC = () => {
 
       {/* Modal de Alterar Senha */}
       <ChangePasswordModal
-        isOpen={isPasswordModalVisible}
-        onClose={() => setIsPasswordModalVisible(false)}
-        onSubmit={handlePasswordSubmit}
+        isVisible={isPasswordModalVisible}
         userName={selectedUser?.name || ""}
+        form={passwordForm}
+        loading={passwordLoading}
+        onCancel={() => {
+          setIsPasswordModalVisible(false);
+          passwordForm.resetFields();
+        }}
+        onSave={handlePasswordSave}
       />
     </div>
   );

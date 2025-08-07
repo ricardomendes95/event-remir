@@ -7,9 +7,10 @@ interface Params {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Params }
+  context: { params: Promise<Params> }
 ) {
   try {
+    const params = await context.params;
     const registrationId = params.id;
 
     // Verificar se a inscrição existe e está confirmada
