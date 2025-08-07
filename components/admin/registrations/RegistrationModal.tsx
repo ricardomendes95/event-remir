@@ -7,12 +7,29 @@ import { z } from "zod";
 
 const { Option } = Select;
 
-// Schema de validação para inscrição manual
+// Schema de validação para inscrição manual do admin - baseado no backend
 const registrationSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  name: z
+    .string()
+    .min(2, "Nome deve ter pelo menos 2 caracteres")
+    .max(100, "Nome muito longo"),
   email: z.string().email("Email inválido"),
-  cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(14, "CPF inválido"),
-  phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
+  cpf: z
+    .string()
+    .min(11, "CPF deve ter 11 dígitos")
+    .refine((cpf) => {
+      // Remove formatação para validação
+      const cleanCpf = cpf.replace(/\D/g, "");
+      return cleanCpf.length === 11;
+    }, "CPF deve ter 11 dígitos"),
+  phone: z
+    .string()
+    .min(10, "Telefone deve ter pelo menos 10 dígitos")
+    .refine((phone) => {
+      // Remove formatação para validação
+      const cleanPhone = phone.replace(/\D/g, "");
+      return cleanPhone.length >= 10 && cleanPhone.length <= 11;
+    }, "Telefone deve ter entre 10 e 11 dígitos"),
   eventId: z.string().min(1, "Evento é obrigatório"),
   status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).default("CONFIRMED"),
 });
@@ -72,7 +89,10 @@ export default function RegistrationModal({
   // Função para formatar CPF
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    if (cpf.length <= 11) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+    return value;
   };
 
   // Função para formatar telefone
@@ -80,8 +100,32 @@ export default function RegistrationModal({
     const phone = value.replace(/\D/g, "");
     if (phone.length <= 10) {
       return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+    } else if (phone.length <= 11) {
+      return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
     }
-    return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+    return value;
+  };
+
+  // Função para validar CPF
+  const validateCPF = (_: unknown, value: string) => {
+    if (!value) return Promise.resolve();
+    
+    const cleanCpf = value.replace(/\D/g, "");
+    if (cleanCpf.length !== 11) {
+      return Promise.reject(new Error("CPF deve ter 11 dígitos"));
+    }
+    return Promise.resolve();
+  };
+
+  // Função para validar telefone
+  const validatePhone = (_: unknown, value: string) => {
+    if (!value) return Promise.resolve();
+    
+    const cleanPhone = value.replace(/\D/g, "");
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      return Promise.reject(new Error("Telefone deve ter entre 10 e 11 dígitos"));
+    }
+    return Promise.resolve();
   };
 
   return (
@@ -151,10 +195,7 @@ export default function RegistrationModal({
               label="CPF"
               rules={[
                 { required: true, message: "CPF é obrigatório" },
-                {
-                  pattern: /^\d{3}\.\d{3}\.\d{3}-\d{2}$/,
-                  message: "CPF deve estar no formato 000.000.000-00",
-                },
+                { validator: validateCPF },
               ]}
             >
               <Input
@@ -174,10 +215,7 @@ export default function RegistrationModal({
               label="Telefone"
               rules={[
                 { required: true, message: "Telefone é obrigatório" },
-                {
-                  pattern: /^\(\d{2}\) \d{4,5}-\d{4}$/,
-                  message: "Telefone deve estar no formato (00) 00000-0000",
-                },
+                { validator: validatePhone },
               ]}
             >
               <Input
