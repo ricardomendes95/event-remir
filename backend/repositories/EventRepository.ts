@@ -67,7 +67,11 @@ export class EventRepository extends BaseRepository<Event> {
           registrations: true,
           _count: {
             select: {
-              registrations: true,
+              registrations: {
+                where: {
+                  status: "CONFIRMED",
+                },
+              },
             },
           },
         },
@@ -90,7 +94,11 @@ export class EventRepository extends BaseRepository<Event> {
         include: {
           _count: {
             select: {
-              registrations: true,
+              registrations: {
+                where: {
+                  status: "CONFIRMED",
+                },
+              },
             },
           },
         },
@@ -101,6 +109,33 @@ export class EventRepository extends BaseRepository<Event> {
     } catch (error) {
       console.error("Error finding active events:", error);
       throw new Error("Erro ao buscar eventos ativos");
+    }
+  }
+
+  async findAllWithStats(options?: {
+    skip?: number;
+    take?: number;
+    orderBy?: Record<string, "asc" | "desc">;
+    where?: Record<string, unknown>;
+  }): Promise<EventWithStats[]> {
+    try {
+      return await prisma.event.findMany({
+        ...options,
+        include: {
+          _count: {
+            select: {
+              registrations: {
+                where: {
+                  status: "CONFIRMED",
+                },
+              },
+            },
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error finding events with stats:", error);
+      throw new Error("Erro ao buscar eventos com estatísticas");
     }
   }
 
@@ -119,7 +154,11 @@ export class EventRepository extends BaseRepository<Event> {
         include: {
           _count: {
             select: {
-              registrations: true,
+              registrations: {
+                where: {
+                  status: "CONFIRMED",
+                },
+              },
             },
           },
         },

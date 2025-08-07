@@ -9,6 +9,8 @@ export class EventController extends BaseController {
       const { skip, limit, page } = this.getPaginationParams(request);
       const active = this.getQueryParam(request, "active");
       const upcoming = this.getQueryParam(request, "upcoming");
+      const includeStats =
+        this.getQueryParam(request, "includeStats") === "true";
 
       let events: EventWithStats[];
       let total: number;
@@ -29,12 +31,21 @@ export class EventController extends BaseController {
         const whereOptions =
           active === "false" ? { isActive: false } : undefined;
 
-        events = (await eventRepository.findAll({
-          skip,
-          take: limit,
-          where: whereOptions,
-          orderBy: { createdAt: "desc" },
-        })) as EventWithStats[];
+        if (includeStats) {
+          events = await eventRepository.findAllWithStats({
+            skip,
+            take: limit,
+            where: whereOptions,
+            orderBy: { createdAt: "desc" },
+          });
+        } else {
+          events = (await eventRepository.findAll({
+            skip,
+            take: limit,
+            where: whereOptions,
+            orderBy: { createdAt: "desc" },
+          })) as EventWithStats[];
+        }
 
         total = await eventRepository.count(whereOptions);
       }
