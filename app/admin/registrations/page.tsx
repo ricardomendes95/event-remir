@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Form, message, Typography } from "antd";
 import { UserAddOutlined } from "@ant-design/icons";
 import { z } from "zod";
-import AdminHeader from "../components/AdminHeader";
 import {
   RegistrationStats,
   RegistrationFilters,
@@ -338,58 +337,54 @@ export default function RegistrationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AdminHeader />
-
-      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Title level={2}>
-            <UserAddOutlined className="mr-3" />
-            Gestão de Inscrições
-          </Title>
-          <Text type="secondary">Gerencie todas as inscrições dos eventos</Text>
-        </div>
-
-        {/* Estatísticas */}
-        <RegistrationStats stats={stats} />
-
-        {/* Filtros e Busca */}
-        <RegistrationFilters
-          searchInput={searchInput}
-          statusFilter={statusFilter}
-          eventFilter={eventFilter}
-          events={events}
-          onSearchChange={setSearchInput}
-          onStatusChange={setStatusFilter}
-          onEventChange={setEventFilter}
-          onRefresh={() => {
-            fetchRegistrations(pagination.current, pagination.pageSize);
-            fetchStats();
-          }}
-        />
-
-        {/* Tabela */}
-        <RegistrationTable
-          registrations={registrations}
-          loading={loading}
-          pagination={pagination}
-          onTableChange={handleTableChange}
-          onNewRegistration={handleNewRegistration}
-          onEditRegistration={handleEditRegistration}
-          onChangeStatus={handleChangeStatus}
-          onDeleteRegistration={handleDeleteRegistration}
-        />
-
-        {/* Modal de Criar/Editar Inscrição */}
-        <RegistrationModal
-          isVisible={isModalVisible}
-          editingRegistration={editingRegistration}
-          events={events}
-          form={form}
-          onCancel={() => setIsModalVisible(false)}
-          onSave={handleSaveRegistration}
-        />
+    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <div className="mb-8">
+        <Title level={2}>
+          <UserAddOutlined className="mr-3" />
+          Gestão de Inscrições
+        </Title>
+        <Text type="secondary">Gerencie todas as inscrições dos eventos</Text>
       </div>
+
+      {/* Estatísticas */}
+      <RegistrationStats stats={stats} />
+
+      {/* Filtros e Busca */}
+      <RegistrationFilters
+        searchInput={searchInput}
+        statusFilter={statusFilter}
+        eventFilter={eventFilter}
+        events={events}
+        onSearchChange={setSearchInput}
+        onStatusChange={setStatusFilter}
+        onEventChange={setEventFilter}
+        onRefresh={() => {
+          fetchRegistrations(pagination.current, pagination.pageSize);
+          fetchStats();
+        }}
+      />
+
+      {/* Tabela */}
+      <RegistrationTable
+        registrations={registrations}
+        loading={loading}
+        pagination={pagination}
+        onTableChange={handleTableChange}
+        onNewRegistration={handleNewRegistration}
+        onEditRegistration={handleEditRegistration}
+        onChangeStatus={handleChangeStatus}
+        onDeleteRegistration={handleDeleteRegistration}
+      />
+
+      {/* Modal de Criar/Editar Inscrição */}
+      <RegistrationModal
+        isVisible={isModalVisible}
+        editingRegistration={editingRegistration}
+        events={events}
+        form={form}
+        onCancel={() => setIsModalVisible(false)}
+        onSave={handleSaveRegistration}
+      />
     </div>
   );
 }
