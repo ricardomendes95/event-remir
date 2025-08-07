@@ -1,54 +1,19 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  Card,
-  Button,
-  Table,
-  Space,
-  Modal,
-  Form,
-  Input,
-  Select,
-  message,
-  Popconfirm,
-  Tag,
-  Typography,
-  Row,
-  Col,
-  Statistic,
-  Tooltip,
-  Badge,
-} from "antd";
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  UserAddOutlined,
-  FileTextOutlined,
-} from "@ant-design/icons";
-import type { ColumnsType } from "antd/es/table";
-import dayjs from "dayjs";
+import { Form, message, Typography } from "antd";
+import { UserAddOutlined } from "@ant-design/icons";
 import { z } from "zod";
 import AdminHeader from "../components/AdminHeader";
+import {
+  RegistrationStats,
+  RegistrationFilters,
+  RegistrationTable,
+  RegistrationModal,
+  registrationSchema,
+} from "../../../components/admin/registrations";
 
 const { Title, Text } = Typography;
-const { Search } = Input;
-const { Option } = Select;
-
-// Schema de validação para inscrição manual
-const registrationSchema = z.object({
-  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
-  cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(14, "CPF inválido"),
-  phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
-  eventId: z.string().min(1, "Evento é obrigatório"),
-  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).default("CONFIRMED"),
-});
 
 interface Registration {
   id: string;
@@ -232,13 +197,6 @@ export default function RegistrationsPage() {
     fetchStats();
   }, [statusFilter, eventFilter, fetchStats]);
 
-  // Função para lidar com mudanças na paginação da tabela
-  const handleTableChange = (pag: { current?: number; pageSize?: number }) => {
-    if (pag.current && pag.pageSize) {
-      fetchRegistrations(pag.current, pag.pageSize);
-    }
-  };
-
   // Função para formatar CPF
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
@@ -270,6 +228,13 @@ export default function RegistrationsPage() {
       cpf: formatCPF(registration.cpf),
       phone: formatPhone(registration.phone),
     });
+  };
+
+  // Função para lidar com mudanças na paginação da tabela
+  const handleTableChange = (pag: { current?: number; pageSize?: number }) => {
+    if (pag.current && pag.pageSize) {
+      fetchRegistrations(pag.current, pag.pageSize);
+    }
   };
 
   // Salvar inscrição (criar ou editar)
@@ -372,148 +337,6 @@ export default function RegistrationsPage() {
     }
   };
 
-  // Colunas da tabela
-  const columns: ColumnsType<Registration> = [
-    {
-      title: "Participante",
-      dataIndex: "name",
-      key: "name",
-      sorter: (a, b) => a.name.localeCompare(b.name),
-      render: (text, record) => (
-        <div>
-          <div className="font-medium">{text}</div>
-          <div className="text-sm text-gray-500">{record.email}</div>
-        </div>
-      ),
-    },
-    {
-      title: "CPF",
-      dataIndex: "cpf",
-      key: "cpf",
-      render: (text) => formatCPF(text),
-    },
-    {
-      title: "Telefone",
-      dataIndex: "phone",
-      key: "phone",
-      render: (text) => formatPhone(text),
-    },
-    {
-      title: "Evento",
-      dataIndex: "event",
-      key: "event",
-      render: (event) => (
-        <div>
-          <div className="font-medium">{event.title}</div>
-          <div className="text-sm text-gray-500">
-            R$ {event.price.toFixed(2)}
-          </div>
-        </div>
-      ),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      filters: [
-        { text: "Confirmado", value: "CONFIRMED" },
-        { text: "Pendente", value: "PENDING" },
-        { text: "Cancelado", value: "CANCELLED" },
-      ],
-      onFilter: (value, record) => record.status === value,
-      render: (status: "PENDING" | "CONFIRMED" | "CANCELLED") => {
-        const statusConfig: Record<
-          string,
-          { color: string; icon: React.ReactNode; text: string }
-        > = {
-          CONFIRMED: {
-            color: "green",
-            icon: <CheckCircleOutlined />,
-            text: "Confirmado",
-          },
-          PENDING: {
-            color: "orange",
-            icon: <ClockCircleOutlined />,
-            text: "Pendente",
-          },
-          CANCELLED: {
-            color: "red",
-            icon: <CloseCircleOutlined />,
-            text: "Cancelado",
-          },
-        };
-
-        const config = statusConfig[status];
-
-        return (
-          <Tag color={config.color} icon={config.icon}>
-            {config.text}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: "Data de Inscrição",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      sorter: (a, b) =>
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-      render: (date) => dayjs(date).format("DD/MM/YYYY HH:mm"),
-    },
-    {
-      title: "Ações",
-      key: "actions",
-      width: 120,
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="Editar">
-            <Button
-              icon={<EditOutlined />}
-              size="small"
-              onClick={() => handleEditRegistration(record)}
-            />
-          </Tooltip>
-
-          <Tooltip title="Alterar Status">
-            <Select
-              size="small"
-              value={record.status}
-              style={{ width: 100 }}
-              onChange={(value) => handleChangeStatus(record.id, value)}
-            >
-              <Option value="CONFIRMED">
-                <Tag color="green" className="m-0">
-                  Confirmado
-                </Tag>
-              </Option>
-              <Option value="PENDING">
-                <Tag color="orange" className="m-0">
-                  Pendente
-                </Tag>
-              </Option>
-              <Option value="CANCELLED">
-                <Tag color="red" className="m-0">
-                  Cancelado
-                </Tag>
-              </Option>
-            </Select>
-          </Tooltip>
-
-          <Popconfirm
-            title="Tem certeza que deseja excluir esta inscrição?"
-            onConfirm={() => handleDeleteRegistration(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
-            <Tooltip title="Excluir">
-              <Button icon={<DeleteOutlined />} size="small" danger />
-            </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminHeader />
@@ -528,286 +351,44 @@ export default function RegistrationsPage() {
         </div>
 
         {/* Estatísticas */}
-        <Row gutter={16} className="mb-6">
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Total de Inscrições"
-                value={stats.total}
-                prefix={<FileTextOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Confirmadas"
-                value={stats.confirmed}
-                prefix={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
-                valueStyle={{ color: "#52c41a" }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Pendentes"
-                value={stats.pending}
-                prefix={<ClockCircleOutlined style={{ color: "#faad14" }} />}
-                valueStyle={{ color: "#faad14" }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="Receita Total"
-                value={stats.totalRevenue}
-                precision={2}
-                prefix="R$"
-                valueStyle={{ color: "#1890ff" }}
-              />
-            </Card>
-          </Col>
-        </Row>
+        <RegistrationStats stats={stats} />
 
         {/* Filtros e Busca */}
-        <Card className="mb-6">
-          <Row gutter={16} align="middle">
-            <Col flex="auto">
-              <Search
-                placeholder="Buscar por nome, email, CPF ou evento..."
-                allowClear
-                size="large"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onSearch={(value) => setSearchInput(value)} // quando pressiona enter ou clica na lupa
-                style={{ width: "100%" }}
-              />
-            </Col>
-            <Col>
-              <Select
-                placeholder="Status"
-                value={statusFilter}
-                onChange={setStatusFilter}
-                style={{ width: 120 }}
-                size="large"
-              >
-                <Option value="ALL">Todos</Option>
-                <Option value="CONFIRMED">Confirmado</Option>
-                <Option value="PENDING">Pendente</Option>
-                <Option value="CANCELLED">Cancelado</Option>
-              </Select>
-            </Col>
-            <Col>
-              <Select
-                placeholder="Evento"
-                value={eventFilter}
-                onChange={setEventFilter}
-                style={{ width: 200 }}
-                size="large"
-              >
-                <Option value="ALL">Todos os Eventos</Option>
-                {events.map((event) => (
-                  <Option key={event.id} value={event.id}>
-                    {event.title}
-                  </Option>
-                ))}
-              </Select>
-            </Col>
-            <Col>
-              <Button
-                icon={<ReloadOutlined />}
-                onClick={() => {
-                  fetchRegistrations(pagination.current, pagination.pageSize);
-                  fetchStats();
-                }}
-                size="large"
-              >
-                Atualizar
-              </Button>
-            </Col>
-          </Row>
-        </Card>
+        <RegistrationFilters
+          searchInput={searchInput}
+          statusFilter={statusFilter}
+          eventFilter={eventFilter}
+          events={events}
+          onSearchChange={setSearchInput}
+          onStatusChange={setStatusFilter}
+          onEventChange={setEventFilter}
+          onRefresh={() => {
+            fetchRegistrations(pagination.current, pagination.pageSize);
+            fetchStats();
+          }}
+        />
 
         {/* Tabela */}
-        <Card>
-          <div className="mb-4 flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <Title level={4} className="mb-0">
-                Lista de Inscrições
-              </Title>
-              <Badge count={pagination.total} showZero color="#1890ff" />
-            </div>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleNewRegistration}
-              size="large"
-            >
-              Nova Inscrição Manual
-            </Button>
-          </div>
-
-          <Table
-            columns={columns}
-            dataSource={registrations}
-            rowKey="id"
-            loading={loading}
-            pagination={pagination}
-            onChange={handleTableChange}
-            scroll={{ x: 800 }}
-          />
-        </Card>
+        <RegistrationTable
+          registrations={registrations}
+          loading={loading}
+          pagination={pagination}
+          onTableChange={handleTableChange}
+          onNewRegistration={handleNewRegistration}
+          onEditRegistration={handleEditRegistration}
+          onChangeStatus={handleChangeStatus}
+          onDeleteRegistration={handleDeleteRegistration}
+        />
 
         {/* Modal de Criar/Editar Inscrição */}
-        <Modal
-          title={
-            editingRegistration ? "Editar Inscrição" : "Nova Inscrição Manual"
-          }
-          open={isModalVisible}
+        <RegistrationModal
+          isVisible={isModalVisible}
+          editingRegistration={editingRegistration}
+          events={events}
+          form={form}
           onCancel={() => setIsModalVisible(false)}
-          footer={null}
-          width={600}
-          destroyOnHidden
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSaveRegistration}
-            className="mt-4"
-          >
-            <Row gutter={16}>
-              <Col span={24}>
-                <Form.Item
-                  name="eventId"
-                  label="Evento"
-                  rules={[{ required: true, message: "Evento é obrigatório" }]}
-                >
-                  <Select placeholder="Selecione o evento" size="large">
-                    {events
-                      .filter((event) => event.isActive)
-                      .map((event) => (
-                        <Option key={event.id} value={event.id}>
-                          {event.title} - R$ {event.price.toFixed(2)}
-                        </Option>
-                      ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="name"
-                  label="Nome Completo"
-                  rules={[
-                    { required: true, message: "Nome é obrigatório" },
-                    {
-                      min: 2,
-                      message: "Nome deve ter pelo menos 2 caracteres",
-                    },
-                  ]}
-                >
-                  <Input placeholder="Nome completo" size="large" />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="email"
-                  label="Email"
-                  rules={[
-                    { required: true, message: "Email é obrigatório" },
-                    { type: "email", message: "Email inválido" },
-                  ]}
-                >
-                  <Input placeholder="email@exemplo.com" size="large" />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  name="cpf"
-                  label="CPF"
-                  rules={[
-                    { required: true, message: "CPF é obrigatório" },
-                    {
-                      pattern: /^\d{3}\.\d{3}\.\d{3}-\d{2}$/,
-                      message: "CPF deve estar no formato 000.000.000-00",
-                    },
-                  ]}
-                >
-                  <Input
-                    placeholder="000.000.000-00"
-                    size="large"
-                    onChange={(e) => {
-                      const formatted = formatCPF(e.target.value);
-                      form.setFieldValue("cpf", formatted);
-                    }}
-                    maxLength={14}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  name="phone"
-                  label="Telefone"
-                  rules={[
-                    { required: true, message: "Telefone é obrigatório" },
-                    {
-                      pattern: /^\(\d{2}\) \d{4,5}-\d{4}$/,
-                      message: "Telefone deve estar no formato (00) 00000-0000",
-                    },
-                  ]}
-                >
-                  <Input
-                    placeholder="(00) 00000-0000"
-                    size="large"
-                    onChange={(e) => {
-                      const formatted = formatPhone(e.target.value);
-                      form.setFieldValue("phone", formatted);
-                    }}
-                    maxLength={15}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <Row gutter={16}>
-              <Col span={24}>
-                <Form.Item
-                  name="status"
-                  label="Status da Inscrição"
-                  rules={[{ required: true, message: "Status é obrigatório" }]}
-                >
-                  <Select placeholder="Selecione o status" size="large">
-                    <Option value="CONFIRMED">
-                      <Tag color="green">Confirmado</Tag>
-                    </Option>
-                    <Option value="PENDING">
-                      <Tag color="orange">Pendente</Tag>
-                    </Option>
-                    <Option value="CANCELLED">
-                      <Tag color="red">Cancelado</Tag>
-                    </Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
-            <div className="flex gap-3 pt-4 border-t">
-              <Button onClick={() => setIsModalVisible(false)} size="large">
-                Cancelar
-              </Button>
-              <Button type="primary" htmlType="submit" size="large">
-                {editingRegistration ? "Atualizar" : "Criar"} Inscrição
-              </Button>
-            </div>
-          </Form>
-        </Modal>
+          onSave={handleSaveRegistration}
+        />
       </div>
     </div>
   );
