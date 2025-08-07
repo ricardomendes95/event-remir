@@ -614,7 +614,7 @@ export default function RegistrationsPage() {
           onCancel={() => setIsModalVisible(false)}
           footer={null}
           width={600}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form
             form={form}
