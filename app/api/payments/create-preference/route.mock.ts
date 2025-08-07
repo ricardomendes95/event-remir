@@ -64,17 +64,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se participante já está inscrito
+    // Verificar se participante já está inscrito (apenas CPF é único)
     const existingRegistration = await prisma.registration.findFirst({
       where: {
         eventId,
-        OR: [{ email: participantData.email }, { cpf: participantData.cpf }],
+        cpf: participantData.cpf,
       },
     });
 
     if (existingRegistration) {
       return NextResponse.json(
-        { error: "Participante já inscrito neste evento" },
+        { error: "CPF já possui inscrição neste evento" },
         { status: 400 }
       );
     }
