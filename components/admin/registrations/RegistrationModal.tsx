@@ -109,7 +109,7 @@ export default function RegistrationModal({
   // Função para validar CPF
   const validateCPF = (_: unknown, value: string) => {
     if (!value) return Promise.resolve();
-    
+
     const cleanCpf = value.replace(/\D/g, "");
     if (cleanCpf.length !== 11) {
       return Promise.reject(new Error("CPF deve ter 11 dígitos"));
@@ -120,10 +120,12 @@ export default function RegistrationModal({
   // Função para validar telefone
   const validatePhone = (_: unknown, value: string) => {
     if (!value) return Promise.resolve();
-    
+
     const cleanPhone = value.replace(/\D/g, "");
     if (cleanPhone.length < 10 || cleanPhone.length > 11) {
-      return Promise.reject(new Error("Telefone deve ter entre 10 e 11 dígitos"));
+      return Promise.reject(
+        new Error("Telefone deve ter entre 10 e 11 dígitos")
+      );
     }
     return Promise.resolve();
   };
