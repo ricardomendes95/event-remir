@@ -2,8 +2,13 @@
 
 import React from "react";
 import { Modal, Form, Input, DatePicker, Switch, Button, message } from "antd";
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { ImageUpload } from "../ImageUpload";
+import {
+  useEventValidation,
+  EventFormData,
+} from "../../hooks/useEventValidation";
+import { generateSlug } from "../../utils/slugUtils";
 
 const { TextArea } = Input;
 
@@ -23,21 +28,6 @@ interface Event {
   isActive: boolean;
 }
 
-interface EventFormValues {
-  title: string;
-  description: string;
-  slug: string;
-  startDate: Dayjs;
-  endDate: Dayjs;
-  registrationStartDate: Dayjs;
-  registrationEndDate: Dayjs;
-  location: string;
-  maxParticipants: string | number;
-  price: string | number;
-  bannerUrl?: string;
-  isActive: boolean;
-}
-
 interface EventModalProps {
   visible: boolean;
   editingEvent: Event | null;
@@ -53,6 +43,8 @@ export default function EventModal({
 }: EventModalProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = React.useState(false);
+  const { validateFormData, setApiErrors, clearErrors, getFieldError } =
+    useEventValidation();
 
   // Resetar formulário quando o modal abrir/fechar
   React.useEffect(() => {
@@ -64,29 +56,28 @@ export default function EventModal({
         registrationStartDate: dayjs(editingEvent.registrationStartDate),
         registrationEndDate: dayjs(editingEvent.registrationEndDate),
       });
+      clearErrors();
     } else if (visible && !editingEvent) {
       form.resetFields();
+      clearErrors();
     }
-  }, [visible, editingEvent, form]);
+  }, [visible, editingEvent, form, clearErrors]);
 
   // Salvar evento (criar ou editar)
-  const handleSave = async (values: EventFormValues) => {
+  const handleSave = async (values: EventFormData) => {
     setLoading(true);
+    clearErrors();
+
     try {
-      // Validação customizada
-      const maxParticipants = parseInt(values.maxParticipants.toString());
-      const price = parseFloat(values.price.toString());
-
-      if (isNaN(maxParticipants) || maxParticipants <= 0) {
-        message.error("Número máximo de participantes deve ser maior que 0");
+      // Validação local primeiro
+      const validation = validateFormData(values);
+      if (!validation.isValid) {
+        message.error("Por favor, corrija os erros no formulário");
+        setLoading(false);
         return;
       }
 
-      if (isNaN(price) || price < 0) {
-        message.error("Preço deve ser maior ou igual a 0");
-        return;
-      }
-
+      // Preparar dados para envio
       const eventData = {
         ...values,
         startDate: dayjs(values.startDate).toISOString(),
@@ -95,8 +86,9 @@ export default function EventModal({
           values.registrationStartDate
         ).toISOString(),
         registrationEndDate: dayjs(values.registrationEndDate).toISOString(),
-        maxParticipants,
-        price,
+        maxParticipants: parseInt(values.maxParticipants.toString()),
+        price: parseFloat(values.price.toString()),
+        bannerUrl: values.bannerUrl || undefined,
       };
 
       let response;
@@ -127,9 +119,16 @@ export default function EventModal({
             : "Evento criado com sucesso!"
         );
         form.resetFields();
+        clearErrors();
         onSuccess();
       } else {
-        message.error(result.error || "Erro ao salvar evento");
+        // Se houver erros de validação da API, exibir nos campos
+        if (result.errors && Array.isArray(result.errors)) {
+          setApiErrors(result.errors);
+          message.error("Corrija os erros indicados nos campos");
+        } else {
+          message.error(result.error || "Erro ao salvar evento");
+        }
       }
     } catch (error) {
       message.error("Erro ao salvar evento");
@@ -141,7 +140,17 @@ export default function EventModal({
 
   const handleCancel = () => {
     form.resetFields();
+    clearErrors();
     onCancel();
+  };
+
+  // Gerar slug automaticamente quando o título mudar
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const title = e.target.value;
+    // Só gera slug automaticamente se estamos criando um novo evento e o slug está vazio
+    if (!editingEvent && !form.getFieldValue("slug")) {
+      form.setFieldValue("slug", generateSlug(title));
+    }
   };
 
   return (
@@ -163,15 +172,32 @@ export default function EventModal({
         <Form.Item
           name="title"
           label="Título"
-          rules={[{ required: true, message: "Título é obrigatório" }]}
+          rules={[
+            { required: true, message: "Título é obrigatório" },
+            { min: 3, message: "Título deve ter pelo menos 3 caracteres" },
+            { max: 100, message: "Título muito longo" },
+          ]}
+          validateStatus={getFieldError("title") ? "error" : ""}
+          help={getFieldError("title")}
         >
-          <Input placeholder="Título do evento" />
+          <Input placeholder="Título do evento" onChange={handleTitleChange} />
         </Form.Item>
 
         <Form.Item
           name="slug"
           label="Slug (URL amigável)"
-          rules={[{ required: true, message: "Slug é obrigatório" }]}
+          rules={[
+            { required: true, message: "Slug é obrigatório" },
+            { min: 3, message: "Slug deve ter pelo menos 3 caracteres" },
+            { max: 100, message: "Slug muito longo" },
+            {
+              pattern: /^[a-z0-9-]+$/,
+              message:
+                "Slug deve conter apenas letras minúsculas, números e hífens",
+            },
+          ]}
+          validateStatus={getFieldError("slug") ? "error" : ""}
+          help={getFieldError("slug")}
         >
           <Input placeholder="evento-exemplo" />
         </Form.Item>
@@ -179,7 +205,13 @@ export default function EventModal({
         <Form.Item
           name="description"
           label="Descrição"
-          rules={[{ required: true, message: "Descrição é obrigatória" }]}
+          rules={[
+            { required: true, message: "Descrição é obrigatória" },
+            { min: 10, message: "Descrição deve ter pelo menos 10 caracteres" },
+            { max: 1000, message: "Descrição muito longa" },
+          ]}
+          validateStatus={getFieldError("description") ? "error" : ""}
+          help={getFieldError("description")}
         >
           <TextArea rows={4} placeholder="Descrição do evento" />
         </Form.Item>
@@ -187,7 +219,13 @@ export default function EventModal({
         <Form.Item
           name="location"
           label="Local"
-          rules={[{ required: true, message: "Local é obrigatório" }]}
+          rules={[
+            { required: true, message: "Local é obrigatório" },
+            { min: 5, message: "Local deve ter pelo menos 5 caracteres" },
+            { max: 200, message: "Local muito longo" },
+          ]}
+          validateStatus={getFieldError("location") ? "error" : ""}
+          help={getFieldError("location")}
         >
           <Input placeholder="Local do evento" />
         </Form.Item>
@@ -199,6 +237,12 @@ export default function EventModal({
             rules={[
               { required: true, message: "Data de início é obrigatória" },
             ]}
+            validateStatus={
+              getFieldError("startDate") || getFieldError("endDate")
+                ? "error"
+                : ""
+            }
+            help={getFieldError("startDate")}
           >
             <DatePicker
               showTime
@@ -212,6 +256,8 @@ export default function EventModal({
             name="endDate"
             label="Data de Fim do Evento"
             rules={[{ required: true, message: "Data de fim é obrigatória" }]}
+            validateStatus={getFieldError("endDate") ? "error" : ""}
+            help={getFieldError("endDate")}
           >
             <DatePicker
               showTime
@@ -232,6 +278,13 @@ export default function EventModal({
                 message: "Data de início das inscrições é obrigatória",
               },
             ]}
+            validateStatus={
+              getFieldError("registrationStartDate") ||
+              getFieldError("registrationEndDate")
+                ? "error"
+                : ""
+            }
+            help={getFieldError("registrationStartDate")}
           >
             <DatePicker
               showTime
@@ -250,6 +303,8 @@ export default function EventModal({
                 message: "Data de fim das inscrições é obrigatória",
               },
             ]}
+            validateStatus={getFieldError("registrationEndDate") ? "error" : ""}
+            help={getFieldError("registrationEndDate")}
           >
             <DatePicker
               showTime
@@ -269,7 +324,20 @@ export default function EventModal({
                 required: true,
                 message: "Número máximo de participantes é obrigatório",
               },
+              {
+                validator: (_, value) => {
+                  const num = parseInt(value);
+                  if (isNaN(num) || num < 1) {
+                    return Promise.reject(
+                      "Deve permitir pelo menos 1 participante"
+                    );
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
+            validateStatus={getFieldError("maxParticipants") ? "error" : ""}
+            help={getFieldError("maxParticipants")}
           >
             <Input type="number" placeholder="Número máximo de participantes" />
           </Form.Item>
@@ -277,7 +345,22 @@ export default function EventModal({
           <Form.Item
             name="price"
             label="Preço (R$)"
-            rules={[{ required: true, message: "Preço é obrigatório" }]}
+            rules={[
+              { required: true, message: "Preço é obrigatório" },
+              {
+                validator: (_, value) => {
+                  const num = parseFloat(value);
+                  if (isNaN(num) || num < 0) {
+                    return Promise.reject(
+                      "Preço deve ser maior ou igual a zero"
+                    );
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+            validateStatus={getFieldError("price") ? "error" : ""}
+            help={getFieldError("price")}
           >
             <Input
               type="number"
@@ -287,7 +370,12 @@ export default function EventModal({
           </Form.Item>
         </div>
 
-        <Form.Item name="bannerUrl" label="Banner do Evento">
+        <Form.Item
+          name="bannerUrl"
+          label="Banner do Evento"
+          validateStatus={getFieldError("bannerUrl") ? "error" : ""}
+          help={getFieldError("bannerUrl")}
+        >
           <ImageUpload
             value={form.getFieldValue("bannerUrl")}
             onChange={(url) => form.setFieldsValue({ bannerUrl: url })}
