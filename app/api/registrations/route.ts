@@ -23,12 +23,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      where.OR = [
+      const searchConditions: Prisma.RegistrationWhereInput[] = [
         { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
-        { cpf: { contains: search.replace(/\D/g, "") } },
         { event: { title: { contains: search, mode: "insensitive" } } },
       ];
+
+      // Só adicionar busca por CPF se houver dígitos
+      const cleanCpf = search.replace(/\D/g, "");
+      if (cleanCpf) {
+        searchConditions.push({ cpf: { contains: cleanCpf } });
+      }
+
+      where.OR = searchConditions;
     }
 
     // Buscar inscrições com paginação

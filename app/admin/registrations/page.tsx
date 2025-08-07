@@ -94,8 +94,18 @@ export default function RegistrationsPage() {
     useState<Registration | null>(null);
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState("");
+  const [searchInput, setSearchInput] = useState(""); // input do usuário
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [eventFilter, setEventFilter] = useState<string>("ALL");
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total: number, range: [number, number]) =>
+      `${range[0]}-${range[1]} de ${total} inscrições`,
+  });
   const [stats, setStats] = useState({
     total: 0,
     confirmed: 0,
@@ -104,48 +114,78 @@ export default function RegistrationsPage() {
     totalRevenue: 0,
   });
 
-  // Buscar inscrições
-  const fetchRegistrations = useCallback(async () => {
-    setLoading(true);
+  // Buscar estatísticas
+  const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch("/api/registrations");
+      // Construir parâmetros da query (apenas filtros de status e evento, não search)
+      const params = new URLSearchParams();
+
+      if (statusFilter !== "ALL") {
+        params.append("status", statusFilter);
+      }
+      if (eventFilter !== "ALL") {
+        params.append("eventId", eventFilter);
+      }
+      // Não incluir search - estatísticas devem ignorar a busca
+
+      const response = await fetch(`/api/registrations/stats?${params}`);
       const data = await response.json();
 
       if (data.success) {
-        const registrationsList = data.data.items || [];
-        setRegistrations(registrationsList);
-
-        // Calcular estatísticas
-        const confirmed = registrationsList.filter(
-          (r: Registration) => r.status === "CONFIRMED"
-        ).length;
-        const pending = registrationsList.filter(
-          (r: Registration) => r.status === "PENDING"
-        ).length;
-        const cancelled = registrationsList.filter(
-          (r: Registration) => r.status === "CANCELLED"
-        ).length;
-        const totalRevenue = registrationsList
-          .filter((r: Registration) => r.status === "CONFIRMED")
-          .reduce((sum: number, r: Registration) => sum + r.event.price, 0);
-
-        setStats({
-          total: registrationsList.length,
-          confirmed,
-          pending,
-          cancelled,
-          totalRevenue,
-        });
-      } else {
-        message.error("Erro ao carregar inscrições");
+        setStats(data.data);
       }
     } catch (error) {
-      message.error("Erro ao carregar inscrições");
-      console.error("Error fetching registrations:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching stats:", error);
     }
-  }, []);
+  }, [statusFilter, eventFilter]); // Removido searchText das dependências
+
+  // Buscar inscrições
+  const fetchRegistrations = useCallback(
+    async (page = 1, pageSize = 10) => {
+      setLoading(true);
+      try {
+        // Construir parâmetros da query
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: pageSize.toString(),
+        });
+
+        if (statusFilter !== "ALL") {
+          params.append("status", statusFilter);
+        }
+        if (eventFilter !== "ALL") {
+          params.append("eventId", eventFilter);
+        }
+        if (searchText.trim()) {
+          params.append("search", searchText.trim());
+        }
+
+        const response = await fetch(`/api/registrations?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+          const registrationsList = data.data.items || [];
+          setRegistrations(registrationsList);
+
+          // Atualizar paginação
+          setPagination((prev) => ({
+            ...prev,
+            current: data.data.pagination.page,
+            total: data.data.pagination.total,
+            pageSize: data.data.pagination.limit,
+          }));
+        } else {
+          message.error("Erro ao carregar inscrições");
+        }
+      } catch (error) {
+        message.error("Erro ao carregar inscrições");
+        console.error("Error fetching registrations:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [statusFilter, eventFilter, searchText]
+  );
 
   // Buscar eventos para o filtro e formulário
   const fetchEvents = useCallback(async () => {
@@ -162,25 +202,42 @@ export default function RegistrationsPage() {
   }, []);
 
   useEffect(() => {
-    fetchRegistrations();
+    fetchRegistrations(1, 10); // página inicial
+    fetchStats(); // buscar estatísticas iniciais
     fetchEvents();
-  }, [fetchRegistrations, fetchEvents]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Filtrar inscrições
-  const filteredRegistrations = registrations.filter((registration) => {
-    const matchesSearch =
-      registration.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      registration.email.toLowerCase().includes(searchText.toLowerCase()) ||
-      registration.cpf.includes(searchText) ||
-      registration.event.title.toLowerCase().includes(searchText.toLowerCase());
+  // Debounce para o search
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setSearchText(searchInput);
+    }, 500); // 500ms de delay
 
-    const matchesStatus =
-      statusFilter === "ALL" || registration.status === statusFilter;
-    const matchesEvent =
-      eventFilter === "ALL" || registration.event.id === eventFilter;
+    return () => clearTimeout(timeoutId);
+  }, [searchInput]);
 
-    return matchesSearch && matchesStatus && matchesEvent;
-  });
+  // Quando filtros mudam, buscar nova página
+  useEffect(() => {
+    fetchRegistrations(1, pagination.pageSize);
+  }, [
+    statusFilter,
+    eventFilter,
+    searchText,
+    fetchRegistrations,
+    pagination.pageSize,
+  ]);
+
+  // Atualizar estatísticas apenas quando filtros de status ou evento mudarem
+  useEffect(() => {
+    fetchStats();
+  }, [statusFilter, eventFilter, fetchStats]);
+
+  // Função para lidar com mudanças na paginação da tabela
+  const handleTableChange = (pag: { current?: number; pageSize?: number }) => {
+    if (pag.current && pag.pageSize) {
+      fetchRegistrations(pag.current, pag.pageSize);
+    }
+  };
 
   // Função para formatar CPF
   const formatCPF = (value: string) => {
@@ -248,7 +305,8 @@ export default function RegistrationsPage() {
           editingRegistration ? "Inscrição atualizada!" : "Inscrição criada!"
         );
         setIsModalVisible(false);
-        fetchRegistrations();
+        fetchRegistrations(pagination.current, pagination.pageSize);
+        fetchStats(); // atualizar estatísticas
       } else {
         message.error(data.error || "Erro ao salvar inscrição");
       }
@@ -274,7 +332,8 @@ export default function RegistrationsPage() {
 
       if (data.success) {
         message.success("Inscrição excluída!");
-        fetchRegistrations();
+        fetchRegistrations(pagination.current, pagination.pageSize);
+        fetchStats(); // atualizar estatísticas
       } else {
         message.error(data.error || "Erro ao excluir inscrição");
       }
@@ -302,7 +361,8 @@ export default function RegistrationsPage() {
 
       if (data.success) {
         message.success("Status atualizado!");
-        fetchRegistrations();
+        fetchRegistrations(pagination.current, pagination.pageSize);
+        fetchStats(); // atualizar estatísticas
       } else {
         message.error(data.error || "Erro ao atualizar status");
       }
@@ -519,7 +579,9 @@ export default function RegistrationsPage() {
                 placeholder="Buscar por nome, email, CPF ou evento..."
                 allowClear
                 size="large"
-                onChange={(e) => setSearchText(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onSearch={(value) => setSearchInput(value)} // quando pressiona enter ou clica na lupa
                 style={{ width: "100%" }}
               />
             </Col>
@@ -556,7 +618,10 @@ export default function RegistrationsPage() {
             <Col>
               <Button
                 icon={<ReloadOutlined />}
-                onClick={fetchRegistrations}
+                onClick={() => {
+                  fetchRegistrations(pagination.current, pagination.pageSize);
+                  fetchStats();
+                }}
                 size="large"
               >
                 Atualizar
@@ -572,11 +637,7 @@ export default function RegistrationsPage() {
               <Title level={4} className="mb-0">
                 Lista de Inscrições
               </Title>
-              <Badge
-                count={filteredRegistrations.length}
-                showZero
-                color="#1890ff"
-              />
+              <Badge count={pagination.total} showZero color="#1890ff" />
             </div>
             <Button
               type="primary"
@@ -590,17 +651,11 @@ export default function RegistrationsPage() {
 
           <Table
             columns={columns}
-            dataSource={filteredRegistrations}
+            dataSource={registrations}
             rowKey="id"
             loading={loading}
-            pagination={{
-              total: filteredRegistrations.length,
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) =>
-                `${range[0]}-${range[1]} de ${total} inscrições`,
-            }}
+            pagination={pagination}
+            onChange={handleTableChange}
             scroll={{ x: 800 }}
           />
         </Card>
