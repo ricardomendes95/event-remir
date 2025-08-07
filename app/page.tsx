@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { EventDisplay } from "@/components/EventDisplay";
+import { EventDisplay } from "@/components/event/EventDisplay";
 import { SearchComprovante } from "@/components/SearchComprovante";
 import { AutoShowProofModal } from "@/components/AutoShowProofModal";
 
