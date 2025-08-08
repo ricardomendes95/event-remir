@@ -16,6 +16,7 @@ import {
   Popconfirm,
   Badge,
   Alert,
+  Modal,
 } from "antd";
 import {
   CheckCircleOutlined,
@@ -23,10 +24,13 @@ import {
   CheckOutlined,
   UserOutlined,
   QrcodeOutlined,
+  PrinterOutlined,
+  FileExcelOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import AdminHeader from "../../components/admin/AdminHeader";
+import CheckinReportPrint from "../../components/CheckinReportPrint";
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -56,6 +60,27 @@ interface Event {
   isActive: boolean;
 }
 
+interface ExportData {
+  event: {
+    id: string;
+    title: string;
+    description?: string;
+    price: number;
+    startDate: string;
+    endDate?: string;
+    location?: string;
+  };
+  registrations: Registration[];
+  stats: {
+    total: number;
+    checkedIn: number;
+    pending: number;
+    totalRevenue: number;
+    checkinRate: number;
+  };
+  exportedAt: string;
+}
+
 export default function CheckinPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -63,6 +88,9 @@ export default function CheckinPage() {
   const [selectedEvent, setSelectedEvent] = useState<string>(""); // Iniciar vazio para forçar seleção
   const [searchText, setSearchText] = useState("");
   const [searchInput, setSearchInput] = useState(""); // input do usuário
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportData, setExportData] = useState<ExportData | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 20,
@@ -290,6 +318,248 @@ export default function CheckinPage() {
     if (!value.trim()) {
       setSearchText("");
       return;
+    }
+  };
+
+  // Função para exportar dados para impressão
+  const handleExportForPrint = async () => {
+    if (!selectedEvent) {
+      message.error("Selecione um evento primeiro");
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const response = await fetch(
+        `/api/registrations/export?eventId=${selectedEvent}`
+      );
+      const data = await response.json();
+
+      if (data.success) {
+        setExportData(data.data);
+        setShowPrintModal(true);
+      } else {
+        message.error(data.error || "Erro ao exportar dados");
+      }
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      message.error("Erro ao exportar dados");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Função para imprimir
+  const handlePrint = () => {
+    if (!exportData) return;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Relatório de Check-in - ${exportData.event.title}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 20px; background: white; }
+            .print-container { max-width: 100%; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+            .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+            .stat-card { border: 1px solid #ddd; padding: 15px; text-align: center; }
+            .present { background-color: #f6ffed; color: #52c41a; font-weight: bold; }
+            .waiting { color: #faad14; }
+            .footer { margin-top: 30px; border-top: 2px solid #000; padding-top: 20px; display: flex; justify-content: space-between; }
+            @media print {
+              body { margin: 0; }
+              .no-print { display: none; }
+              table { page-break-inside: avoid; }
+              tr { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-container">
+            <div class="header">
+              <h1>RELATÓRIO DE CHECK-IN</h1>
+              <h2>${exportData.event.title}</h2>
+              ${
+                exportData.event.location
+                  ? `<p>Local: ${exportData.event.location}</p>`
+                  : ""
+              }
+              <p>Data do Evento: ${dayjs(exportData.event.startDate).format(
+                "DD/MM/YYYY HH:mm"
+              )}</p>
+              <p style="font-size: 12px; color: #999; margin-top: 10px;">
+                Relatório gerado em: ${dayjs(exportData.exportedAt).format(
+                  "DD/MM/YYYY HH:mm"
+                )}
+              </p>
+            </div>
+
+            <div class="stats">
+              <div class="stat-card">
+                <h3>Total Confirmados</h3>
+                <p style="font-size: 24px; font-weight: bold;">${
+                  exportData.stats.total
+                }</p>
+              </div>
+              <div class="stat-card">
+                <h3>Check-ins Realizados</h3>
+                <p style="font-size: 24px; font-weight: bold; color: #52c41a;">${
+                  exportData.stats.checkedIn
+                }</p>
+              </div>
+              <div class="stat-card">
+                <h3>Aguardando Check-in</h3>
+                <p style="font-size: 24px; font-weight: bold; color: #faad14;">${
+                  exportData.stats.pending
+                }</p>
+              </div>
+              <div class="stat-card">
+                <h3>Taxa de Presença</h3>
+                <p style="font-size: 24px; font-weight: bold;">${
+                  exportData.stats.checkinRate
+                }%</p>
+              </div>
+            </div>
+
+            <h3 style="margin: 20px 0 10px 0;">Lista de Participantes (${
+              exportData.registrations.length
+            })</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>CPF</th>
+                  <th>Telefone</th>
+                  <th>Status Check-in</th>
+                  <th>Data Check-in</th>
+                  <th>Assinatura</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${exportData.registrations
+                  .map(
+                    (reg, index) => `
+                  <tr class="${reg.checkedInAt ? "present" : ""}">
+                    <td style="text-align: center;">${index + 1}</td>
+                    <td style="font-weight: 500;">${reg.name}</td>
+                    <td>${reg.email}</td>
+                    <td>${reg.cpf.replace(
+                      /(\d{3})(\d{3})(\d{3})(\d{2})/,
+                      "$1.$2.$3-$4"
+                    )}</td>
+                    <td>${reg.phone || "-"}</td>
+                    <td style="text-align: center;" class="${
+                      reg.checkedInAt ? "present" : "waiting"
+                    }">
+                      ${reg.checkedInAt ? "✓ PRESENTE" : "⏱ AGUARDANDO"}
+                    </td>
+                    <td style="text-align: center;">
+                      ${
+                        reg.checkedInAt
+                          ? dayjs(reg.checkedInAt).format("DD/MM HH:mm")
+                          : "-"
+                      }
+                    </td>
+                    <td style="height: 30px;"></td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+
+            <div class="footer">
+              <div>
+                <p style="font-size: 12px; color: #666;">
+                  Receita Total: R$ ${exportData.stats.totalRevenue.toLocaleString(
+                    "pt-BR",
+                    { minimumFractionDigits: 2 }
+                  )}
+                </p>
+              </div>
+              <div>
+                <p style="font-size: 12px; color: #666; border-bottom: 1px solid #000; padding-bottom: 5px; margin-bottom: 5px;">
+                  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                </p>
+                <p style="font-size: 12px; color: #666; text-align: center;">Responsável pelo Evento</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+
+      // Aguardar um pouco para garantir que o conteúdo foi carregado
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    }
+  };
+
+  // Função para exportar para CSV/Excel
+  const handleExportToCSV = () => {
+    if (!exportData) return;
+
+    const csvData = [
+      // Cabeçalho
+      [
+        "#",
+        "Nome",
+        "Email",
+        "CPF",
+        "Telefone",
+        "Status Check-in",
+        "Data Check-in",
+        "Data Inscrição",
+      ],
+      // Dados
+      ...exportData.registrations.map((reg, index) => [
+        index + 1,
+        reg.name,
+        reg.email,
+        reg.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4"),
+        reg.phone || "-",
+        reg.checkedInAt ? "PRESENTE" : "AGUARDANDO",
+        reg.checkedInAt
+          ? dayjs(reg.checkedInAt).format("DD/MM/YYYY HH:mm")
+          : "-",
+        dayjs(reg.createdAt).format("DD/MM/YYYY HH:mm"),
+      ]),
+    ];
+
+    const csvContent = csvData
+      .map((row) => row.map((cell) => `"${cell}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `checkin-${exportData.event.title.replace(
+          /[^a-zA-Z0-9]/g,
+          "_"
+        )}-${dayjs().format("YYYY-MM-DD")}.csv`
+      );
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      message.success("Arquivo CSV baixado com sucesso!");
     }
   };
 
@@ -535,6 +805,15 @@ export default function CheckinPage() {
                 >
                   Atualizar Lista
                 </Button>
+                <Button
+                  type="primary"
+                  icon={<PrinterOutlined />}
+                  onClick={handleExportForPrint}
+                  loading={isExporting}
+                  size="large"
+                >
+                  Imprimir Lista
+                </Button>
                 <Badge count={pagination.total} showZero color="#1890ff" />
               </Space>
             </div>
@@ -556,6 +835,37 @@ export default function CheckinPage() {
             </div>
           </Card>
         )}
+
+        {/* Modal de Impressão */}
+        <Modal
+          title="Relatório de Check-in"
+          open={showPrintModal}
+          onCancel={() => setShowPrintModal(false)}
+          width="90%"
+          style={{ top: 20 }}
+          footer={[
+            <Button
+              key="csv"
+              icon={<FileExcelOutlined />}
+              onClick={handleExportToCSV}
+            >
+              Exportar CSV
+            </Button>,
+            <Button key="cancel" onClick={() => setShowPrintModal(false)}>
+              Cancelar
+            </Button>,
+            <Button
+              key="print"
+              type="primary"
+              icon={<PrinterOutlined />}
+              onClick={handlePrint}
+            >
+              Imprimir
+            </Button>,
+          ]}
+        >
+          {exportData && <CheckinReportPrint data={exportData} />}
+        </Modal>
       </div>
     </div>
   );
