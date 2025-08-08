@@ -4,6 +4,7 @@ import React from "react";
 import { Modal, Form, Input, DatePicker, Switch, Button, message } from "antd";
 import dayjs from "dayjs";
 import { ImageUpload } from "../ImageUpload";
+import { MoneyInput } from "../MoneyInput";
 import {
   useEventValidation,
   EventFormData,
@@ -344,12 +345,13 @@ export default function EventModal({
 
           <Form.Item
             name="price"
-            label="Preço (R$)"
+            label="Preço"
             rules={[
               { required: true, message: "Preço é obrigatório" },
               {
                 validator: (_, value) => {
-                  const num = parseFloat(value);
+                  const num =
+                    typeof value === "number" ? value : parseFloat(value);
                   if (isNaN(num) || num < 0) {
                     return Promise.reject(
                       "Preço deve ser maior ou igual a zero"
@@ -362,11 +364,7 @@ export default function EventModal({
             validateStatus={getFieldError("price") ? "error" : ""}
             help={getFieldError("price")}
           >
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="0.00 (digite 0 para evento gratuito)"
-            />
+            <MoneyInput placeholder="R$ 0,00 (digite 0 para evento gratuito)" />
           </Form.Item>
         </div>
 
