@@ -50,6 +50,7 @@ vercel --prod
 ### 3. Deploy via GitHub (Alternativo)
 
 1. **Push para GitHub**:
+
    ```bash
    git add .
    git commit -m "Preparação para deploy"
@@ -137,19 +138,23 @@ vercel remove
 ## 🚨 Troubleshooting
 
 ### Erro de Banco
+
 - ✅ Verifique se `DATABASE_URL` está correta
 - ✅ Confirme se o banco está acessível externamente
 - ✅ Execute `npx prisma db push`
 
 ### Erro de JWT
+
 - ✅ Gere uma nova chave: `openssl rand -base64 32`
 - ✅ Adicione em `JWT_SECRET`
 
 ### Erro de Upload
+
 - ✅ Verifique credenciais do Cloudinary
 - ✅ Confirme se as variáveis estão no ambiente de produção
 
 ### Build Failing
+
 - ✅ Execute `npm run build` localmente primeiro
 - ✅ Verifique se não há erros de TypeScript
 

@@ -5,6 +5,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar se Mercado Pago está configurado
+    if (!mercadoPagoClient) {
+      console.log(
+        "⚠️ Webhook recebido mas Mercado Pago não configurado - ignorando"
+      );
+      return NextResponse.json({
+        received: true,
+        message: "Mercado Pago não configurado",
+      });
+    }
+
     // Verificar se é uma notificação do Mercado Pago
     const body = await request.json();
 

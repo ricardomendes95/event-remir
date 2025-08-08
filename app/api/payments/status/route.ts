@@ -5,6 +5,18 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
+    // Verificar se Mercado Pago está configurado
+    if (!mercadoPagoClient) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Sistema de pagamento não configurado - funcionando em modo mock",
+        },
+        { status: 500 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get("paymentId");
     const registrationId = searchParams.get("registrationId");

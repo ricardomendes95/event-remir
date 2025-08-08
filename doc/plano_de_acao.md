@@ -112,7 +112,7 @@ Desenvolver uma aplicação fullstack Next.js para inscrições em eventos com p
 - [x] **10.3** - Tratamento global de erros
 - [x] **10.4** - Otimização de imagens
 - [x] **10.5** - Testes básicos - Build de produção funcionando
-- [ ] **10.6** - Configuração para deploy na Vercel
+- [x] **10.6** - Configuração para deploy na Vercel
 - [x] **10.7** - Documentação final
 
 ---

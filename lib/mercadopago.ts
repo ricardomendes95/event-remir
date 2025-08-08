@@ -3,20 +3,26 @@ import { MercadoPagoConfig } from "mercadopago";
 // Verificar se as variáveis de ambiente existem
 const accessToken = process.env.MERCADO_PAGO_ACCESS_TOKEN;
 
-if (!accessToken) {
-  throw new Error(
-    "MERCADO_PAGO_ACCESS_TOKEN não está configurado nas variáveis de ambiente"
+// Durante o build, não validar as variáveis (permite deploy sem Mercado Pago)
+const isBuildTime =
+  process.env.NODE_ENV === "production" && !process.env.VERCEL_ENV;
+
+if (!accessToken && !isBuildTime) {
+  console.warn(
+    "⚠️ MERCADO_PAGO_ACCESS_TOKEN não configurado - sistema funcionará em modo mock"
   );
 }
 
-// Configuração do cliente Mercado Pago
-export const mercadoPagoClient = new MercadoPagoConfig({
-  accessToken,
-  options: {
-    timeout: 5000,
-    idempotencyKey: "abc",
-  },
-});
+// Configuração do cliente Mercado Pago (só se token existir)
+export const mercadoPagoClient = accessToken
+  ? new MercadoPagoConfig({
+      accessToken,
+      options: {
+        timeout: 5000,
+        idempotencyKey: "abc",
+      },
+    })
+  : null;
 
 // Configurações públicas para o frontend
 export const mercadoPagoConfig = {
