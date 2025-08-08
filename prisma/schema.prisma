@@ -40,6 +40,7 @@ model Registration {
   cpf            String
   phone          String
   status         RegistrationStatus @default(PENDING)
+  paymentMethod  PaymentMethod     @default(MERCADO_PAGO)
   paymentId      String?
   checkedInAt    DateTime?
   createdAt      DateTime         @default(now())
@@ -66,6 +67,11 @@ enum RegistrationStatus {
   PENDING
   CONFIRMED
   CANCELLED
+}
+
+enum PaymentMethod {
+  MERCADO_PAGO
+  MANUAL
 }
 
 enum AdminRole {

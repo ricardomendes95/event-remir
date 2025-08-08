@@ -13,6 +13,8 @@ import {
   Divider,
   Progress,
   Tag,
+  Button,
+  message,
 } from "antd";
 import {
   DollarOutlined,
@@ -21,6 +23,9 @@ import {
   BarChartOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  DownloadOutlined,
+  CreditCardOutlined,
+  EditOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -37,6 +42,13 @@ interface FinancialData {
   confirmedRegistrations: number;
   pendingRegistrations: number;
   cancelledRegistrations: number;
+  // Por método de pagamento
+  mercadoPagoTotalRevenue: number;
+  mercadoPagoConfirmedRevenue: number;
+  mercadoPagoRegistrations: number;
+  manualTotalRevenue: number;
+  manualConfirmedRevenue: number;
+  manualRegistrations: number;
   eventBreakdown: EventFinancialData[];
   dailyRevenue: DailyRevenueData[];
 }
@@ -53,12 +65,23 @@ interface EventFinancialData {
   totalRevenue: number;
   confirmedRevenue: number;
   pendingRevenue: number;
+  // Por método de pagamento
+  mercadoPagoRegistrations: number;
+  manualRegistrations: number;
+  mercadoPagoConfirmedRegistrations: number;
+  manualConfirmedRegistrations: number;
+  mercadoPagoRevenue: number;
+  manualRevenue: number;
+  mercadoPagoConfirmedRevenue: number;
+  manualConfirmedRevenue: number;
 }
 
 interface DailyRevenueData {
   date: string;
   revenue: number;
   registrations: number;
+  mercadoPagoRevenue: number;
+  manualRevenue: number;
 }
 
 export default function FinancialPage() {
@@ -71,6 +94,112 @@ export default function FinancialPage() {
   );
   const [selectedEvent, setSelectedEvent] = useState<string>("ALL");
   const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  // Função para exportar relatório
+  const handleExportReport = useCallback(async () => {
+    setExportLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("format", "export");
+
+      if (dateRange) {
+        params.set("startDate", dateRange[0].toISOString());
+        params.set("endDate", dateRange[1].toISOString());
+      }
+
+      if (selectedEvent !== "ALL") {
+        params.set("eventId", selectedEvent);
+      }
+
+      const response = await fetch(`/api/admin/financial?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success) {
+        // Criar dados para CSV
+        const csvData = data.data.detailedRegistrations.map(
+          (reg: {
+            id: string;
+            eventTitle: string;
+            participantName: string;
+            participantEmail: string;
+            participantCPF: string;
+            participantPhone: string;
+            status: string;
+            paymentMethod: string;
+            eventPrice: number;
+            registrationDate: string;
+            eventDate: string;
+          }) => ({
+            ID: reg.id,
+            Evento: reg.eventTitle,
+            Participante: reg.participantName,
+            Email: reg.participantEmail,
+            CPF: reg.participantCPF,
+            Telefone: reg.participantPhone,
+            Status: reg.status,
+            "Método de Pagamento":
+              reg.paymentMethod === "MERCADO_PAGO" ? "Mercado Pago" : "Manual",
+            "Valor do Evento": `R$ ${Number(reg.eventPrice).toFixed(2)}`,
+            "Data da Inscrição": new Date(
+              reg.registrationDate
+            ).toLocaleDateString("pt-BR"),
+            "Data do Evento": new Date(reg.eventDate).toLocaleDateString(
+              "pt-BR"
+            ),
+          })
+        );
+
+        // Converter para CSV
+        const csvContent = convertToCSV(csvData);
+        downloadCSV(
+          csvContent,
+          `relatorio-financeiro-${new Date().toISOString().split("T")[0]}.csv`
+        );
+
+        message.success("Relatório exportado com sucesso!");
+      }
+    } catch (error) {
+      console.error("Erro ao exportar relatório:", error);
+      message.error("Erro ao exportar relatório");
+    } finally {
+      setExportLoading(false);
+    }
+  }, [dateRange, selectedEvent]);
+
+  // Função auxiliar para converter dados para CSV
+  const convertToCSV = (data: Record<string, string | number>[]) => {
+    if (data.length === 0) return "";
+
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(","),
+      ...data.map((row) =>
+        headers
+          .map((header) => {
+            const value = row[header];
+            // Escapar vírgulas e aspas no CSV
+            return `"${String(value).replace(/"/g, '""')}"`;
+          })
+          .join(",")
+      ),
+    ];
+
+    return csvRows.join("\n");
+  };
+
+  // Função auxiliar para fazer download do CSV
+  const downloadCSV = (csvContent: string, filename: string) => {
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Buscar dados financeiros
   const fetchFinancialData = useCallback(async () => {
@@ -160,13 +289,39 @@ export default function FinancialPage() {
       ),
     },
     {
+      title: "Método de Pagamento",
+      key: "paymentMethod",
+      render: (_, record) => (
+        <div className="text-center">
+          <div className="space-y-1">
+            <div className="flex justify-center items-center space-x-2">
+              <CreditCardOutlined style={{ color: "#1890ff" }} />
+              <span className="text-sm">
+                MP: {record.mercadoPagoRegistrations}
+              </span>
+            </div>
+            <div className="flex justify-center items-center space-x-2">
+              <EditOutlined style={{ color: "#52c41a" }} />
+              <span className="text-sm">
+                Manual: {record.manualRegistrations}
+              </span>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
       title: "Receita Total",
       dataIndex: "totalRevenue",
       key: "totalRevenue",
-      render: (value) => (
+      render: (value, record) => (
         <div className="text-center">
           <div className="font-semibold text-lg text-blue-600">
             R$ {value.toFixed(2)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            <div>MP: R$ {record.mercadoPagoRevenue.toFixed(2)}</div>
+            <div>Manual: R$ {record.manualRevenue.toFixed(2)}</div>
           </div>
         </div>
       ),
@@ -176,10 +331,14 @@ export default function FinancialPage() {
       title: "Receita Confirmada",
       dataIndex: "confirmedRevenue",
       key: "confirmedRevenue",
-      render: (value) => (
+      render: (value, record) => (
         <div className="text-center">
           <div className="font-semibold text-lg text-green-600">
             R$ {value.toFixed(2)}
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            <div>MP: R$ {record.mercadoPagoConfirmedRevenue.toFixed(2)}</div>
+            <div>Manual: R$ {record.manualConfirmedRevenue.toFixed(2)}</div>
           </div>
         </div>
       ),
@@ -234,38 +393,52 @@ export default function FinancialPage() {
 
       {/* Filtros */}
       <Card className="mb-6">
-        <Row gutter={16} align="middle">
+        <Row gutter={16} align="middle" justify="space-between">
           <Col>
-            <Text strong>Filtrar por:</Text>
+            <Row gutter={16} align="middle">
+              <Col>
+                <Text strong>Filtrar por:</Text>
+              </Col>
+              <Col>
+                <RangePicker
+                  value={dateRange}
+                  onChange={(dates) => {
+                    if (dates && dates[0] && dates[1]) {
+                      setDateRange([dates[0], dates[1]]);
+                    } else {
+                      setDateRange(null);
+                    }
+                  }}
+                  format="DD/MM/YYYY"
+                  placeholder={["Data início", "Data fim"]}
+                />
+              </Col>
+              <Col>
+                <Select
+                  value={selectedEvent}
+                  onChange={setSelectedEvent}
+                  style={{ width: 200 }}
+                  placeholder="Selecionar evento"
+                >
+                  <Option value="ALL">Todos os Eventos</Option>
+                  {events.map((event) => (
+                    <Option key={event.id} value={event.id}>
+                      {event.title}
+                    </Option>
+                  ))}
+                </Select>
+              </Col>
+            </Row>
           </Col>
           <Col>
-            <RangePicker
-              value={dateRange}
-              onChange={(dates) => {
-                if (dates && dates[0] && dates[1]) {
-                  setDateRange([dates[0], dates[1]]);
-                } else {
-                  setDateRange(null);
-                }
-              }}
-              format="DD/MM/YYYY"
-              placeholder={["Data início", "Data fim"]}
-            />
-          </Col>
-          <Col>
-            <Select
-              value={selectedEvent}
-              onChange={setSelectedEvent}
-              style={{ width: 200 }}
-              placeholder="Selecionar evento"
+            <Button
+              type="primary"
+              icon={<DownloadOutlined />}
+              onClick={handleExportReport}
+              loading={exportLoading}
             >
-              <Option value="ALL">Todos os Eventos</Option>
-              {events.map((event) => (
-                <Option key={event.id} value={event.id}>
-                  {event.title}
-                </Option>
-              ))}
-            </Select>
+              Exportar Relatório
+            </Button>
           </Col>
         </Row>
       </Card>
@@ -314,6 +487,89 @@ export default function FinancialPage() {
               prefix={<CheckCircleOutlined style={{ color: "#52c41a" }} />}
               valueStyle={{ color: "#52c41a" }}
             />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Estatísticas por Método de Pagamento */}
+      <Row gutter={16} className="mb-6">
+        <Col span={12}>
+          <Card
+            title={
+              <div className="flex items-center">
+                <CreditCardOutlined
+                  className="mr-2"
+                  style={{ color: "#1890ff" }}
+                />
+                Mercado Pago
+              </div>
+            }
+            className="h-full"
+          >
+            <Row gutter={16}>
+              <Col span={12}>
+                <Statistic
+                  title="Receita Total"
+                  value={financialData.mercadoPagoTotalRevenue}
+                  precision={2}
+                  suffix="R$"
+                  valueStyle={{ color: "#1890ff", fontSize: "18px" }}
+                />
+              </Col>
+              <Col span={12}>
+                <Statistic
+                  title="Receita Confirmada"
+                  value={financialData.mercadoPagoConfirmedRevenue}
+                  precision={2}
+                  suffix="R$"
+                  valueStyle={{ color: "#52c41a", fontSize: "18px" }}
+                />
+              </Col>
+            </Row>
+            <Divider />
+            <div className="text-center">
+              <span className="text-lg font-semibold text-gray-700">
+                {financialData.mercadoPagoRegistrations} inscrições
+              </span>
+            </div>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card
+            title={
+              <div className="flex items-center">
+                <EditOutlined className="mr-2" style={{ color: "#52c41a" }} />
+                Inscrições Manuais
+              </div>
+            }
+            className="h-full"
+          >
+            <Row gutter={16}>
+              <Col span={12}>
+                <Statistic
+                  title="Receita Total"
+                  value={financialData.manualTotalRevenue}
+                  precision={2}
+                  suffix="R$"
+                  valueStyle={{ color: "#1890ff", fontSize: "18px" }}
+                />
+              </Col>
+              <Col span={12}>
+                <Statistic
+                  title="Receita Confirmada"
+                  value={financialData.manualConfirmedRevenue}
+                  precision={2}
+                  suffix="R$"
+                  valueStyle={{ color: "#52c41a", fontSize: "18px" }}
+                />
+              </Col>
+            </Row>
+            <Divider />
+            <div className="text-center">
+              <span className="text-lg font-semibold text-gray-700">
+                {financialData.manualRegistrations} inscrições
+              </span>
+            </div>
           </Card>
         </Col>
       </Row>
