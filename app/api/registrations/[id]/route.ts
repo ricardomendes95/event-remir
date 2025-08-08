@@ -7,9 +7,10 @@ interface Params {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Params }
+  context: { params: Promise<Params> }
 ) {
   try {
+    const params = await context.params;
     const registration = await prisma.registration.findUnique({
       where: { id: params.id },
       include: {
@@ -46,9 +47,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Params }
+  context: { params: Promise<Params> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
     const { name, email, cpf, phone, status } = body;
 
@@ -102,9 +104,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Params }
+  context: { params: Promise<Params> }
 ) {
   try {
+    const params = await context.params;
     // Verificar se a inscrição existe
     const existingRegistration = await prisma.registration.findUnique({
       where: { id: params.id },

@@ -182,16 +182,6 @@ export default function AdminLoginPage() {
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
-
-          <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
-            <Text strong className="text-blue-800">
-              Credenciais de Teste:
-            </Text>
-            <br />
-            <Text className="text-blue-700">Email: admin@eventremir.com</Text>
-            <br />
-            <Text className="text-blue-700">Senha: admin123</Text>
-          </div>
         </Card>
       </div>
     </div>

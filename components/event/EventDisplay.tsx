@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, Clock, MapPin, Users, DollarSign } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import { Button } from "antd";
 import { EventRegistrationModal } from "./EventRegistrationModal";
 import { Event } from "@/types/event";

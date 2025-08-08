@@ -6,23 +6,26 @@ const eventController = new EventController();
 // GET /api/events/[id] - Buscar evento por ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const params = await context.params;
   return await eventController.getEventById(request, { params });
 }
 
 // PUT /api/events/[id] - Atualizar evento
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const params = await context.params;
   return await eventController.updateEvent(request, { params });
 }
 
 // DELETE /api/events/[id] - Deletar evento
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const params = await context.params;
   return await eventController.deleteEvent(request, { params });
 }

@@ -1,5 +1,14 @@
+import { Suspense } from "react";
 import PaymentResultPage from "@/components/PaymentResultPage";
 
-export default function PaymentPendingPage() {
+function PaymentPendingContent() {
   return <PaymentResultPage type="pending" />;
+}
+
+export default function PaymentPendingPage() {
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <PaymentPendingContent />
+    </Suspense>
+  );
 }

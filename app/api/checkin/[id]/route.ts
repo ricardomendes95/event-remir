@@ -85,9 +85,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Params }
+  context: { params: Promise<Params> }
 ) {
   try {
+    const params = await context.params;
     const registrationId = params.id;
 
     // Verificar se a inscrição existe
