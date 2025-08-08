@@ -72,9 +72,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar status no Mercado Pago se ainda está pendente
-    if (registration.paymentId) {
+    if (registration.paymentId && mercadoPagoClient) {
       try {
-        const payment = new Payment(mercadoPagoClient);
+        const payment = new Payment(mercadoPagoClient!);
         const paymentInfo = await payment.get({ id: registration.paymentId });
 
         if (paymentInfo) {

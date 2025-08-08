@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verificar se Mercado Pago está configurado
+    if (!mercadoPagoClient) {
+      return NextResponse.json(
+        { error: "Sistema de pagamento não configurado" },
+        { status: 500 }
+      );
+    }
+
     // Criar preferência no Mercado Pago
     const preference = new Preference(mercadoPagoClient);
 

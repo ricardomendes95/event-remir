@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar informações do pagamento no Mercado Pago
-    const payment = new Payment(mercadoPagoClient);
+    const payment = new Payment(mercadoPagoClient!);
     const paymentInfo = await payment.get({ id: paymentId });
 
     console.log("Informações do pagamento:", paymentInfo);
