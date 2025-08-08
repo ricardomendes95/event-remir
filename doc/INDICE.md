@@ -5,7 +5,9 @@ _Guia de navegação pelos documentos do projeto_
 ## 📋 Documentos Disponíveis
 
 ### 📖 [README.md](README.md)
+
 **Documento principal do projeto**
+
 - Visão geral do Event Remir
 - Status do projeto (completo)
 - Stack tecnológica utilizada
@@ -14,9 +16,11 @@ _Guia de navegação pelos documentos do projeto_
 - Acesso admin padrão
 
 ### 🚀 [FUNCIONALIDADES_IMPLEMENTADAS.md](FUNCIONALIDADES_IMPLEMENTADAS.md)
+
 **Catálogo completo de funcionalidades**
+
 - ✅ Sistema de Autenticação e Usuários
-- ✅ Sistema de Eventos  
+- ✅ Sistema de Eventos
 - ✅ Homepage e Interface Pública
 - ✅ Sistema de Pagamento
 - ✅ Sistema de Comprovantes
@@ -26,7 +30,9 @@ _Guia de navegação pelos documentos do projeto_
 - ✅ Validações e Schemas
 
 ### 🏗️ [ARQUITETURA.md](ARQUITETURA.md)
+
 **Documentação técnica da estrutura**
+
 - 📁 Estrutura geral do projeto
 - 🎯 Organização do Next.js App Router
 - 🔧 Arquitetura do backend
@@ -37,7 +43,9 @@ _Guia de navegação pelos documentos do projeto_
 - 🔐 Segurança implementada
 
 ### 🛠️ [GUIA_DESENVOLVIMENTO.md](GUIA_DESENVOLVIMENTO.md)
+
 **Manual prático para desenvolvedores**
+
 - 🔧 Configuração do ambiente de desenvolvimento
 - 🏗️ Padrões de código e estrutura
 - 🔐 Sistema de autenticação JWT
@@ -49,7 +57,9 @@ _Guia de navegação pelos documentos do projeto_
 - 📝 Melhores práticas
 
 ### 💳 [MOCK_PAYMENT_GUIDE.md](MOCK_PAYMENT_GUIDE.md)
+
 **Guia específico do sistema de pagamento**
+
 - 🔧 Como funciona o modo mock
 - ⚙️ Configurações para produção
 - 🔄 Fluxos de pagamento
@@ -60,21 +70,25 @@ _Guia de navegação pelos documentos do projeto_
 ## 🗺️ Navegação Recomendada
 
 ### Para Novos Desenvolvedores:
+
 1. **README.md** - Visão geral e setup inicial
 2. **GUIA_DESENVOLVIMENTO.md** - Configuração do ambiente
 3. **ARQUITETURA.md** - Entendimento da estrutura
 4. **FUNCIONALIDADES_IMPLEMENTADAS.md** - O que está disponível
 
 ### Para Usuários Finais:
+
 1. **README.md** - Funcionalidades principais
 2. **FUNCIONALIDADES_IMPLEMENTADAS.md** - Detalhes das features
 
 ### Para Deploy/Produção:
+
 1. **GUIA_DESENVOLVIMENTO.md** - Seção de deploy
 2. **MOCK_PAYMENT_GUIDE.md** - Configuração do Mercado Pago
 3. **ARQUITETURA.md** - Preparação para produção
 
 ### Para Manutenção:
+
 1. **ARQUITETURA.md** - Estrutura técnica
 2. **GUIA_DESENVOLVIMENTO.md** - Debug e troubleshooting
 3. **FUNCIONALIDADES_IMPLEMENTADAS.md** - Features implementadas
@@ -83,13 +97,13 @@ _Guia de navegação pelos documentos do projeto_
 
 ## 🎯 Status dos Documentos
 
-| Documento | Status | Última Atualização |
-|-----------|--------|-------------------|
-| README.md | ✅ Completo | Agosto 2025 |
-| FUNCIONALIDADES_IMPLEMENTADAS.md | ✅ Completo | Agosto 2025 |
-| ARQUITETURA.md | ✅ Completo | Agosto 2025 |
-| GUIA_DESENVOLVIMENTO.md | ✅ Completo | Agosto 2025 |
-| MOCK_PAYMENT_GUIDE.md | ✅ Mantido original | - |
+| Documento                        | Status              | Última Atualização |
+| -------------------------------- | ------------------- | ------------------ |
+| README.md                        | ✅ Completo         | Agosto 2025        |
+| FUNCIONALIDADES_IMPLEMENTADAS.md | ✅ Completo         | Agosto 2025        |
+| ARQUITETURA.md                   | ✅ Completo         | Agosto 2025        |
+| GUIA_DESENVOLVIMENTO.md          | ✅ Completo         | Agosto 2025        |
+| MOCK_PAYMENT_GUIDE.md            | ✅ Mantido original | -                  |
 
 ## 💡 Dicas de Uso
 

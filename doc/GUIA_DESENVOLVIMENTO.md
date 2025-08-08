@@ -25,8 +25,9 @@ docker-compose logs postgres
 ```
 
 **Configuração do banco**:
+
 - **Host**: localhost
-- **Porta**: 5433  
+- **Porta**: 5433
 - **Database**: eventos_remir
 - **Username/Password**: postgres
 - **Connection String**: `postgresql://postgres:postgres@localhost:5433/eventos_remir?schema=public`
@@ -72,9 +73,10 @@ npm run dev
 ### 📁 Estrutura de Arquivos
 
 **Controllers**:
+
 ```typescript
 // /backend/controllers/ExampleController.ts
-import { BaseController } from './BaseController';
+import { BaseController } from "./BaseController";
 
 export class ExampleController extends BaseController {
   static async methodName(request: NextRequest) {
@@ -89,24 +91,26 @@ export class ExampleController extends BaseController {
 ```
 
 **Repositories**:
+
 ```typescript
 // /backend/repositories/ExampleRepository.ts
-import { BaseRepository } from './BaseRepository';
+import { BaseRepository } from "./BaseRepository";
 
 export class ExampleRepository extends BaseRepository {
   static async findWithCustomLogic(params: any) {
     return await this.prisma.model.findMany({
       where: { ...params },
-      include: { relatedModel: true }
+      include: { relatedModel: true },
     });
   }
 }
 ```
 
 **API Routes**:
+
 ```typescript
 // /app/api/example/route.ts
-import { ExampleController } from '@/backend/controllers';
+import { ExampleController } from "@/backend/controllers";
 
 export async function GET(request: NextRequest) {
   return await ExampleController.get(request);
@@ -120,31 +124,26 @@ export async function POST(request: NextRequest) {
 ### 🎨 Componentes React
 
 **Padrão de Componente**:
+
 ```typescript
 interface ComponentProps {
   prop1: string;
   prop2?: number;
 }
 
-export const Component: React.FC<ComponentProps> = ({
-  prop1,
-  prop2 = 0
-}) => {
+export const Component: React.FC<ComponentProps> = ({ prop1, prop2 = 0 }) => {
   const [state, setState] = useState<StateType>(initialState);
-  
+
   useEffect(() => {
     // Efeitos colaterais
   }, [dependencies]);
 
-  return (
-    <div>
-      {/* JSX aqui */}
-    </div>
-  );
+  return <div>{/* JSX aqui */}</div>;
 };
 ```
 
 **Hook Personalizado**:
+
 ```typescript
 export const useCustomHook = (param: string) => {
   const [data, setData] = useState(null);
@@ -173,14 +172,14 @@ export const useCustomHook = (param: string) => {
 
 ```typescript
 // /lib/jwt-edge.ts
-import { SignJWT, jwtVerify } from 'jose';
+import { SignJWT, jwtVerify } from "jose";
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
 export const signToken = async (payload: any) => {
   return await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime('24h')
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime("24h")
     .sign(secret);
 };
 
@@ -194,20 +193,20 @@ export const verifyToken = async (token: string) => {
 
 ```typescript
 // /backend/middlewares/authMiddleware.ts
-import { verifyToken } from '@/lib/jwt-edge';
+import { verifyToken } from "@/lib/jwt-edge";
 
 export const authMiddleware = async (request: NextRequest) => {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-  
+  const token = request.headers.get("authorization")?.replace("Bearer ", "");
+
   if (!token) {
-    return Response.json({ error: 'Token não fornecido' }, { status: 401 });
+    return Response.json({ error: "Token não fornecido" }, { status: 401 });
   }
 
   try {
     const payload = await verifyToken(token);
     return payload;
   } catch {
-    return Response.json({ error: 'Token inválido' }, { status: 401 });
+    return Response.json({ error: "Token inválido" }, { status: 401 });
   }
 };
 ```
@@ -218,13 +217,15 @@ export const authMiddleware = async (request: NextRequest) => {
 
 ```typescript
 // /backend/schemas/exampleSchemas.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 export const createExampleSchema = z.object({
-  title: z.string().min(3, 'Título deve ter pelo menos 3 caracteres'),
-  description: z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres'),
-  date: z.string().datetime('Data inválida'),
-  price: z.number().positive('Preço deve ser positivo'),
+  title: z.string().min(3, "Título deve ter pelo menos 3 caracteres"),
+  description: z
+    .string()
+    .min(10, "Descrição deve ter pelo menos 10 caracteres"),
+  date: z.string().datetime("Data inválida"),
+  price: z.number().positive("Preço deve ser positivo"),
 });
 
 export type CreateExampleData = z.infer<typeof createExampleSchema>;
@@ -264,14 +265,14 @@ export const useExampleValidation = () => {
 
 ```typescript
 // No controller
-import { createExampleSchema } from '@/backend/schemas';
+import { createExampleSchema } from "@/backend/schemas";
 
 export class ExampleController extends BaseController {
   static async create(request: NextRequest) {
     try {
       const body = await request.json();
       const validatedData = createExampleSchema.parse(body);
-      
+
       // Continuar com lógica...
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -289,7 +290,7 @@ export class ExampleController extends BaseController {
 
 ```typescript
 // /lib/cloudinary.ts
-import { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -299,12 +300,12 @@ cloudinary.config({
 
 export const uploadImage = async (file: File): Promise<string> => {
   const buffer = await file.arrayBuffer();
-  const base64 = Buffer.from(buffer).toString('base64');
+  const base64 = Buffer.from(buffer).toString("base64");
   const dataURI = `data:${file.type};base64,${base64}`;
 
   const result = await cloudinary.uploader.upload(dataURI, {
-    folder: 'event-remir',
-    transformation: [{ quality: 'auto' }, { fetch_format: 'auto' }]
+    folder: "event-remir",
+    transformation: [{ quality: "auto" }, { fetch_format: "auto" }],
   });
 
   return result.secure_url;
@@ -328,18 +329,18 @@ export const useImageUpload = () => {
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
-      const response = await fetch('/api/upload', {
-        method: 'POST',
+      const response = await fetch("/api/upload", {
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setUrl(data.url);
         setProgress(100);
@@ -347,7 +348,7 @@ export const useImageUpload = () => {
         setError(data.error);
       }
     } catch (err) {
-      setError('Erro no upload da imagem');
+      setError("Erro no upload da imagem");
     } finally {
       setUploading(false);
     }
@@ -375,7 +376,7 @@ const MOCK_MODE = true; // Alterar para false em produção
 const handleMockPayment = () => {
   // Simula aprovação automática
   setTimeout(() => {
-    router.push('/payment/success?registration_id=' + registrationData.id);
+    router.push("/payment/success?registration_id=" + registrationData.id);
   }, 2000);
 };
 ```
@@ -394,8 +395,8 @@ const handleMockPayment = () => {
 const MOCK_MODE = false;
 
 // Configurar variáveis:
-MERCADOPAGO_ACCESS_TOKEN="PROD_ACCESS_TOKEN"
-MERCADOPAGO_PUBLIC_KEY="PROD_PUBLIC_KEY"
+MERCADOPAGO_ACCESS_TOKEN = "PROD_ACCESS_TOKEN";
+MERCADOPAGO_PUBLIC_KEY = "PROD_PUBLIC_KEY";
 
 // Webhook URL para produção:
 // https://seudominio.com/api/payments/webhook
@@ -407,12 +408,12 @@ MERCADOPAGO_PUBLIC_KEY="PROD_PUBLIC_KEY"
 
 ```typescript
 // No desenvolvimento, adicione logs:
-console.log('[DEBUG] Dados recebidos:', data);
-console.log('[ERROR] Erro capturado:', error);
+console.log("[DEBUG] Dados recebidos:", data);
+console.log("[ERROR] Erro capturado:", error);
 
 // Para banco de dados:
-console.log('[DB] Query executada:', query);
-console.log('[DB] Resultado:', result);
+console.log("[DB] Query executada:", query);
+console.log("[DB] Resultado:", result);
 ```
 
 ### Problemas Comuns
@@ -457,12 +458,14 @@ npm start
 ### Configurações Vercel
 
 **Environment Variables**:
+
 - `DATABASE_URL` → Supabase/Neon connection string
 - `JWT_SECRET` → String segura
-- `CLOUDINARY_*` → Credenciais de produção  
+- `CLOUDINARY_*` → Credenciais de produção
 - `MERCADOPAGO_*` → Tokens de produção
 
 **Build Settings**:
+
 - Framework: Next.js
 - Node.js Version: 18.x
 - Build Command: `npm run build`
@@ -471,8 +474,9 @@ npm start
 ### Edge Runtime
 
 APIs preparadas para **Edge Runtime** da Vercel:
+
 ```typescript
-export const runtime = 'edge';
+export const runtime = "edge";
 ```
 
 Funciona para APIs leves. Para operações pesadas, usar **Node.js runtime**.

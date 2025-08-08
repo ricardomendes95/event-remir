@@ -257,18 +257,21 @@ model Admin {
 ## ⚡ Performance e Otimizações
 
 ### Frontend
+
 - **Lazy Loading** de componentes
 - **Memoização** com useMemo/useCallback
 - **Otimização de imagens** via Cloudinary
 - **Bundle splitting** automático do Next.js
 
 ### Backend
+
 - **Connection pooling** do Prisma
 - **Query optimization** nos repositories
 - **Edge Runtime** para APIs leves
 - **Caching** de dados estáticos
 
 ### Database
+
 - **Índices** em campos de busca
 - **Relações** otimizadas
 - **Paginação** em todas as consultas
@@ -277,12 +280,14 @@ model Admin {
 ## 🔐 Segurança
 
 ### Autenticação
+
 - **JWT tokens** com expiração
 - **Password hashing** com bcrypt
 - **Role-based access control**
 - **Middleware** de proteção de rotas
 
 ### Validação
+
 - **Input validation** com Zod
 - **Type safety** com TypeScript
 - **CORS** configurado adequadamente
@@ -291,12 +296,14 @@ model Admin {
 ## 🚀 Deploy e DevOps
 
 ### Preparação para Produção
+
 - **Vercel** como plataforma target
 - **Edge functions** compatíveis
 - **Environment variables** configuradas
 - **Database** pronto para Supabase/Neon
 
 ### Configurações
+
 - **Next.js config** otimizado
 - **PostCSS** para TailwindCSS
 - **ESLint** configurado

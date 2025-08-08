@@ -65,23 +65,27 @@ _Atualizado em: Agosto 2025_
 ### Configuração
 
 1. **Clone o repositório**:
+
 ```bash
 git clone https://github.com/ricardomendes95/event-remir.git
 cd event-remir
 ```
 
 2. **Instale dependências**:
+
 ```bash
 npm install
 ```
 
 3. **Configure variáveis de ambiente**:
+
 ```bash
 cp .env.example .env.local
 # Configure suas variáveis (banco, Cloudinary, Mercado Pago)
 ```
 
 4. **Configure o banco**:
+
 ```bash
 # Com Docker (recomendado)
 docker-compose up -d
@@ -90,12 +94,14 @@ docker-compose up -d
 ```
 
 5. **Execute as migrations**:
+
 ```bash
 npx prisma migrate dev
 npx prisma db seed
 ```
 
 6. **Inicie o projeto**:
+
 ```bash
 npm run dev
 ```
@@ -103,12 +109,14 @@ npm run dev
 ## 📱 Funcionalidades Principais
 
 ### 🏠 Homepage
+
 - Exibição de evento ativo
 - Modal de inscrição integrado
 - Design mobile-first
 - Busca de comprovantes por CPF
 
 ### 👨‍💼 Painel Admin (`/admin`)
+
 - **Login seguro** com JWT
 - **Gestão de Eventos**: CRUD completo, upload de imagens
 - **Inscrições**: Lista com filtros, exportação CSV
@@ -117,12 +125,14 @@ npm run dev
 - **Check-in**: Controle de presença
 
 ### 💳 Sistema de Pagamento
+
 - **Modo Mock**: Ativado para desenvolvimento
 - **Mercado Pago**: Integração preparada para produção
 - **Comprovantes**: Geração e busca automática
 - **Webhooks**: Configurados para atualizações
 
 ### 📋 Comprovantes
+
 - **Busca por CPF**: Manual e automática
 - **Modal automático**: Exibição pós-pagamento
 - **Impressão**: Layout otimizado
@@ -131,6 +141,7 @@ npm run dev
 ## 🔐 Acesso Admin
 
 **Usuário padrão**:
+
 - Email: `admin@eventremir.com`
 - Senha: `admin123`
 
