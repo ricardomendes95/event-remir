@@ -172,25 +172,30 @@ export default function FinancialPage() {
     if (data.length === 0) return "";
 
     const headers = Object.keys(data[0]);
+    // Adicionar BOM (Byte Order Mark) para UTF-8 e usar ponto e vírgula como separador para Excel brasileiro
+    const BOM = "\uFEFF";
     const csvRows = [
-      headers.join(","),
+      headers.join(";"),
       ...data.map((row) =>
         headers
           .map((header) => {
             const value = row[header];
-            // Escapar vírgulas e aspas no CSV
-            return `"${String(value).replace(/"/g, '""')}"`;
+            // Escapar aspas duplas e envolver em aspas se necessário
+            const cellStr = String(value).replace(/"/g, '""');
+            return `"${cellStr}"`;
           })
-          .join(",")
+          .join(";")
       ),
     ];
 
-    return csvRows.join("\n");
+    return BOM + csvRows.join("\r\n");
   };
 
   // Função auxiliar para fazer download do CSV
   const downloadCSV = (csvContent: string, filename: string) => {
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);

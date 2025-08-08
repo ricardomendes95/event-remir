@@ -538,10 +538,25 @@ export default function CheckinPage() {
       ]),
     ];
 
-    const csvContent = csvData
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // Adicionar BOM (Byte Order Mark) para UTF-8 e usar ponto e vírgula como separador para Excel brasileiro
+    const BOM = "\uFEFF";
+    const csvContent =
+      BOM +
+      csvData
+        .map((row) =>
+          row
+            .map((cell) => {
+              // Escapar aspas duplas e envolver em aspas se necessário
+              const cellStr = String(cell).replace(/"/g, '""');
+              return `"${cellStr}"`;
+            })
+            .join(";")
+        )
+        .join("\r\n");
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
 
     if (link.download !== undefined) {
