@@ -147,6 +147,10 @@ export async function POST(request: NextRequest) {
       },
       auto_return: "approved",
       notification_url: `${process.env.NEXTAUTH_URL}/api/payments/webhook`,
+      external_reference: `event_${eventId}_cpf_${participantData.cpf.replace(
+        /\D/g,
+        ""
+      )}`, // 🔍 Para facilitar identificação
       metadata: {
         event_id: eventId,
         participant_name: participantData.name,
@@ -160,6 +164,21 @@ export async function POST(request: NextRequest) {
     };
 
     const response = await preference.create({ body: preferenceData });
+
+    // 🔍 DEBUG: Log completo da resposta do MercadoPago
+    console.log(
+      "🔍 RESPONSE COMPLETO DO MERCADOPAGO:",
+      JSON.stringify(response, null, 2)
+    );
+    console.log("🔍 CAMPOS IMPORTANTES:");
+    console.log("  - response.id:", response.id);
+    console.log("  - response.collector_id:", response.collector_id);
+    console.log("  - response.client_id:", response.client_id);
+    console.log("  - response.notification_url:", response.notification_url);
+    console.log(
+      "  - response.external_reference:",
+      response.external_reference
+    );
 
     // Criar ou atualizar registro (pending)
     if (existingRegistration && registrationId) {

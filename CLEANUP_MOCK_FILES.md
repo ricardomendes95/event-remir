@@ -3,15 +3,18 @@
 ## ✅ Arquivos Removidos
 
 ### `/app/api/payments/create-preference/`
+
 - ❌ `route.mock.ts` - Versão mockada para desenvolvimento
 - ❌ `route.mock.backup.ts` - Backup da versão mock
 - ❌ `route.real.ts` - Versão real (duplicada)
 - ✅ `route.ts` - **MANTIDO** - Versão final de produção
 
 ### `/app/api/payments/`
+
 - ❌ `test-webhook/` - Diretório de testes do webhook
 
 ### `/doc/`
+
 - ❌ `MOCK_PAYMENT_GUIDE.md` - Guia do sistema mockado
 
 ## 📁 Estrutura Final Limpa
@@ -38,6 +41,7 @@ app/api/payments/
 ## 🚀 Pronto para Deploy
 
 O sistema agora está completamente preparado para produção com:
+
 - ✅ Integração real com MercadoPago
 - ✅ Webhook robusto com múltiplas estratégias de busca
 - ✅ Logs detalhados para debug

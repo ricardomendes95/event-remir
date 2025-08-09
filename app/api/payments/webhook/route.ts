@@ -52,23 +52,34 @@ export async function POST(request: NextRequest) {
 
     try {
       paymentInfo = await payment.get({ id: paymentId });
+      console.log("🔍 WEBHOOK - INFORMAÇÕES COMPLETAS DO PAGAMENTO:");
+      console.log("  - paymentInfo.id:", paymentInfo.id);
+      console.log("  - paymentInfo.status:", paymentInfo.status);
       console.log(
-        "Informações do pagamento:",
-        JSON.stringify(
-          {
-            id: paymentInfo.id,
-            status: paymentInfo.status,
-            preference_id: (paymentInfo as { preference_id?: string })
-              .preference_id,
-            external_reference: (paymentInfo as { external_reference?: string })
-              .external_reference,
-            order: (paymentInfo as { order?: { id?: string; type?: string } })
-              .order,
-          },
-          null,
-          2
-        )
+        "  - paymentInfo.preference_id:",
+        (paymentInfo as { preference_id?: string }).preference_id
       );
+      console.log(
+        "  - paymentInfo.external_reference:",
+        (paymentInfo as { external_reference?: string }).external_reference
+      );
+      console.log(
+        "  - paymentInfo.order:",
+        (paymentInfo as { order?: { id?: string; type?: string } }).order
+      );
+      console.log(
+        "  - paymentInfo.collector_id:",
+        (paymentInfo as { collector_id?: number }).collector_id
+      );
+      console.log(
+        "  - paymentInfo.metadata:",
+        (paymentInfo as { metadata?: object }).metadata
+      );
+
+      console.log("🔍 PAYLOAD DO WEBHOOK RECEBIDO:");
+      console.log("  - webhook paymentId:", paymentId);
+      console.log("  - webhook live_mode:", body.live_mode);
+      console.log("  - webhook action:", body.action);
     } catch (error) {
       console.error("Erro ao buscar pagamento no MercadoPago:", error);
       return NextResponse.json(
@@ -90,11 +101,16 @@ export async function POST(request: NextRequest) {
     const preferenceId = (paymentInfo as { preference_id?: string })
       .preference_id;
     const orderId = (paymentInfo as { order?: { id?: string } }).order?.id;
+    const externalReference = (paymentInfo as { external_reference?: string })
+      .external_reference;
+    const metadata = (paymentInfo as { metadata?: object }).metadata;
 
     console.log("🔍 IDs disponíveis:", {
       paymentId: paymentId,
       preferenceId: preferenceId,
       orderId: orderId,
+      externalReference: externalReference,
+      metadata: metadata,
     });
 
     let registration = null;
@@ -137,6 +153,29 @@ export async function POST(request: NextRequest) {
           createdAt: "desc",
         },
       });
+    }
+
+    // 4. Tentar buscar por CPF nos metadados + eventId
+    if (!registration && metadata) {
+      const metadataObj = metadata as {
+        participant_cpf?: string;
+        event_id?: string;
+      };
+      if (metadataObj.participant_cpf && metadataObj.event_id) {
+        console.log(
+          "🔍 Estratégia 4: Buscando por CPF e EventId dos metadados"
+        );
+        registration = await prisma.registration.findFirst({
+          where: {
+            eventId: metadataObj.event_id,
+            cpf: metadataObj.participant_cpf.replace(/\D/g, ""),
+            status: "PENDING",
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+      }
     }
 
     // 4. Buscar nos paymentDetails que contenham qualquer um dos IDs
