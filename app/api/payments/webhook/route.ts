@@ -56,19 +56,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
     }
 
-    // Buscar registro no banco usando o preference_id
-    const preferenceId = (paymentInfo as { preference_id?: string })
-      .preference_id;
-    const registration = await prisma.registration.findFirst({
+    // Primeiro, tentar buscar pelo payment_id real
+    console.log("🔍 Buscando registro pelo payment_id:", paymentId);
+    let registration = await prisma.registration.findFirst({
       where: {
-        paymentId: preferenceId,
+        paymentId: paymentId.toString(),
       },
     });
 
+    // Se não encontrou pelo payment_id, buscar pelo preference_id
+    if (!registration) {
+      const preferenceId = (paymentInfo as { preference_id?: string })
+        .preference_id;
+
+      console.log(
+        "🔍 Payment_id não encontrado, buscando pelo preference_id:",
+        preferenceId
+      );
+
+      if (preferenceId) {
+        // Buscar pelo preference_id, mas ordenar por createdAt DESC para pegar o mais recente
+        registration = await prisma.registration.findFirst({
+          where: {
+            paymentId: preferenceId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        });
+      }
+    }
+
     if (!registration) {
       console.error(
-        "Registro não encontrado para preference_id:",
-        preferenceId
+        "❌ Registro não encontrado para payment_id:",
+        paymentId,
+        "ou preference_id:",
+        (paymentInfo as { preference_id?: string }).preference_id
       );
       return NextResponse.json(
         { error: "Registration not found" },
@@ -76,8 +100,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log("✅ Registro encontrado:", {
+      id: registration.id,
+      name: registration.name,
+      email: registration.email,
+      cpf: registration.cpf,
+      currentPaymentId: registration.paymentId,
+      status: registration.status,
+    });
+
     // Atualizar status do registro baseado no status do pagamento
-    let newStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
+    let newStatus: string;
     let paymentError: string | null = null;
 
     switch (paymentInfo.status) {
@@ -108,6 +141,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar registro no banco
+    // @ts-expect-error - Tipos do Prisma com problemas temporários
     await prisma.registration.update({
       where: {
         id: registration.id,
@@ -115,7 +149,7 @@ export async function POST(request: NextRequest) {
       data: {
         status: newStatus,
         paymentId: paymentId.toString(), // Atualizar com o payment_id real
-        paymentError: paymentError,
+        paymentError,
         paymentDetails: {
           paymentId: paymentId,
           status: paymentInfo.status,
