@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Payment } from "mercadopago";
 import { mercadoPagoClient } from "@/lib/mercadopago";
 import { prisma } from "@/lib/prisma";
+import { RegistrationStatus } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -47,43 +48,128 @@ export async function POST(request: NextRequest) {
 
     // Buscar informações do pagamento no Mercado Pago
     const payment = new Payment(mercadoPagoClient!);
-    const paymentInfo = await payment.get({ id: paymentId });
+    let paymentInfo;
 
-    console.log("Informações do pagamento:", paymentInfo);
+    try {
+      paymentInfo = await payment.get({ id: paymentId });
+      console.log(
+        "Informações do pagamento:",
+        JSON.stringify(
+          {
+            id: paymentInfo.id,
+            status: paymentInfo.status,
+            preference_id: (paymentInfo as { preference_id?: string })
+              .preference_id,
+            external_reference: (paymentInfo as { external_reference?: string })
+              .external_reference,
+            order: (paymentInfo as { order?: { id?: string; type?: string } })
+              .order,
+          },
+          null,
+          2
+        )
+      );
+    } catch (error) {
+      console.error("Erro ao buscar pagamento no MercadoPago:", error);
+      return NextResponse.json(
+        {
+          error: "Payment not found in MercadoPago",
+          paymentId: paymentId,
+          details: error,
+        },
+        { status: 404 }
+      );
+    }
 
     if (!paymentInfo) {
       console.error("Pagamento não encontrado:", paymentId);
       return NextResponse.json({ error: "Payment not found" }, { status: 404 });
     }
 
-    // Primeiro, tentar buscar pelo payment_id real
-    console.log("🔍 Buscando registro pelo payment_id:", paymentId);
-    let registration = await prisma.registration.findFirst({
+    // Buscar registro no banco usando múltiplas estratégias
+    const preferenceId = (paymentInfo as { preference_id?: string })
+      .preference_id;
+    const orderId = (paymentInfo as { order?: { id?: string } }).order?.id;
+
+    console.log("🔍 IDs disponíveis:", {
+      paymentId: paymentId,
+      preferenceId: preferenceId,
+      orderId: orderId,
+    });
+
+    let registration = null;
+
+    // 1. Tentar com payment_id direto
+    console.log("🔍 Estratégia 1: Buscando pelo payment_id:", paymentId);
+    registration = await prisma.registration.findFirst({
       where: {
         paymentId: paymentId.toString(),
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    // Se não encontrou pelo payment_id, buscar pelo preference_id
-    if (!registration) {
-      const preferenceId = (paymentInfo as { preference_id?: string })
-        .preference_id;
-
+    // 2. Tentar com preference_id
+    if (!registration && preferenceId) {
       console.log(
-        "🔍 Payment_id não encontrado, buscando pelo preference_id:",
+        "🔍 Estratégia 2: Buscando pelo preference_id:",
         preferenceId
       );
+      registration = await prisma.registration.findFirst({
+        where: {
+          paymentId: preferenceId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    }
 
-      if (preferenceId) {
-        // Buscar pelo preference_id, mas ordenar por createdAt DESC para pegar o mais recente
-        registration = await prisma.registration.findFirst({
-          where: {
-            paymentId: preferenceId,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        });
+    // 3. Tentar com order.id (relacionado ao preference)
+    if (!registration && orderId) {
+      console.log("🔍 Estratégia 3: Buscando pelo order.id:", orderId);
+      registration = await prisma.registration.findFirst({
+        where: {
+          paymentId: orderId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    }
+
+    // 4. Buscar nos paymentDetails que contenham qualquer um dos IDs
+    if (!registration) {
+      console.log("🔍 Estratégia 4: Buscando nos paymentDetails");
+      const allRegistrations = await prisma.registration.findMany({
+        where: {
+          status: "PENDING", // Só buscar em registros pendentes
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      // Filtrar manualmente os que contêm algum dos IDs
+      const searchIds = [paymentId.toString()];
+      if (preferenceId) searchIds.push(preferenceId);
+      if (orderId) searchIds.push(orderId);
+
+      const matchingRegistrations = allRegistrations.filter((reg) => {
+        if (reg.paymentDetails && typeof reg.paymentDetails === "string") {
+          return searchIds.some((id) =>
+            reg.paymentDetails!.toString().includes(id)
+          );
+        }
+        return false;
+      });
+
+      if (matchingRegistrations.length > 0) {
+        registration = matchingRegistrations[0];
+        console.log(
+          `🔍 Encontrado ${matchingRegistrations.length} registro(s) com IDs nos detalhes, usando o mais recente`
+        );
       }
     }
 
@@ -94,8 +180,37 @@ export async function POST(request: NextRequest) {
         "ou preference_id:",
         (paymentInfo as { preference_id?: string }).preference_id
       );
+
+      // Log adicional para debug em produção
+      console.log("🔍 Debug: Listando últimos 5 registros para comparação:");
+      const recentRegistrations = await prisma.registration.findMany({
+        select: {
+          id: true,
+          name: true,
+          paymentId: true,
+          status: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 5,
+      });
+
+      recentRegistrations.forEach((reg) => {
+        console.log(
+          `- ID: ${reg.id}, PaymentId: ${reg.paymentId}, Status: ${reg.status}, Name: ${reg.name}`
+        );
+      });
+
       return NextResponse.json(
-        { error: "Registration not found" },
+        {
+          error: "Registration not found",
+          paymentId: paymentId,
+          preferenceId: (paymentInfo as { preference_id?: string })
+            .preference_id,
+          searchedIn: "paymentId field and paymentDetails",
+        },
         { status: 404 }
       );
     }
@@ -110,7 +225,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Atualizar status do registro baseado no status do pagamento
-    let newStatus: string;
+    let newStatus: RegistrationStatus;
     let paymentError: string | null = null;
 
     switch (paymentInfo.status) {
@@ -141,7 +256,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar registro no banco
-    // @ts-expect-error - Tipos do Prisma com problemas temporários
     await prisma.registration.update({
       where: {
         id: registration.id,
