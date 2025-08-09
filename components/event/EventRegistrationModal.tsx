@@ -14,6 +14,7 @@ import {
   registrationSchema,
   type RegistrationFormData,
 } from "../registration";
+import { RegistrationProofModal } from "../RegistrationProofModal";
 
 // Hook customizado
 import { useCpfVerification } from "@/hooks/useCpfVerification";
@@ -31,6 +32,7 @@ export function EventRegistrationModal({
 }: EventRegistrationModalProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [showProofModal, setShowProofModal] = useState(false);
 
   // Hook para verificação de CPF
   const {
@@ -92,11 +94,30 @@ export function EventRegistrationModal({
   const handleCheckReceipt = () => {
     if (!existingRegistration) return;
 
-    // Redirecionar para a página de verificação de comprovante
-    window.location.href = `/checkin?cpf=${existingRegistration.cpf.replace(
-      /\D/g,
-      ""
-    )}`;
+    // Abrir modal de comprovante com dados preenchidos
+    setShowProofModal(true);
+  };
+
+  // Mapear dados da existingRegistration para o formato do RegistrationProofModal
+  const getProofModalData = () => {
+    if (!existingRegistration) return null;
+
+    return {
+      id: existingRegistration.id,
+      name: existingRegistration.name,
+      email: existingRegistration.email,
+      cpf: existingRegistration.cpf,
+      phone: existingRegistration.phone,
+      status: existingRegistration.status,
+      paymentId: existingRegistration.paymentId || "",
+      registrationDate: existingRegistration.registrationDate,
+      event: {
+        title: existingRegistration.event.title,
+        price: existingRegistration.event.price,
+        date: existingRegistration.event.date,
+        location: existingRegistration.event.location,
+      },
+    };
   };
 
   const handleSubmit = async (values: RegistrationFormData) => {
@@ -175,6 +196,7 @@ export function EventRegistrationModal({
   const handleClose = () => {
     form.resetFields();
     clearCpfVerification();
+    setShowProofModal(false); // Fechar modal de comprovante também
     onClose();
   };
 
@@ -213,6 +235,13 @@ export function EventRegistrationModal({
           onSubmit={handleSubmit}
           onCancel={handleClose}
           onCpfChange={handleCpfChange}
+        />
+
+        {/* Modal de Comprovante */}
+        <RegistrationProofModal
+          open={showProofModal}
+          onClose={() => setShowProofModal(false)}
+          preloadedData={getProofModalData()}
         />
       </div>
     </Modal>
