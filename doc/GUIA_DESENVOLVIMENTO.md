@@ -404,6 +404,35 @@ MERCADOPAGO_PUBLIC_KEY = "PROD_PUBLIC_KEY";
 
 ## 🔍 Debug e Troubleshooting
 
+### ⚠️ Problema Comum: Prepared Statements PostgreSQL
+
+**Sintoma**: Erro 500 nas APIs com mensagem:
+
+```
+Error [PrismaClientUnknownRequestError]: prepared statement does not exist
+```
+
+**Causa**: PostgreSQL/Supabase pode perder prepared statements, comum em ambientes serverless.
+
+**Solução**: **SEMPRE** use `withPrismaRetry` nas rotas da API:
+
+```typescript
+// ❌ INCORRETO - pode falhar
+const [data, count] = await Promise.all([
+  prisma.model.findMany(),
+  prisma.model.count(),
+]);
+
+// ✅ CORRETO - padrão obrigatório
+import { withPrismaRetry } from "@/lib/prisma";
+
+const [data, count] = await withPrismaRetry(async () =>
+  Promise.all([prisma.model.findMany(), prisma.model.count()])
+);
+```
+
+**Documentação completa**: `doc/SOLUCAO_PREPARED_STATEMENTS.md`
+
 ### Logs Úteis
 
 ```typescript
@@ -418,11 +447,12 @@ console.log("[DB] Resultado:", result);
 
 ### Problemas Comuns
 
-1. **Erro de CORS**: Verificar `middleware.ts`
-2. **JWT não funciona**: Verificar `JWT_SECRET` no .env
-3. **Banco não conecta**: Verificar se Docker está rodando
-4. **Upload falha**: Verificar credenciais Cloudinary
-5. **Build falha**: Verificar imports e tipos TypeScript
+1. **Prepared Statement Error**: Use `withPrismaRetry` (ver acima)
+2. **Erro de CORS**: Verificar `middleware.ts`
+3. **JWT não funciona**: Verificar `JWT_SECRET` no .env
+4. **Banco não conecta**: Verificar se Docker está rodando
+5. **Upload falha**: Verificar credenciais Cloudinary
+6. **Build falha**: Verificar imports e tipos TypeScript
 
 ### Comandos de Debug
 

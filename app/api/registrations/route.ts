@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
@@ -38,28 +38,30 @@ export async function GET(request: NextRequest) {
       where.OR = searchConditions;
     }
 
-    // Buscar inscrições com paginação
-    const [registrations, total] = await Promise.all([
-      prisma.registration.findMany({
-        where,
-        include: {
-          event: {
-            select: {
-              id: true,
-              title: true,
-              price: true,
-              startDate: true,
+    // Buscar inscrições com paginação usando helper de retry
+    const [registrations, total] = await withPrismaRetry(async () =>
+      Promise.all([
+        prisma.registration.findMany({
+          where,
+          include: {
+            event: {
+              select: {
+                id: true,
+                title: true,
+                price: true,
+                startDate: true,
+              },
             },
           },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.registration.count({ where }),
-    ]);
+          orderBy: {
+            createdAt: "desc",
+          },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        prisma.registration.count({ where }),
+      ])
+    );
 
     return NextResponse.json({
       success: true,

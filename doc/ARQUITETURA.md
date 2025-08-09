@@ -123,6 +123,56 @@ event-remir/
 3. **Prisma**: ORM para interação type-safe com o banco
 4. **Database**: PostgreSQL com schema bem definido
 
+### Padrões Obrigatórios para APIs
+
+#### 🔄 Tratamento de Database Queries
+
+**SEMPRE use `withPrismaRetry`** para operações do Prisma nas APIs:
+
+```typescript
+// ✅ CORRETO - Pattern padrão para novas APIs
+import { prisma, withPrismaRetry } from "@/lib/prisma";
+
+const [data, count] = await withPrismaRetry(async () =>
+  Promise.all([prisma.model.findMany({ where }), prisma.model.count({ where })])
+);
+```
+
+**Justificativa**: Resolve automaticamente erros de prepared statements do PostgreSQL/Supabase que podem causar falhas 500 nas APIs.
+
+**Documentação**: Ver `doc/SOLUCAO_PREPARED_STATEMENTS.md` e `doc/EXEMPLO_PRISMA_RETRY.md`
+
+#### 📝 Estrutura de Resposta da API
+
+**Padrão de Response**:
+
+```typescript
+// Sucesso
+return NextResponse.json({
+  success: true,
+  data: resultado,
+  message: "Mensagem opcional",
+});
+
+// Erro
+return NextResponse.json(
+  {
+    success: false,
+    error: "Mensagem de erro",
+  },
+  { status: codigoStatus }
+);
+```
+
+#### 🛡️ Middleware de Autenticação
+
+**Rotas protegidas** são automaticamente validadas pelo middleware em `/middleware.ts`:
+
+- `/admin/*` - Requer role ADMIN ou SUPER_ADMIN
+- `/api/admin/*` - APIs administrativas
+- `/api/registrations/*` - APIs de gestão de inscrições
+- `/checkin/*` - Sistema de check-in
+
 ## 🎨 Frontend Components
 
 ### Organização dos Componentes
@@ -275,6 +325,7 @@ model Admin {
 - **Índices** em campos de busca
 - **Relações** otimizadas
 - **Paginação** em todas as consultas
+- **Prepared statement retry** com `withPrismaRetry` helper
 - **Soft deletes** onde apropriado
 
 ## 🔐 Segurança
@@ -308,3 +359,85 @@ model Admin {
 - **PostCSS** para TailwindCSS
 - **ESLint** configurado
 - **TypeScript** strict mode
+
+## 📋 Diretrizes para Novos Desenvolvedores
+
+### ✅ Checklist Obrigatório para Novas APIs
+
+Ao criar uma nova rota da API (`/app/api/*/route.ts`):
+
+1. **Import Pattern**:
+
+   ```typescript
+   import { NextRequest, NextResponse } from "next/server";
+   import { prisma, withPrismaRetry } from "@/lib/prisma";
+   ```
+
+2. **Database Operations**:
+
+   ```typescript
+   // ✅ SEMPRE use withPrismaRetry
+   const result = await withPrismaRetry(async () => prisma.model.operation());
+   ```
+
+3. **Response Pattern**:
+
+   ```typescript
+   return NextResponse.json({
+     success: true,
+     data: result,
+   });
+   ```
+
+4. **Error Handling**:
+   ```typescript
+   catch (error) {
+     console.error("Erro detalhado:", error);
+     return NextResponse.json(
+       { success: false, error: "Mensagem amigável" },
+       { status: 500 }
+     );
+   }
+   ```
+
+### 🎯 Para Implementar Nova Funcionalidade
+
+1. **Consultar Documentação**:
+
+   - `doc/SOLUCAO_PREPARED_STATEMENTS.md` - Padrões de DB
+   - `doc/EXEMPLO_PRISMA_RETRY.md` - Exemplos práticos
+   - `doc/FUNCIONALIDADES_IMPLEMENTADAS.md` - Features existentes
+
+2. **Seguir Estrutura**:
+
+   - Controller em `/backend/controllers/`
+   - Repository em `/backend/repositories/`
+   - Schema Zod em `/backend/schemas/`
+   - API Route em `/app/api/*/route.ts`
+
+3. **Testar Sempre**:
+   - Operações individuais do Prisma
+   - Operações em paralelo (`Promise.all`)
+   - Cenários de erro (prepared statements)
+   - Validação de dados com Zod
+
+### 🚨 Problemas Comuns e Soluções
+
+| Problema                     | Sintoma                               | Solução                           |
+| ---------------------------- | ------------------------------------- | --------------------------------- |
+| **Prepared Statement Error** | `"prepared statement does not exist"` | Use `withPrismaRetry`             |
+| **Token Inválido**           | 401 em rotas protegidas               | Verificar middleware e cookies    |
+| **Validação Falhando**       | Dados não passam pelo Zod             | Verificar schema e tipos          |
+| **CORS Error**               | Bloqueio do navegador                 | Verificar configuração do Next.js |
+
+### 📚 Referências Rápidas
+
+- **Padrão de API**: `/app/api/registrations/route.ts`
+- **Padrão de Controller**: `/backend/controllers/EventController.ts`
+- **Padrão de Repository**: `/backend/repositories/EventRepository.ts`
+- **Padrão de Schema**: `/backend/schemas/eventSchemas.ts`
+- **Padrão de Hook**: `/hooks/useAuth.ts`
+
+---
+
+**💡 Dica**: Sempre consulte a documentação antes de implementar. Os padrões existentes foram testados e otimizados para evitar problemas comuns.

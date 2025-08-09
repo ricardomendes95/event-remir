@@ -65,6 +65,25 @@ _Guia de navegação pelos documentos do projeto_
 - 🔄 Fluxos de pagamento
 - 🧪 Como testar o sistema
 
+### 🔧 [SOLUCAO_PREPARED_STATEMENTS.md](SOLUCAO_PREPARED_STATEMENTS.md)
+
+**Solução para erros de Prepared Statements PostgreSQL/Prisma**
+
+- 🐛 Problema identificado e contexto
+- ✅ Solução implementada com `withPrismaRetry`
+- 📚 Como aplicar em outras rotas
+- 🔍 Monitoramento e debug
+- 📋 Casos de uso recomendados
+
+### 💡 [EXEMPLO_PRISMA_RETRY.md](EXEMPLO_PRISMA_RETRY.md)
+
+**Exemplos práticos de uso do withPrismaRetry**
+
+- 📝 5 exemplos completos de rotas da API
+- ✅ Boas práticas de implementação
+- ⚠️ Cuidados e considerações importantes
+- 📋 Checklist de implementação
+
 ---
 
 ## 🗺️ Navegação Recomendada
@@ -73,8 +92,16 @@ _Guia de navegação pelos documentos do projeto_
 
 1. **README.md** - Visão geral e setup inicial
 2. **GUIA_DESENVOLVIMENTO.md** - Configuração do ambiente
-3. **ARQUITETURA.md** - Entendimento da estrutura
-4. **FUNCIONALIDADES_IMPLEMENTADAS.md** - O que está disponível
+3. **ARQUITETURA.md** - Entendimento da estrutura e **padrões obrigatórios**
+4. **SOLUCAO_PREPARED_STATEMENTS.md** - **Solução essencial para APIs**
+5. **FUNCIONALIDADES_IMPLEMENTADAS.md** - O que está disponível
+
+### Para Desenvolvimento de APIs:
+
+1. **ARQUITETURA.md** - Padrões obrigatórios e estrutura
+2. **EXEMPLO_PRISMA_RETRY.md** - Exemplos práticos de implementação
+3. **SOLUCAO_PREPARED_STATEMENTS.md** - Documentação técnica completa
+4. **GUIA_DESENVOLVIMENTO.md** - Troubleshooting específico
 
 ### Para Usuários Finais:
 
@@ -92,6 +119,7 @@ _Guia de navegação pelos documentos do projeto_
 1. **ARQUITETURA.md** - Estrutura técnica
 2. **GUIA_DESENVOLVIMENTO.md** - Debug e troubleshooting
 3. **FUNCIONALIDADES_IMPLEMENTADAS.md** - Features implementadas
+4. **SOLUCAO_PREPARED_STATEMENTS.md** - Soluções para problemas de BD
 
 ---
 
@@ -104,6 +132,8 @@ _Guia de navegação pelos documentos do projeto_
 | ARQUITETURA.md                   | ✅ Completo         | Agosto 2025        |
 | GUIA_DESENVOLVIMENTO.md          | ✅ Completo         | Agosto 2025        |
 | MOCK_PAYMENT_GUIDE.md            | ✅ Mantido original | -                  |
+| SOLUCAO_PREPARED_STATEMENTS.md   | ✅ Completo         | Agosto 2025        |
+| EXEMPLO_PRISMA_RETRY.md          | ✅ Completo         | Agosto 2025        |
 
 ## 💡 Dicas de Uso
 
