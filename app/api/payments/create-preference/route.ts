@@ -16,6 +16,7 @@ const createPreferenceSchema = z.object({
     cpf: z.string().min(11, "CPF deve ter 11 dígitos"),
     phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
   }),
+  registrationId: z.string().optional(), // ID da inscrição existente para atualizar
 });
 
 export async function POST(request: NextRequest) {
@@ -25,7 +26,8 @@ export async function POST(request: NextRequest) {
 
     // Validar dados da requisição
     const body = await request.json();
-    const { eventId, participantData } = createPreferenceSchema.parse(body);
+    const { eventId, participantData, registrationId } =
+      createPreferenceSchema.parse(body);
 
     // Buscar evento
     const event = await prisma.event.findUnique({
@@ -75,11 +77,34 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Se há uma inscrição existente, verificar se é para atualização
     if (existingRegistration) {
-      return NextResponse.json(
-        { error: "CPF já possui inscrição neste evento" },
-        { status: 400 }
-      );
+      // Se não foi fornecido registrationId, retornar erro
+      if (!registrationId) {
+        return NextResponse.json(
+          { error: "CPF já possui inscrição neste evento" },
+          { status: 400 }
+        );
+      }
+
+      // Verificar se o registrationId corresponde à inscrição existente
+      if (registrationId !== existingRegistration.id) {
+        return NextResponse.json(
+          { error: "ID de inscrição não corresponde ao CPF informado" },
+          { status: 400 }
+        );
+      }
+
+      // Verificar se a inscrição está em status que permite nova tentativa de pagamento
+      if (
+        existingRegistration.status !== "PENDING" &&
+        existingRegistration.status !== "CANCELLED"
+      ) {
+        return NextResponse.json(
+          { error: "Esta inscrição já foi confirmada" },
+          { status: 400 }
+        );
+      }
     }
 
     // Verificar se Mercado Pago está configurado
@@ -136,18 +161,30 @@ export async function POST(request: NextRequest) {
 
     const response = await preference.create({ body: preferenceData });
 
-    // Criar registro temporário (pending)
-    await prisma.registration.create({
-      data: {
-        eventId,
-        name: participantData.name,
-        email: participantData.email,
-        cpf: participantData.cpf.replace(/\D/g, ""),
-        phone: participantData.phone.replace(/\D/g, ""),
-        status: "PENDING",
-        paymentId: response.id,
-      },
-    });
+    // Criar ou atualizar registro (pending)
+    if (existingRegistration && registrationId) {
+      // Atualizar inscrição existente com novo paymentId
+      await prisma.registration.update({
+        where: { id: registrationId },
+        data: {
+          status: "PENDING",
+          paymentId: response.id,
+        },
+      });
+    } else {
+      // Criar nova inscrição
+      await prisma.registration.create({
+        data: {
+          eventId,
+          name: participantData.name,
+          email: participantData.email,
+          cpf: participantData.cpf.replace(/\D/g, ""),
+          phone: participantData.phone.replace(/\D/g, ""),
+          status: "PENDING",
+          paymentId: response.id,
+        },
+      });
+    }
 
     return NextResponse.json({
       success: true,

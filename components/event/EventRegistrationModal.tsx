@@ -40,14 +40,53 @@ export function EventRegistrationModal({
     clearCpfVerification,
   } = useCpfVerification();
 
-  const handleContinuePendingPayment = () => {
-    if (!existingRegistration?.paymentId) {
-      message.error("ID de pagamento não encontrado");
+  const handleContinuePendingPayment = async () => {
+    if (!existingRegistration) {
+      message.error("Dados da inscrição não encontrados");
       return;
     }
 
-    // Redirecionar para a página de pagamento pendente
-    window.location.href = `/payment/pending?payment_id=${existingRegistration.paymentId}`;
+    try {
+      setLoading(true);
+
+      // Criar nova preferência de pagamento com os dados existentes
+      const response = await fetch("/api/payments/create-preference", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          eventId: event.id,
+          participantData: {
+            name: existingRegistration.name,
+            email: existingRegistration.email,
+            cpf: existingRegistration.cpf.replace(/\D/g, ""),
+            phone: existingRegistration.phone.replace(/\D/g, ""),
+          },
+          registrationId: existingRegistration.id, // Incluir ID da inscrição existente
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Erro ao processar pagamento");
+      }
+
+      const responseData = await response.json();
+      const { checkoutUrl } = responseData;
+
+      // Redirecionar para o checkout do Mercado Pago
+      window.location.href = checkoutUrl;
+    } catch (error) {
+      console.error("Erro ao continuar pagamento:", error);
+      message.error(
+        error instanceof Error
+          ? error.message
+          : "Erro ao processar pagamento. Tente novamente."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCheckReceipt = () => {
