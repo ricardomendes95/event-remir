@@ -35,6 +35,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Verificar se é um webhook de teste do Mercado Pago
+    if (paymentId === "123456" || body.live_mode === false) {
+      console.log("📧 Webhook de teste recebido do Mercado Pago");
+      return NextResponse.json({
+        received: true,
+        message: "Test webhook received successfully",
+        test: true,
+      });
+    }
+
     // Buscar informações do pagamento no Mercado Pago
     const payment = new Payment(mercadoPagoClient!);
     const paymentInfo = await payment.get({ id: paymentId });
