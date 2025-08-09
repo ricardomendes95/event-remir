@@ -1,20 +1,9 @@
 import { prisma } from "../../lib/prisma";
 import { BaseRepository } from "./BaseRepository";
+import type { Registration as PrismaRegistration } from "@prisma/client";
 
 // Tipos baseados no schema Prisma atualizado
-export interface Registration {
-  id: string;
-  eventId: string;
-  name: string;
-  email: string;
-  cpf: string;
-  phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
-  paymentId: string | null;
-  checkedInAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type Registration = PrismaRegistration;
 
 export interface RegistrationWithEvent extends Registration {
   event: {

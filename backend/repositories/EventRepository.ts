@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { BaseRepository } from "./BaseRepository";
+import type { Registration as PrismaRegistration } from "@prisma/client";
 
 // Redefining types manually to match actual schema
 export interface Event {
@@ -20,19 +21,7 @@ export interface Event {
   updatedAt: Date;
 }
 
-export interface Registration {
-  id: string;
-  eventId: string;
-  name: string;
-  email: string;
-  cpf: string;
-  phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
-  paymentId: string | null;
-  checkedInAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
+export type Registration = PrismaRegistration;
 
 export interface EventWithStats extends Event {
   _count?: {

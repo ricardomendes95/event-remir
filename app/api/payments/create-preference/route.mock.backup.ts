@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Preference } from "mercadopago";
-import {
-  mercadoPagoClient,
-  validateMercadoPagoConfig,
-} from "@/lib/mercadopago";
+// import { Preference } from 'mercadopago';
+// import { mercadoPagoClient, validateMercadoPagoConfig } from '@/lib/mercadopago';
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
@@ -20,8 +17,8 @@ const createPreferenceSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    // Validar configuração do Mercado Pago
-    validateMercadoPagoConfig();
+    // ⚠️ MODO MOCKADO - REMOVER APÓS DEPLOY E CONFIGURAÇÃO DO MERCADO PAGO
+    console.log("🔄 MODO MOCKADO: Simulando pagamento...");
 
     // Validar dados da requisição
     const body = await request.json();
@@ -82,81 +79,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se Mercado Pago está configurado
-    if (!mercadoPagoClient) {
-      return NextResponse.json(
-        { error: "Sistema de pagamento não configurado" },
-        { status: 500 }
-      );
-    }
+    // 🎭 SIMULAÇÃO: Criar inscrição diretamente como CONFIRMADA
+    const mockPaymentId = `mock_${Date.now()}_${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
 
-    // Criar preferência no Mercado Pago
-    const preference = new Preference(mercadoPagoClient);
-
-    const preferenceData = {
-      items: [
-        {
-          id: eventId,
-          title: event.title,
-          description: event.description,
-          quantity: 1,
-          unit_price: Number(event.price),
-          currency_id: "BRL",
-        },
-      ],
-      payer: {
-        name: participantData.name,
-        email: participantData.email,
-        identification: {
-          type: "CPF",
-          number: participantData.cpf.replace(/\D/g, ""),
-        },
-        phone: {
-          number: participantData.phone.replace(/\D/g, ""),
-        },
-      },
-      back_urls: {
-        success: `${process.env.NEXTAUTH_URL}/payment/success`,
-        failure: `${process.env.NEXTAUTH_URL}/payment/failure`,
-        pending: `${process.env.NEXTAUTH_URL}/payment/pending`,
-      },
-      auto_return: "approved",
-      notification_url: `${process.env.NEXTAUTH_URL}/api/payments/webhook`,
-      metadata: {
-        event_id: eventId,
-        participant_name: participantData.name,
-        participant_email: participantData.email,
-        participant_cpf: participantData.cpf,
-        participant_phone: participantData.phone,
-      },
-      expires: true,
-      expiration_date_from: new Date().toISOString(),
-      expiration_date_to: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutos
-    };
-
-    const response = await preference.create({ body: preferenceData });
-
-    // Criar registro temporário (pending)
-    await prisma.registration.create({
+    const registration = await prisma.registration.create({
       data: {
         eventId,
         name: participantData.name,
         email: participantData.email,
         cpf: participantData.cpf.replace(/\D/g, ""),
         phone: participantData.phone.replace(/\D/g, ""),
-        status: "PENDING",
-        paymentId: response.id,
+        status: "CONFIRMED", // 🎭 MOCKADO: Direto como confirmado
+        paymentId: mockPaymentId,
       },
     });
 
+    console.log("✅ MOCKADO: Inscrição criada com sucesso:", registration.id);
+
+    // 🎭 SIMULAÇÃO: Retornar URLs mockadas
+    const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3001";
+
     return NextResponse.json({
       success: true,
-      preferenceId: response.id,
-      checkoutUrl: response.init_point,
-      sandboxCheckoutUrl: response.sandbox_init_point,
+      preferenceId: mockPaymentId,
+      checkoutUrl: `${baseUrl}/payment/success?payment_id=${mockPaymentId}&registration_id=${registration.id}`,
+      sandboxCheckoutUrl: `${baseUrl}/payment/success?payment_id=${mockPaymentId}&registration_id=${registration.id}`,
+      // 🎭 DADOS EXTRAS PARA DEBUG
+      mockData: {
+        registrationId: registration.id,
+        participantName: participantData.name,
+        eventTitle: event.title,
+        status: "CONFIRMED",
+        message: "🎭 Pagamento simulado com sucesso!",
+      },
     });
   } catch (error) {
-    console.error("Erro ao criar preferência:", error);
+    console.error("Erro ao criar inscrição (mockada):", error);
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(

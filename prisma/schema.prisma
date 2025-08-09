@@ -43,6 +43,8 @@ model Registration {
   status         RegistrationStatus @default(PENDING)
   paymentMethod  PaymentMethod     @default(MERCADO_PAGO)
   paymentId      String?
+  paymentError   String?           // Mensagem de erro do pagamento
+  paymentDetails Json?             // Detalhes completos do pagamento (sucesso ou erro)
   checkedInAt    DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -68,6 +70,7 @@ enum RegistrationStatus {
   PENDING
   CONFIRMED
   CANCELLED
+  PAYMENT_FAILED
 }
 
 enum PaymentMethod {

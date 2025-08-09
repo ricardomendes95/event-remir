@@ -67,21 +67,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualizar status do registro baseado no status do pagamento
-    let newStatus: "PENDING" | "CONFIRMED" | "CANCELLED";
+    let newStatus: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
+    let paymentError: string | null = null;
 
     switch (paymentInfo.status) {
       case "approved":
         newStatus = "CONFIRMED";
         break;
       case "rejected":
+        newStatus = "PAYMENT_FAILED";
+        paymentError = `Pagamento rejeitado: ${
+          paymentInfo.status_detail || "Motivo não especificado"
+        }`;
+        break;
       case "cancelled":
         newStatus = "CANCELLED";
+        paymentError = `Pagamento cancelado: ${
+          paymentInfo.status_detail || "Cancelado pelo usuário"
+        }`;
         break;
       case "pending":
       case "in_process":
       case "in_mediation":
+        newStatus = "PENDING";
+        break;
       default:
         newStatus = "PENDING";
+        console.log(`Status desconhecido: ${paymentInfo.status}`);
         break;
     }
 
@@ -93,6 +105,28 @@ export async function POST(request: NextRequest) {
       data: {
         status: newStatus,
         paymentId: paymentId.toString(), // Atualizar com o payment_id real
+        paymentError: paymentError,
+        paymentDetails: {
+          paymentId: paymentId,
+          status: paymentInfo.status,
+          statusDetail: (paymentInfo as { status_detail?: string })
+            .status_detail,
+          paymentMethod: (paymentInfo as { payment_method_id?: string })
+            .payment_method_id,
+          transactionAmount: (paymentInfo as { transaction_amount?: number })
+            .transaction_amount,
+          dateProcessed:
+            (paymentInfo as { date_approved?: string }).date_approved ||
+            new Date().toISOString(),
+          payer: {
+            email: (paymentInfo as { payer?: { email?: string } }).payer?.email,
+            identification: (
+              paymentInfo as {
+                payer?: { identification?: { type?: string; number?: string } };
+              }
+            ).payer?.identification,
+          },
+        },
         updatedAt: new Date(),
       },
     });

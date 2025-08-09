@@ -110,21 +110,10 @@ export function EventRegistrationModal({
       }
 
       const responseData = await response.json();
-      const { checkoutUrl, mockData } = responseData;
+      const { checkoutUrl } = responseData;
 
-      // 🎭 MODO MOCKADO: Mostrar mensagem de sucesso e redirecionar para página de sucesso
-      if (mockData) {
-        message.success(mockData.message);
-        console.log("🎭 Inscrição mockada:", mockData);
-
-        // Aguardar um momento para o usuário ver a mensagem
-        setTimeout(() => {
-          window.location.href = checkoutUrl;
-        }, 1500);
-      } else {
-        // Redirecionar diretamente para o checkout do Mercado Pago (código real)
-        window.location.href = checkoutUrl;
-      }
+      // Redirecionar para o checkout do Mercado Pago
+      window.location.href = checkoutUrl;
     } catch (error) {
       console.error("Erro na inscrição:", error);
 

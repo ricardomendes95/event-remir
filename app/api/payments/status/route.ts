@@ -79,14 +79,19 @@ export async function GET(request: NextRequest) {
 
         if (paymentInfo) {
           // Atualizar status local se necessário
-          let newStatus: "PENDING" | "CONFIRMED" | "CANCELLED" =
-            registration.status;
+          let newStatus:
+            | "PENDING"
+            | "CONFIRMED"
+            | "CANCELLED"
+            | "PAYMENT_FAILED" = registration.status;
 
           switch (paymentInfo.status) {
             case "approved":
               newStatus = "CONFIRMED";
               break;
             case "rejected":
+              newStatus = "PAYMENT_FAILED";
+              break;
             case "cancelled":
               newStatus = "CANCELLED";
               break;

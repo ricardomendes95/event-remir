@@ -51,6 +51,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
           setError(data.error || "Erro ao verificar status do pagamento");
         }
       } catch (err) {
+        console.error("Payment verification error:", err);
         setError("Erro de conexão ao verificar pagamento");
       } finally {
         setLoading(false);
@@ -224,6 +225,8 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
                 ? "Confirmado"
                 : registration.status === "PENDING"
                 ? "Pendente"
+                : registration.status === "PAYMENT_FAILED"
+                ? "Falha no Pagamento"
                 : "Cancelado"}
             </Paragraph>
           </div>
