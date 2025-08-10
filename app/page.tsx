@@ -73,9 +73,7 @@ export default function HomePage() {
       </footer>
 
       {/* Auto Show Proof Modal */}
-      <Suspense fallback={null}>
-        <AutoShowProofModal />
-      </Suspense>
+      <AutoShowProofModal />
     </div>
   );
 }

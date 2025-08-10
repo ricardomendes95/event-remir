@@ -4,8 +4,8 @@ import { z } from "zod";
 
 const searchSchema = z
   .object({
-    registrationId: z.string().optional(),
-    paymentId: z.string().optional(),
+    registrationId: z.string().optional().nullable(),
+    paymentId: z.string().optional().nullable(),
   })
   .refine((data) => data.registrationId || data.paymentId, {
     message: "É necessário fornecer registrationId ou paymentId",

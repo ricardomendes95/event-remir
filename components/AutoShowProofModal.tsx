@@ -31,20 +31,6 @@ export function AutoShowProofModal() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setRegistrationData(null);
-
-    // Limpar query params da URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete("registration_id");
-    url.searchParams.delete("payment_id");
-    url.searchParams.delete("comprovante");
-
-    // Atualizar URL sem os parâmetros
-    router.replace(url.pathname, { scroll: false });
-  };
-
   useEffect(() => {
     const checkForAutoShow = async () => {
       // Verificar se há parâmetros para mostrar comprovante automaticamente
@@ -52,7 +38,7 @@ export function AutoShowProofModal() {
       const paymentId = searchParams.get("payment_id");
       const showComprovante = searchParams.get("comprovante");
 
-      if ((registrationId || paymentId) && showComprovante !== "false") {
+      if ((registrationId || paymentId) && showComprovante === "true") {
         setLoading(true);
 
         try {
@@ -63,8 +49,8 @@ export function AutoShowProofModal() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              registrationId,
-              paymentId,
+              registrationId: registrationId || undefined,
+              paymentId: paymentId || undefined,
             }),
           });
 
@@ -88,6 +74,20 @@ export function AutoShowProofModal() {
 
     checkForAutoShow();
   }, [searchParams]);
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setRegistrationData(null);
+
+    // Limpar query params da URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("registration_id");
+    url.searchParams.delete("payment_id");
+    url.searchParams.delete("comprovante");
+
+    // Atualizar URL sem os parâmetros
+    router.replace(url.pathname, { scroll: false });
+  };
 
   return (
     <RegistrationProofModal
