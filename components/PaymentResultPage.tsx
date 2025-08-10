@@ -47,6 +47,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
 
         if (data.success) {
           setRegistration(data.registration);
+          setError(null);
         } else {
           setError(data.error || "Erro ao verificar status do pagamento");
         }
@@ -115,6 +116,87 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
   }
 
   const getResultContent = () => {
+    // Usar o status real da API em vez da prop type
+    const actualStatus = registration?.status;
+
+    // Se temos dados da API, usar o status real
+    if (actualStatus === "CONFIRMED") {
+      return {
+        icon: <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />,
+        status: "success" as const,
+        title: "Pagamento Aprovado!",
+        subTitle: "Sua inscrição foi confirmada com sucesso.",
+        extra: [
+          <Button
+            key="comprovante"
+            type="primary"
+            onClick={handleViewComprovante}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Ver Comprovante
+          </Button>,
+          <Button key="home" onClick={handleGoHome}>
+            <Home className="h-4 w-4 mr-2" />
+            Voltar ao Início
+          </Button>,
+        ],
+      };
+    } else if (actualStatus === "PAYMENT_FAILED") {
+      return {
+        icon: <XCircle className="h-16 w-16 text-red-600 mx-auto" />,
+        status: "error" as const,
+        title: "Pagamento Rejeitado",
+        subTitle: "Houve um problema com seu pagamento. Tente novamente.",
+        extra: [
+          <Button key="retry" type="primary" onClick={handleGoHome}>
+            Tentar Novamente
+          </Button>,
+          <Button key="home" onClick={handleGoHome}>
+            <Home className="h-4 w-4 mr-2" />
+            Voltar ao Início
+          </Button>,
+        ],
+      };
+    } else if (actualStatus === "CANCELLED") {
+      return {
+        icon: <XCircle className="h-16 w-16 text-gray-600 mx-auto" />,
+        status: "warning" as const,
+        title: "Pagamento Cancelado",
+        subTitle: "O pagamento foi cancelado.",
+        extra: [
+          <Button key="retry" type="primary" onClick={handleGoHome}>
+            Tentar Novamente
+          </Button>,
+          <Button key="home" onClick={handleGoHome}>
+            <Home className="h-4 w-4 mr-2" />
+            Voltar ao Início
+          </Button>,
+        ],
+      };
+    } else if (actualStatus === "PENDING") {
+      return {
+        icon: <Clock className="h-16 w-16 text-yellow-600 mx-auto" />,
+        status: "warning" as const,
+        title: "Pagamento Pendente",
+        subTitle:
+          "Seu pagamento está em análise. Você receberá uma confirmação em breve.",
+        extra: [
+          <Button
+            key="status"
+            type="primary"
+            onClick={() => window.location.reload()}
+          >
+            Verificar Status
+          </Button>,
+          <Button key="home" onClick={handleGoHome}>
+            <Home className="h-4 w-4 mr-2" />
+            Voltar ao Início
+          </Button>,
+        ],
+      };
+    }
+
+    // Fallback para quando não temos dados ainda - usar prop type como backup
     switch (type) {
       case "success":
         return {
@@ -156,6 +238,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
         };
 
       case "pending":
+      default:
         return {
           icon: <Clock className="h-16 w-16 text-yellow-600 mx-auto" />,
           status: "warning" as const,
@@ -172,19 +255,6 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
             </Button>,
             <Button key="home" onClick={handleGoHome}>
               <Home className="h-4 w-4 mr-2" />
-              Voltar ao Início
-            </Button>,
-          ],
-        };
-
-      default:
-        return {
-          icon: <XCircle className="h-16 w-16 text-gray-600 mx-auto" />,
-          status: "info" as const,
-          title: "Status Desconhecido",
-          subTitle: "Não foi possível determinar o status do pagamento.",
-          extra: [
-            <Button key="home" type="primary" onClick={handleGoHome}>
               Voltar ao Início
             </Button>,
           ],
