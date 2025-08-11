@@ -13,11 +13,36 @@ import { PaymentConfig } from "@/backend/schemas/eventSchemas";
 function getExcludedPaymentTypes(selectedMethod: string) {
   switch (selectedMethod) {
     case "pix":
-      return [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }]; // Só PIX
+      return [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }]; // Só PIX (account_money)
     case "credit_card":
-      return [{ id: "ticket" }]; // Cartão de crédito e débito (MP agrupa)
+      return [{ id: "account_money" }, { id: "ticket" }]; // Só cartões (crédito/débito)
     case "debit_card":
-      return [{ id: "credit_card" }, { id: "ticket" }]; // Só débito
+      return [{ id: "credit_card" }, { id: "account_money" }, { id: "ticket" }]; // Só débito
+    default:
+      return [];
+  }
+}
+
+// Helper function para excluir métodos específicos de cartão
+function getExcludedPaymentMethods(selectedMethod: string) {
+  switch (selectedMethod) {
+    case "pix":
+      // Exclui todas as bandeiras de cartão para forçar só PIX
+      return [
+        { id: "master" },
+        { id: "visa" },
+        { id: "amex" },
+        { id: "elo" },
+        { id: "hipercard" },
+        { id: "cabal" },
+      ];
+    case "debit_card":
+      // Para débito, não precisamos excluir bandeiras específicas
+      // O excluded_payment_types já cuida da restrição
+      return [];
+    case "credit_card":
+      // Para crédito, não precisamos excluir bandeiras específicas
+      return [];
     default:
       return [];
   }
@@ -233,11 +258,16 @@ export async function POST(request: NextRequest) {
       },
       payment_methods: {
         excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
+        excluded_payment_methods: getExcludedPaymentMethods(paymentData.method),
         installments:
           paymentData.method === "credit_card"
             ? paymentData.installments || 1
             : 1,
         default_installments:
+          paymentData.method === "credit_card"
+            ? paymentData.installments || 1
+            : 1,
+        max_installments:
           paymentData.method === "credit_card"
             ? paymentData.installments || 1
             : 1,
