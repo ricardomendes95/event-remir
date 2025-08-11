@@ -5,7 +5,7 @@ import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import { Button } from "antd";
 import EventRegistrationModal from "./EventRegistrationModal";
 import { Event } from "@/types/event";
-import { formatTextToHtml } from "../../utils/textFormatter";
+// formatTextToHtml removido - agora usamos HTML direto do TipTap
 import { CountdownTimer } from "../CountdownTimer";
 
 export function EventDisplay() {
@@ -108,9 +108,9 @@ export function EventDisplay() {
               {event.description && (
                 <div className="event-description mb-6">
                   <div
-                    className="formatted-content"
+                    className="formatted-content prose prose-lg max-w-none"
                     dangerouslySetInnerHTML={{
-                      __html: formatTextToHtml(event.description),
+                      __html: event.description,
                     }}
                   />
                 </div>

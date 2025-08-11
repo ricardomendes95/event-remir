@@ -1,18 +1,27 @@
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Input, Button, Space, Tooltip } from "antd";
-import type { TextAreaRef } from "antd/es/input/TextArea";
+import React from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import TextAlign from "@tiptap/extension-text-align";
+import Highlight from "@tiptap/extension-highlight";
+import Link from "@tiptap/extension-link";
+import { Button, Space, Divider, Tooltip } from "antd";
 import {
   BoldOutlined,
   ItalicOutlined,
   UnderlineOutlined,
   OrderedListOutlined,
   UnorderedListOutlined,
+  AlignLeftOutlined,
+  AlignCenterOutlined,
+  AlignRightOutlined,
+  HighlightOutlined,
+  LinkOutlined,
+  UndoOutlined,
+  RedoOutlined,
 } from "@ant-design/icons";
-import { formatTextToHtml } from "../utils/textFormatter";
-
-const { TextArea } = Input;
 
 interface RichTextEditorProps {
   value?: string;
@@ -31,149 +40,256 @@ export default function RichTextEditor({
   maxLength = 2000,
   disabled = false,
 }: RichTextEditorProps) {
-  const textAreaRef = useRef<TextAreaRef>(null);
-  const [previewMode, setPreviewMode] = useState(false);
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [1, 2, 3],
+        },
+      }),
+      Underline,
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+      }),
+      Highlight.configure({
+        multicolor: false,
+      }),
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: "text-blue-500 hover:text-blue-700 underline",
+        },
+      }),
+    ],
+    content: value,
+    immediatelyRender: false, // Fix SSR hydration issues
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      // Se o conteúdo é apenas um parágrafo vazio, retorna string vazia
+      if (html === "<p></p>") {
+        onChange?.("");
+      } else {
+        onChange?.(html);
+      }
+    },
+    editable: !disabled,
+    editorProps: {
+      attributes: {
+        class: `prose prose-sm max-w-none focus:outline-none min-h-[${
+          rows * 24
+        }px] p-3`,
+        placeholder: placeholder,
+      },
+    },
+  });
 
-  // Função para inserir formatação no texto
-  const insertFormatting = (prefix: string, suffix: string = "") => {
-    const textArea = textAreaRef.current?.resizableTextArea?.textArea;
-    if (!textArea) return;
-
-    const start = textArea.selectionStart;
-    const end = textArea.selectionEnd;
-    const selectedText = value.substring(start, end);
-    const beforeText = value.substring(0, start);
-    const afterText = value.substring(end);
-
-    let newText;
-    if (selectedText) {
-      // Se há texto selecionado, aplica a formatação
-      newText = `${beforeText}${prefix}${selectedText}${suffix}${afterText}`;
-    } else {
-      // Se não há seleção, insere os marcadores
-      newText = `${beforeText}${prefix}${suffix}${afterText}`;
+  // Atualiza o editor quando o value externo muda
+  React.useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value || "");
     }
+  }, [value, editor]);
 
-    onChange?.(newText);
+  if (!editor) {
+    return (
+      <div className="border border-gray-300 rounded-lg">
+        <div className="bg-gray-50 border-b border-gray-200 p-2 h-[48px]" />
+        <div
+          className="p-3 bg-gray-50 animate-pulse"
+          style={{ minHeight: `${rows * 24}px` }}
+        >
+          Carregando editor...
+        </div>
+      </div>
+    );
+  }
 
-    // Restaura o foco e posição do cursor
-    setTimeout(() => {
-      textArea.focus();
-      const newPosition =
-        start +
-        prefix.length +
-        (selectedText ? selectedText.length + suffix.length : 0);
-      textArea.setSelectionRange(newPosition, newPosition);
-    }, 10);
+  const addLink = () => {
+    const url = window.prompt("URL:");
+    if (url) {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: url })
+        .run();
+    }
   };
 
-  // Converte texto com marcações simples para HTML
-  const formattedHtml = formatTextToHtml(value);
+  const currentCharCount = editor.getText().length;
+  const isOverLimit = maxLength && currentCharCount > maxLength;
 
   return (
     <div className="border border-gray-300 rounded-lg overflow-hidden">
       {/* Toolbar */}
       <div className="bg-gray-50 border-b border-gray-200 p-2">
-        <Space size="small">
-          <Tooltip title="Negrito (**texto**)">
+        <Space size="small" wrap>
+          {/* Undo/Redo */}
+          <Tooltip title="Desfazer">
             <Button
               type="text"
+              size="small"
+              icon={<UndoOutlined />}
+              onClick={() => editor.chain().focus().undo().run()}
+              disabled={disabled || !editor.can().undo()}
+            />
+          </Tooltip>
+          <Tooltip title="Refazer">
+            <Button
+              type="text"
+              size="small"
+              icon={<RedoOutlined />}
+              onClick={() => editor.chain().focus().redo().run()}
+              disabled={disabled || !editor.can().redo()}
+            />
+          </Tooltip>
+
+          <Divider type="vertical" />
+
+          {/* Text Formatting */}
+          <Tooltip title="Negrito">
+            <Button
+              type={editor.isActive("bold") ? "primary" : "text"}
               size="small"
               icon={<BoldOutlined />}
-              onClick={() => insertFormatting("**", "**")}
+              onClick={() => editor.chain().focus().toggleBold().run()}
               disabled={disabled}
             />
           </Tooltip>
-          <Tooltip title="Itálico (*texto*)">
+          <Tooltip title="Itálico">
             <Button
-              type="text"
+              type={editor.isActive("italic") ? "primary" : "text"}
               size="small"
               icon={<ItalicOutlined />}
-              onClick={() => insertFormatting("*", "*")}
+              onClick={() => editor.chain().focus().toggleItalic().run()}
               disabled={disabled}
             />
           </Tooltip>
-          <Tooltip title="Sublinhado (__texto__)">
+          <Tooltip title="Sublinhado">
             <Button
-              type="text"
+              type={editor.isActive("underline") ? "primary" : "text"}
               size="small"
               icon={<UnderlineOutlined />}
-              onClick={() => insertFormatting("__", "__")}
+              onClick={() => editor.chain().focus().toggleUnderline().run()}
               disabled={disabled}
             />
           </Tooltip>
-          <Tooltip title="Lista com marcadores (- item)">
+          <Tooltip title="Destacar">
             <Button
-              type="text"
+              type={editor.isActive("highlight") ? "primary" : "text"}
+              size="small"
+              icon={<HighlightOutlined />}
+              onClick={() => editor.chain().focus().toggleHighlight().run()}
+              disabled={disabled}
+            />
+          </Tooltip>
+
+          <Divider type="vertical" />
+
+          {/* Lists */}
+          <Tooltip title="Lista com marcadores">
+            <Button
+              type={editor.isActive("bulletList") ? "primary" : "text"}
               size="small"
               icon={<UnorderedListOutlined />}
-              onClick={() => insertFormatting("- ")}
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
               disabled={disabled}
             />
           </Tooltip>
-          <Tooltip title="Lista numerada (1. item)">
+          <Tooltip title="Lista numerada">
             <Button
-              type="text"
+              type={editor.isActive("orderedList") ? "primary" : "text"}
               size="small"
               icon={<OrderedListOutlined />}
-              onClick={() => insertFormatting("1. ")}
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
               disabled={disabled}
             />
           </Tooltip>
-          <div className="border-l border-gray-300 h-4 mx-2" />
-          <Button
-            type="text"
-            size="small"
-            onClick={() => setPreviewMode(!previewMode)}
-            disabled={disabled}
-          >
-            {previewMode ? "Editar" : "Visualizar"}
-          </Button>
+
+          <Divider type="vertical" />
+
+          {/* Text Alignment */}
+          <Tooltip title="Alinhar à esquerda">
+            <Button
+              type={
+                editor.isActive({ textAlign: "left" }) ||
+                (!editor.isActive({ textAlign: "center" }) &&
+                  !editor.isActive({ textAlign: "right" }))
+                  ? "primary"
+                  : "text"
+              }
+              size="small"
+              icon={<AlignLeftOutlined />}
+              onClick={() => editor.chain().focus().setTextAlign("left").run()}
+              disabled={disabled}
+            />
+          </Tooltip>
+          <Tooltip title="Centralizar">
+            <Button
+              type={
+                editor.isActive({ textAlign: "center" }) ? "primary" : "text"
+              }
+              size="small"
+              icon={<AlignCenterOutlined />}
+              onClick={() =>
+                editor.chain().focus().setTextAlign("center").run()
+              }
+              disabled={disabled}
+            />
+          </Tooltip>
+          <Tooltip title="Alinhar à direita">
+            <Button
+              type={
+                editor.isActive({ textAlign: "right" }) ? "primary" : "text"
+              }
+              size="small"
+              icon={<AlignRightOutlined />}
+              onClick={() => editor.chain().focus().setTextAlign("right").run()}
+              disabled={disabled}
+            />
+          </Tooltip>
+
+          <Divider type="vertical" />
+
+          {/* Link */}
+          <Tooltip title="Inserir link">
+            <Button
+              type={editor.isActive("link") ? "primary" : "text"}
+              size="small"
+              icon={<LinkOutlined />}
+              onClick={addLink}
+              disabled={disabled}
+            />
+          </Tooltip>
         </Space>
       </div>
 
-      {/* Editor ou Preview */}
-      <div className="p-0">
-        {previewMode ? (
-          <div
-            className="min-h-[150px] p-3 bg-white prose prose-sm max-w-none"
-            dangerouslySetInnerHTML={{ __html: formattedHtml }}
-            style={{
-              whiteSpace: "pre-wrap",
-            }}
-          />
-        ) : (
-          <TextArea
-            ref={textAreaRef}
-            value={value}
-            onChange={(e) => onChange?.(e.target.value)}
-            placeholder={`${placeholder}
+      {/* Editor */}
+      <div className="relative">
+        <EditorContent
+          editor={editor}
+          className="prose prose-sm max-w-none"
+          style={{
+            minHeight: `${rows * 24}px`,
+          }}
+        />
 
-Dicas de formatação:
-**negrito** *itálico* __sublinhado__
-- Lista com marcadores
-1. Lista numerada`}
-            rows={rows}
-            maxLength={maxLength}
-            disabled={disabled}
-            bordered={false}
-            showCount
-            style={{
-              resize: "vertical",
-              fontFamily:
-                'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
-            }}
-          />
+        {/* Character count */}
+        {maxLength && (
+          <div className="absolute bottom-2 right-2 text-xs text-gray-400 bg-white px-2 py-1 rounded shadow-sm">
+            <span className={isOverLimit ? "text-red-500" : ""}>
+              {currentCharCount}
+            </span>
+            /{maxLength}
+          </div>
         )}
       </div>
 
-      {/* Ajuda */}
-      {!previewMode && (
-        <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 text-xs text-gray-500">
-          Use: **negrito**, *itálico*, __sublinhado__, - lista, 1. lista
-          numerada
-        </div>
-      )}
+      {/* Help text */}
+      <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 text-xs text-gray-500">
+        Use a barra de ferramentas para formatar o texto. Suporte a negrito,
+        itálico, listas, alinhamento e links.
+      </div>
     </div>
   );
 }
