@@ -54,11 +54,8 @@ export default function EventsPage() {
       const response = await fetch("/api/events?includeStats=true");
       const data = await response.json();
 
-      console.log("API Response:", data); // Debug log
-
       if (data.success) {
         const eventsList = data.data.items || [];
-        console.log("Events List:", eventsList); // Debug log
         setEvents(eventsList);
       } else {
         message.error("Erro ao carregar eventos");

@@ -81,7 +81,6 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       if (!response.ok) {
         throw new Error(data.error || "Erro ao carregar métodos de pagamento");
       }
-      console.log({ data });
 
       setPaymentOptions(data.data);
 
@@ -137,13 +136,6 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       const payment = paymentOptions?.available_methods?.find(
         (opt) => `${opt.method}-${opt.installments || 1}` === selectedMethod
       );
-      console.log({
-        paymentOptions,
-        group,
-        payment,
-        availableMethods: paymentOptions?.available_methods,
-      });
-
       setSelectedOption(payment || null);
     }
   }, [paymentOptions, selectedMethod]);

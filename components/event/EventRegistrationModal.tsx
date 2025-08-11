@@ -74,12 +74,12 @@ export default function EventRegistrationModal({
       description: "Informações pessoais",
     },
     {
-      title: "Pagamento",
-      description: "Método de pagamento",
+      title: "Método de pagamento",
+      description: "",
     },
     {
-      title: "Confirmação",
-      description: "Finalizar inscrição",
+      title: "Finalizar inscrição",
+      description: "",
     },
   ];
 
