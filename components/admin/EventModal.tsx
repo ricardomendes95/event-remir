@@ -235,12 +235,15 @@ export default function EventModal({
                 min: 10,
                 message: "Descrição deve ter pelo menos 10 caracteres",
               },
-              { max: 2000, message: "Descrição muito longa (máximo 2000 caracteres)" },
+              {
+                max: 2000,
+                message: "Descrição muito longa (máximo 2000 caracteres)",
+              },
             ]}
             validateStatus={getFieldError("description") ? "error" : ""}
             help={getFieldError("description")}
           >
-            <RichTextEditor 
+            <RichTextEditor
               placeholder="Descrição detalhada do evento..."
               maxLength={2000}
               rows={8}

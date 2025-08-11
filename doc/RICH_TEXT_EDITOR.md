@@ -9,7 +9,7 @@ Foi implementado com sucesso um **editor de texto rico** para o campo de descri�
 ### 🎨 Formatação Disponível
 
 - **Negrito**: `**texto**` → **texto**
-- **Itálico**: `*texto*` → *texto* 
+- **Itálico**: `*texto*` → _texto_
 - **Sublinhado**: `__texto__` → <u>texto</u>
 - **Lista com marcadores**: `- item` → • item
 - **Lista numerada**: `1. item` → 1. item
@@ -17,6 +17,7 @@ Foi implementado com sucesso um **editor de texto rico** para o campo de descri�
 ### 🛠️ Componentes Criados
 
 1. **RichTextEditor.tsx**
+
    - Editor customizado com barra de ferramentas
    - Preview em tempo real
    - Máximo de 2000 caracteres
@@ -38,7 +39,7 @@ Foi implementado com sucesso um **editor de texto rico** para o campo de descri�
 
 - `components/RichTextEditor.tsx` (novo)
 - `components/admin/EventModal.tsx` (atualizado)
-- `components/event/EventDisplay.tsx` (atualizado) 
+- `components/event/EventDisplay.tsx` (atualizado)
 - `utils/textFormatter.ts` (novo)
 - `app/globals.css` (estilos adicionados)
 - `prisma/schema.prisma` (description → @db.Text)
@@ -51,7 +52,7 @@ Foi implementado com sucesso um **editor de texto rico** para o campo de descri�
 2. Crie/edite um evento
 3. No campo "Descrição", use a barra de ferramentas:
    - Clique nos botões para aplicar formatação
-   - Ou digite os códigos manualmente (**negrito**, *itálico*)
+   - Ou digite os códigos manualmente (**negrito**, _itálico_)
 4. Use o botão "Visualizar" para ver o resultado
 5. Salve o evento
 

@@ -59,7 +59,10 @@ export default function RichTextEditor({
     // Restaura o foco e posição do cursor
     setTimeout(() => {
       textArea.focus();
-      const newPosition = start + prefix.length + (selectedText ? selectedText.length + suffix.length : 0);
+      const newPosition =
+        start +
+        prefix.length +
+        (selectedText ? selectedText.length + suffix.length : 0);
       textArea.setSelectionRange(newPosition, newPosition);
     }, 10);
   };
@@ -136,7 +139,7 @@ export default function RichTextEditor({
             className="min-h-[150px] p-3 bg-white prose prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: formattedHtml }}
             style={{
-              whiteSpace: 'pre-wrap',
+              whiteSpace: "pre-wrap",
             }}
           />
         ) : (
@@ -156,8 +159,9 @@ Dicas de formatação:
             bordered={false}
             showCount
             style={{
-              resize: 'vertical',
-              fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
+              resize: "vertical",
+              fontFamily:
+                'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
             }}
           />
         )}
@@ -166,7 +170,8 @@ Dicas de formatação:
       {/* Ajuda */}
       {!previewMode && (
         <div className="bg-gray-50 border-t border-gray-200 px-3 py-2 text-xs text-gray-500">
-          Use: **negrito**, *itálico*, __sublinhado__, - lista, 1. lista numerada
+          Use: **negrito**, *itálico*, __sublinhado__, - lista, 1. lista
+          numerada
         </div>
       )}
     </div>

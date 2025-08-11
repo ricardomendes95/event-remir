@@ -100,10 +100,10 @@ export function EventDisplay() {
 
               {event.description && (
                 <div className="event-description mb-6">
-                  <div 
+                  <div
                     className="formatted-content"
-                    dangerouslySetInnerHTML={{ 
-                      __html: formatTextToHtml(event.description) 
+                    dangerouslySetInnerHTML={{
+                      __html: formatTextToHtml(event.description),
                     }}
                   />
                 </div>
