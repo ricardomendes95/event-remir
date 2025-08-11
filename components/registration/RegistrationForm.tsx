@@ -137,21 +137,51 @@ export function RegistrationForm({
       </div>
 
       <div className="mt-6 pt-4 border-t">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button onClick={onCancel} size="large" className="flex-1">
-            Cancelar
-          </Button>
+        <div className="flex flex-col sm:flex-row gap-3 registration-buttons">
           <Button
             type="primary"
             htmlType="submit"
-            size="large"
             loading={loading}
             disabled={disabled}
-            className="flex-1"
+            className="flex-1 sm:order-2 text-base font-medium primary-button"
           >
             {loading ? "Processando..." : "Continuar para Pagamento"}
           </Button>
+          <Button
+            onClick={onCancel}
+            className="flex-1 sm:order-1 secondary-button"
+          >
+            Cancelar
+          </Button>
         </div>
+
+        <style>{`
+          .registration-buttons .primary-button {
+            height: 64px !important;
+            min-height: 64px !important;
+            line-height: normal !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          
+          .registration-buttons .secondary-button {
+            height: 56px !important;
+            min-height: 56px !important;
+            line-height: normal !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+          }
+          
+          @media (min-width: 640px) {
+            .registration-buttons .primary-button,
+            .registration-buttons .secondary-button {
+              height: 40px !important;
+              min-height: 40px !important;
+            }
+          }
+        `}</style>
         <p className="text-xs text-gray-500 text-center mt-3">
           Você será redirecionado para o Mercado Pago para finalizar o pagamento
         </p>
