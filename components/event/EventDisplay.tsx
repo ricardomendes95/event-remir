@@ -169,6 +169,7 @@ export function EventDisplay() {
                   className="w-full h-12 text-lg font-semibold"
                   onClick={() => setModalOpen(true)}
                   disabled={event.currentRegistrations >= event.capacity}
+                  data-testid="inscricao-button"
                 >
                   {event.currentRegistrations >= event.capacity
                     ? "Esgotado"
