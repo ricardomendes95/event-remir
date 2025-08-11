@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { RegistrationProofModal } from "./RegistrationProofModal";
 import { message } from "antd";
 
@@ -26,21 +26,25 @@ export function AutoShowProofModal() {
   const [modalOpen, setModalOpen] = useState(false);
   const [registrationData, setRegistrationData] =
     useState<RegistrationData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
+
     const checkForAutoShow = async () => {
-      // Verificar se há parâmetros para mostrar comprovante automaticamente
-      const registrationId = searchParams.get("registration_id");
-      const paymentId = searchParams.get("payment_id");
-      const showComprovante = searchParams.get("comprovante");
+      // Usar window.location.search para obter os parâmetros no cliente
+      const urlParams = new URLSearchParams(window.location.search);
+      const registrationId = urlParams.get("registration_id");
+      const paymentId = urlParams.get("payment_id");
+      const showComprovante = urlParams.get("comprovante");
 
       if ((registrationId || paymentId) && showComprovante === "true") {
-        setLoading(true);
-
         try {
           // Buscar dados da inscrição
           const response = await fetch(`/api/registrations/get-by-id`, {
@@ -66,14 +70,12 @@ export function AutoShowProofModal() {
           }
         } catch (error) {
           console.warn("Erro ao carregar comprovante automaticamente:", error);
-        } finally {
-          setLoading(false);
         }
       }
     };
 
     checkForAutoShow();
-  }, [searchParams]);
+  }, [isClient]);
 
   const handleCloseModal = () => {
     setModalOpen(false);

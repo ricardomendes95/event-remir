@@ -220,7 +220,7 @@ export default function EventRegistrationModal({
         onCancel={handleCancel}
         footer={null}
         width={800}
-        destroyOnClose
+        destroyOnHidden
       >
         {/* Etapa 0: Dados pessoais */}
         {currentStep === 0 && (
