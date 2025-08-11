@@ -1,0 +1,221 @@
+/* PaymentMethodSelector.module.css */
+
+/* Melhorias gerais para acessibilidade e UX */
+.paymentMethodSelector {
+  width: 100%;
+  font-size: 14px;
+}
+
+.paymentMethodSelector .ant-radio {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.paymentMethodSelector .ant-radio-wrapper {
+  width: 100%;
+}
+
+/* Destaque para métodos selecionados */
+.methodCard[data-selected="true"] .methodPrice {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 249, 255, 0.95) 100%);
+  border: 1px solid rgba(0, 123, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.methodCard {
+  transition: all 0.2s ease;
+  margin-bottom: 8px;
+  border-radius: 8px;
+}
+
+.methodCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.methodCard:hover .methodPrice {
+  background: rgba(255, 255, 255, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.methodContent {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.methodMainRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.methodInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.methodPrice {
+  text-align: right;
+  min-width: 120px;
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.methodFee {
+  margin-left: 30px;
+  margin-top: 4px;
+}
+
+.summaryContainer {
+  background: linear-gradient(135deg, #f6ffed 0%, #f0f9ff 100%);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.summaryTitle {
+  margin: 0;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.summaryTotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: white;
+  padding: 16px;
+  border-radius: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.installmentInfo {
+  text-align: center;
+  background-color: white;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e6f7ff;
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+  .methodMainRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .methodInfo {
+    width: 100%;
+  }
+
+  .methodPrice {
+    align-self: flex-end;
+    text-align: right;
+    min-width: auto;
+    font-size: 20px !important;
+  }
+
+  .methodPrice strong {
+    font-size: 20px !important;
+  }
+
+  .methodFee {
+    margin-left: 0;
+    margin-top: 8px;
+    padding-left: 30px;
+    width: 100%;
+  }
+
+  .summaryContainer {
+    padding: 16px;
+  }
+
+  .summaryRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .summaryRow > *:last-child {
+    align-self: flex-end;
+    font-weight: 600;
+  }
+
+  .summaryTotal {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    padding: 20px 16px;
+  }
+
+  .summaryTotal strong:last-child {
+    font-size: 26px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .methodInfo {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .methodInfo strong {
+    font-size: 15px !important;
+  }
+
+  .methodPrice {
+    align-self: center;
+    font-size: 22px !important;
+    margin-top: 8px;
+  }
+
+  .methodPrice strong {
+    font-size: 22px !important;
+  }
+
+  .summaryContainer {
+    padding: 14px;
+  }
+
+  .methodContent {
+    gap: 12px;
+  }
+
+  .methodMainRow {
+    gap: 16px;
+  }
+
+  .summaryTotal strong:last-child {
+    font-size: 28px !important;
+  }
+
+  .methodCard {
+    margin-bottom: 12px;
+  }
+
+  .methodCard .ant-card-body {
+    padding: 20px 16px !important;
+  }
+}

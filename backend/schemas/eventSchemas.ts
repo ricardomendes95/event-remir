@@ -1,5 +1,26 @@
 import { z } from "zod";
 
+// Schema para configuração de métodos de pagamento
+export const PaymentMethodConfigSchema = z.object({
+  enabled: z.boolean(),
+  passthrough_fee: z.boolean(),
+  custom_fee: z.number().min(0).max(1).optional(), // Percentual (0-1)
+});
+
+export const CreditCardConfigSchema = PaymentMethodConfigSchema.extend({
+  max_installments: z.number().min(1).max(12),
+  custom_fees: z.record(z.string(), z.number().min(0).max(1)).optional(), // { "1": 0.05, "2": 0.055 }
+});
+
+export const PaymentConfigSchema = z.object({
+  methods: z.object({
+    pix: PaymentMethodConfigSchema,
+    credit_card: CreditCardConfigSchema,
+    debit_card: PaymentMethodConfigSchema,
+  }),
+  default_method: z.enum(["pix", "credit_card", "debit_card"]).optional(),
+});
+
 export const EventCreateSchema = z
   .object({
     title: z
@@ -36,6 +57,7 @@ export const EventCreateSchema = z
     price: z.number().min(0, "Preço deve ser maior ou igual a zero"),
     bannerUrl: z.string().url("URL inválida").optional(),
     isActive: z.boolean().default(true),
+    paymentConfig: PaymentConfigSchema.optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
     message: "Data de início deve ser anterior à data de fim",
@@ -68,3 +90,6 @@ export const EventSearchSchema = z.object({
 export type EventData = z.infer<typeof EventCreateSchema>;
 export type EventUpdateData = z.infer<typeof EventUpdateSchema>;
 export type EventSearchData = z.infer<typeof EventSearchSchema>;
+export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
+export type PaymentMethodConfig = z.infer<typeof PaymentMethodConfigSchema>;
+export type CreditCardConfig = z.infer<typeof CreditCardConfigSchema>;

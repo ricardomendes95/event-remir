@@ -5,11 +5,13 @@ import { Modal, Form, Input, DatePicker, Switch, Button, message } from "antd";
 import dayjs from "dayjs";
 import { ImageUpload } from "../ImageUpload";
 import { MoneyInput } from "../MoneyInput";
+import { PaymentConfigForm } from "./PaymentConfigForm";
 import {
   useEventValidation,
   EventFormData,
 } from "../../hooks/useEventValidation";
 import { generateSlug } from "../../utils/slugUtils";
+import { PaymentConfig } from "@/backend/schemas/eventSchemas";
 
 const { TextArea } = Input;
 
@@ -27,6 +29,7 @@ interface Event {
   price: number;
   bannerUrl?: string;
   isActive: boolean;
+  paymentConfig?: PaymentConfig;
 }
 
 interface EventModalProps {
@@ -90,6 +93,7 @@ export default function EventModal({
         maxParticipants: parseInt(values.maxParticipants.toString()),
         price: parseFloat(values.price.toString()),
         bannerUrl: values.bannerUrl || undefined,
+        paymentConfig: values.paymentConfig || undefined,
       };
 
       let response;
@@ -377,6 +381,16 @@ export default function EventModal({
           <ImageUpload
             value={form.getFieldValue("bannerUrl")}
             onChange={(url) => form.setFieldsValue({ bannerUrl: url })}
+          />
+        </Form.Item>
+
+        <Form.Item name="paymentConfig" label="Configuração de Pagamento">
+          <PaymentConfigForm
+            value={form.getFieldValue("paymentConfig")}
+            onChange={(config: PaymentConfig) =>
+              form.setFieldsValue({ paymentConfig: config })
+            }
+            eventPrice={form.getFieldValue("price") || 100}
           />
         </Form.Item>
 

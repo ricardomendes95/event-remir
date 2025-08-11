@@ -6,6 +6,22 @@ import {
 } from "@/lib/mercadopago";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { PaymentFeeCalculator } from "@/backend/utils/paymentFeeCalculator";
+import { PaymentConfig } from "@/backend/schemas/eventSchemas";
+
+// Helper function para mapear métodos de pagamento para exclusões do MercadoPago
+function getExcludedPaymentTypes(selectedMethod: string) {
+  switch (selectedMethod) {
+    case "pix":
+      return [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }]; // Só PIX
+    case "credit_card":
+      return [{ id: "ticket" }]; // Cartão de crédito e débito (MP agrupa)
+    case "debit_card":
+      return [{ id: "credit_card" }, { id: "ticket" }]; // Só débito
+    default:
+      return [];
+  }
+}
 
 // Schema de validação
 const createPreferenceSchema = z.object({
@@ -15,6 +31,10 @@ const createPreferenceSchema = z.object({
     email: z.string().email("Email inválido"),
     cpf: z.string().min(11, "CPF deve ter 11 dígitos"),
     phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
+  }),
+  paymentData: z.object({
+    method: z.enum(["pix", "credit_card", "debit_card"]),
+    installments: z.number().min(1).max(12).optional(),
   }),
   registrationId: z.string().optional(), // ID da inscrição existente para atualizar
 });
@@ -26,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Validar dados da requisição
     const body = await request.json();
-    const { eventId, participantData, registrationId } =
+    const { eventId, participantData, paymentData, registrationId } =
       createPreferenceSchema.parse(body);
 
     // Buscar evento
@@ -65,6 +85,48 @@ export async function POST(request: NextRequest) {
     if (now < event.registrationStartDate || now > event.registrationEndDate) {
       return NextResponse.json(
         { error: "Período de inscrições encerrado" },
+        { status: 400 }
+      );
+    }
+
+    // Validar método de pagamento disponível para este evento
+    const eventWithPaymentConfig = event as typeof event & {
+      paymentConfig?: PaymentConfig | null;
+    };
+    const eventPaymentConfig = eventWithPaymentConfig.paymentConfig;
+    const isPaymentMethodValid = PaymentFeeCalculator.validatePaymentOption(
+      paymentData.method,
+      paymentData.installments,
+      eventPaymentConfig || undefined
+    );
+
+    if (!isPaymentMethodValid) {
+      return NextResponse.json(
+        {
+          error: "Método de pagamento não disponível para este evento",
+          method: paymentData.method,
+          installments: paymentData.installments,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Calcular valor final com taxas
+    const paymentOptions = PaymentFeeCalculator.calculatePaymentOptions(
+      event.price,
+      eventPaymentConfig || undefined
+    );
+
+    const selectedOption = paymentOptions.available_methods.find(
+      (option) =>
+        option.method === paymentData.method &&
+        (paymentData.method !== "credit_card" ||
+          option.installments === paymentData.installments)
+    );
+
+    if (!selectedOption) {
+      return NextResponse.json(
+        { error: "Opção de pagamento não encontrada" },
         { status: 400 }
       );
     }
@@ -122,10 +184,16 @@ export async function POST(request: NextRequest) {
       items: [
         {
           id: eventId,
-          title: event.title,
-          description: event.description,
+          title: selectedOption.passthrough_fee
+            ? `${event.title} - ${selectedOption.description}`
+            : event.title,
+          description: selectedOption.passthrough_fee
+            ? `${
+                event.description
+              } | Taxa de serviço: R$ ${selectedOption.fee_amount.toFixed(2)}`
+            : event.description,
           quantity: 1,
-          unit_price: Number(event.price),
+          unit_price: selectedOption.final_value,
           currency_id: "BRL",
         },
       ],
@@ -157,6 +225,22 @@ export async function POST(request: NextRequest) {
         participant_email: participantData.email,
         participant_cpf: participantData.cpf,
         participant_phone: participantData.phone,
+        payment_method: paymentData.method,
+        installments: paymentData.installments || 1,
+        base_value: selectedOption.base_value,
+        fee_amount: selectedOption.fee_amount,
+        final_value: selectedOption.final_value,
+      },
+      payment_methods: {
+        excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
+        installments:
+          paymentData.method === "credit_card"
+            ? paymentData.installments || 1
+            : 1,
+        default_installments:
+          paymentData.method === "credit_card"
+            ? paymentData.installments || 1
+            : 1,
       },
       expires: true,
       expiration_date_from: new Date().toISOString(),

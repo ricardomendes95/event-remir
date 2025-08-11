@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { z } from "zod";
 import dayjs, { Dayjs } from "dayjs";
+import { PaymentConfig } from "@/backend/schemas/eventSchemas";
 
 // Schema igual ao do backend
 export const EventCreateSchema = z
@@ -39,6 +40,7 @@ export const EventCreateSchema = z
     price: z.number().min(0, "Preço deve ser maior ou igual a zero"),
     bannerUrl: z.string().url("URL inválida").optional().or(z.literal("")),
     isActive: z.boolean().default(true),
+    paymentConfig: z.any().optional(), // Permite qualquer configuração de pagamento
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
     message: "Data de início deve ser anterior à data de fim",
@@ -61,7 +63,7 @@ export const EventCreateSchema = z
   );
 
 // Tipo para os dados do formulário (com Dayjs para datas)
-interface EventFormData {
+export interface EventFormData {
   title: string;
   description: string;
   slug: string;
@@ -74,6 +76,7 @@ interface EventFormData {
   price: string | number;
   bannerUrl?: string;
   isActive: boolean;
+  paymentConfig?: PaymentConfig;
 }
 
 interface FieldError {
@@ -185,4 +188,4 @@ export function useEventValidation() {
   };
 }
 
-export type { EventFormData, FieldError, ValidationResult };
+export type { FieldError, ValidationResult };

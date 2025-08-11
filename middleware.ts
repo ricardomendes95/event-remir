@@ -25,6 +25,7 @@ export async function middleware(request: NextRequest) {
     "/admin/access-denied",
     "/api/events/active",
     "/api/payments/webhook",
+    "/api/payments/create-preference",
     "/api/registrations/search-by-cpf",
     "/api/registrations/get-by-id",
     "/payment/success",
@@ -33,8 +34,13 @@ export async function middleware(request: NextRequest) {
   ]; // Verificar se é uma rota pública
   const isPublicRoute = publicRoutes.some((route) => pathname === route);
 
+  // Verificar rotas dinâmicas públicas
+  const isPaymentMethodRoute = pathname.match(
+    /^\/api\/events\/[^\/]+\/payment-methods$/
+  );
+
   // Se for rota pública, deixar passar
-  if (isPublicRoute) {
+  if (isPublicRoute || isPaymentMethodRoute) {
     return NextResponse.next();
   }
 
