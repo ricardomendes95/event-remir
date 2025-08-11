@@ -31,7 +31,9 @@ const registrationSchema = z.object({
       return cleanPhone.length >= 10 && cleanPhone.length <= 11;
     }, "Telefone deve ter entre 10 e 11 dígitos"),
   eventId: z.string().min(1, "Evento é obrigatório"),
-  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).default("CONFIRMED"),
+  status: z
+    .enum(["PENDING", "CONFIRMED", "CANCELLED", "PAYMENT_FAILED"])
+    .default("CONFIRMED"),
 });
 
 interface Event {
@@ -48,7 +50,7 @@ interface Registration {
   email: string;
   cpf: string;
   phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
   createdAt: string;
   updatedAt: string;
@@ -66,7 +68,7 @@ interface RegistrationFormData {
   cpf: string;
   phone: string;
   eventId: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
 }
 
 interface RegistrationModalProps {

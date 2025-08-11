@@ -20,7 +20,7 @@ interface Registration {
   email: string;
   cpf: string;
   phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
   createdAt: string;
   updatedAt: string;
@@ -46,7 +46,7 @@ interface RegistrationFormData {
   cpf: string;
   phone: string;
   eventId: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
 }
 
 export default function RegistrationsPage() {
