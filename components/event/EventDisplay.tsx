@@ -43,9 +43,9 @@ export function EventDisplay() {
         <div className="max-w-md mx-auto">
           <div className="mb-6">
             <CalendarDays className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
               Nenhum Evento Disponível
-            </h2>
+            </h1>
             <p className="text-gray-600">
               No momento não há eventos abertos para inscrição. Fique atento às
               nossas redes sociais para saber quando abrirão novas inscrições!

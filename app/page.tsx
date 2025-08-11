@@ -6,6 +6,7 @@ import { SearchComprovante } from "@/components/SearchComprovante";
 import { AutoShowProofModal } from "@/components/AutoShowProofModal";
 import { Button } from "antd";
 import { UserCheck, CreditCard, ArrowUp } from "lucide-react";
+import Image from "next/image";
 
 export default function HomePage() {
   const eventoRef = useRef<HTMLElement>(null);
@@ -63,7 +64,14 @@ export default function HomePage() {
       <header className="bg-white shadow-sm border-b sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Igreja Remir</h1>
+            <Image
+              src="/logo.png"
+              alt="Igreja Remir"
+              width={50}
+              height={60}
+              className="h-auto"
+              priority
+            />
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-6">
