@@ -9,6 +9,7 @@ export interface Event {
   price: number;
   bannerUrl?: string;
   isActive: boolean;
+  registrationEndDate?: string;
   createdAt: string;
   updatedAt: string;
 }

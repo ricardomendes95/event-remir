@@ -32,6 +32,7 @@ export async function GET() {
       price: Number(activeEvent.price),
       bannerUrl: activeEvent.bannerUrl,
       isActive: activeEvent.isActive,
+      registrationEndDate: activeEvent.registrationEndDate.toISOString(),
       createdAt: activeEvent.createdAt.toISOString(),
       updatedAt: activeEvent.updatedAt.toISOString(),
     };

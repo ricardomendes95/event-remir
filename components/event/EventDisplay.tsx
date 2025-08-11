@@ -6,6 +6,7 @@ import { Button } from "antd";
 import EventRegistrationModal from "./EventRegistrationModal";
 import { Event } from "@/types/event";
 import { formatTextToHtml } from "../../utils/textFormatter";
+import { CountdownTimer } from "../CountdownTimer";
 
 export function EventDisplay() {
   const [event, setEvent] = useState<Event | null>(null);
@@ -71,6 +72,12 @@ export function EventDisplay() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  // Verificar se as inscrições ainda estão abertas
+  const isRegistrationOpen = () => {
+    if (!event.registrationEndDate) return true;
+    return new Date() < new Date(event.registrationEndDate);
   };
 
   return (
@@ -157,6 +164,16 @@ export function EventDisplay() {
             {/* Card de Inscrição */}
             <div className="lg:col-span-1">
               <div className="bg-gray-50 rounded-xl p-6 sticky top-6">
+                {/* Contagem Regressiva */}
+                {event.registrationEndDate && isRegistrationOpen() && (
+                  <div className="mb-6">
+                    <CountdownTimer
+                      targetDate={event.registrationEndDate}
+                      label="Encerramento das inscrições"
+                    />
+                  </div>
+                )}
+
                 <div className="text-center mb-6">
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <span className="text-3xl font-bold text-gray-900">
@@ -174,11 +191,16 @@ export function EventDisplay() {
                   size="large"
                   className="w-full h-12 text-lg font-semibold"
                   onClick={() => setModalOpen(true)}
-                  disabled={event.currentRegistrations >= event.capacity}
+                  disabled={
+                    event.currentRegistrations >= event.capacity ||
+                    !isRegistrationOpen()
+                  }
                   data-testid="inscricao-button"
                 >
                   {event.currentRegistrations >= event.capacity
                     ? "Esgotado"
+                    : !isRegistrationOpen()
+                    ? "Inscrições Encerradas"
                     : "Quero me inscrever"}
                 </Button>
 
