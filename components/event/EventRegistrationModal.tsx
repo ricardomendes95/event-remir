@@ -158,8 +158,11 @@ export default function EventRegistrationModal({
         },
         body: JSON.stringify({
           eventId: event.id,
-          registrationData: formData,
-          paymentData: selectedPaymentMethod,
+          participantData: formData,
+          paymentData: {
+            method: selectedPaymentMethod.method,
+            installments: selectedPaymentMethod.installments,
+          },
         }),
       });
 
