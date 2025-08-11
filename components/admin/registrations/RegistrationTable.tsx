@@ -22,6 +22,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -34,7 +35,7 @@ interface Registration {
   email: string;
   cpf: string;
   phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
   createdAt: string;
   updatedAt: string;
@@ -136,9 +137,12 @@ export default function RegistrationTable({
         { text: "Confirmado", value: "CONFIRMED" },
         { text: "Pendente", value: "PENDING" },
         { text: "Cancelado", value: "CANCELLED" },
+        { text: "Falha no Pagamento", value: "PAYMENT_FAILED" },
       ],
       onFilter: (value, record) => record.status === value,
-      render: (status: "PENDING" | "CONFIRMED" | "CANCELLED") => {
+      render: (
+        status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED"
+      ) => {
         const statusConfig: Record<
           string,
           { color: string; icon: React.ReactNode; text: string }
@@ -158,9 +162,23 @@ export default function RegistrationTable({
             icon: <CloseCircleOutlined />,
             text: "Cancelado",
           },
+          PAYMENT_FAILED: {
+            color: "red",
+            icon: <ExclamationCircleOutlined />,
+            text: "Falha no Pagamento",
+          },
         };
 
         const config = statusConfig[status];
+
+        // Verificação de segurança caso o status não esteja definido
+        if (!config) {
+          return (
+            <Tag color="default" className="p-1.5">
+              Status Desconhecido
+            </Tag>
+          );
+        }
 
         return (
           <Tag color={config.color} icon={config.icon} className="p-1.5">
