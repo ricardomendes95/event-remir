@@ -173,9 +173,14 @@ export default function EventRegistrationModal({
       }
 
       // Redirecionar para MercadoPago
-      if (data.init_point) {
-        window.open(data.init_point, "_blank");
+      // A API retorna checkoutUrl (produção) ou sandboxCheckoutUrl (desenvolvimento)
+      const redirectUrl = data.checkoutUrl || data.sandboxCheckoutUrl;
+
+      if (redirectUrl) {
+        window.open(redirectUrl, "_blank");
         setProofModalOpen(true);
+      } else {
+        message.error("Erro: Link de pagamento não foi gerado");
       }
     } catch (error) {
       console.error("Erro:", error);
