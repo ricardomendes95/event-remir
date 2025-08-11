@@ -177,7 +177,7 @@ export default function EventRegistrationModal({
       const redirectUrl = data.checkoutUrl || data.sandboxCheckoutUrl;
 
       if (redirectUrl) {
-        window.open(redirectUrl, "_blank");
+        window.location.href = redirectUrl;
         setProofModalOpen(true);
       } else {
         message.error("Erro: Link de pagamento não foi gerado");
