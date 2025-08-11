@@ -5,6 +5,7 @@ import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
 import { Button } from "antd";
 import EventRegistrationModal from "./EventRegistrationModal";
 import { Event } from "@/types/event";
+import { formatTextToHtml } from "../../utils/textFormatter";
 
 export function EventDisplay() {
   const [event, setEvent] = useState<Event | null>(null);
@@ -98,9 +99,14 @@ export function EventDisplay() {
               </h1>
 
               {event.description && (
-                <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-                  {event.description}
-                </p>
+                <div className="event-description mb-6">
+                  <div 
+                    className="formatted-content"
+                    dangerouslySetInnerHTML={{ 
+                      __html: formatTextToHtml(event.description) 
+                    }}
+                  />
+                </div>
               )}
 
               {/* Detalhes do Evento */}

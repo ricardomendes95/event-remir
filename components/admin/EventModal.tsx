@@ -16,6 +16,7 @@ import locale from "antd/locale/pt_BR";
 import "dayjs/locale/pt-br";
 import { ImageUpload } from "../ImageUpload";
 import { MoneyInput } from "../MoneyInput";
+import RichTextEditor from "../RichTextEditor";
 import { PaymentConfigForm } from "./PaymentConfigForm";
 import {
   useEventValidation,
@@ -23,8 +24,6 @@ import {
 } from "../../hooks/useEventValidation";
 import { generateSlug } from "../../utils/slugUtils";
 import { PaymentConfig } from "@/backend/schemas/eventSchemas";
-
-const { TextArea } = Input;
 
 interface Event {
   id: string;
@@ -236,12 +235,16 @@ export default function EventModal({
                 min: 10,
                 message: "Descrição deve ter pelo menos 10 caracteres",
               },
-              { max: 1000, message: "Descrição muito longa" },
+              { max: 2000, message: "Descrição muito longa (máximo 2000 caracteres)" },
             ]}
             validateStatus={getFieldError("description") ? "error" : ""}
             help={getFieldError("description")}
           >
-            <TextArea rows={4} placeholder="Descrição do evento" />
+            <RichTextEditor 
+              placeholder="Descrição detalhada do evento..."
+              maxLength={2000}
+              rows={8}
+            />
           </Form.Item>
 
           <Form.Item
