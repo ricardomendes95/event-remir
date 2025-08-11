@@ -156,6 +156,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validar valor mínimo para parcelamento
+    if (paymentData.method === "credit_card" && paymentData.installments && paymentData.installments > 1) {
+      if (selectedOption.final_value < 5) {
+        return NextResponse.json(
+          { 
+            error: "Valor mínimo para parcelamento é R$ 5,00",
+            current_value: selectedOption.final_value,
+            minimum_value: 5
+          },
+          { status: 400 }
+        );
+      }
+      
+      const valuePerInstallment = selectedOption.final_value / paymentData.installments;
+      if (valuePerInstallment < 5) {
+        return NextResponse.json(
+          { 
+            error: `Valor mínimo por parcela é R$ 5,00. Com ${paymentData.installments}x ficaria R$ ${valuePerInstallment.toFixed(2)} por parcela`,
+            current_value_per_installment: valuePerInstallment,
+            minimum_value_per_installment: 5
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Verificar se participante já está inscrito (apenas CPF é único)
     const existingRegistration = await prisma.registration.findFirst({
       where: {
@@ -230,7 +256,8 @@ export async function POST(request: NextRequest) {
           number: participantData.cpf.replace(/\D/g, ""),
         },
         phone: {
-          number: participantData.phone.replace(/\D/g, ""),
+          area_code: participantData.phone.replace(/\D/g, "").substring(0, 2),
+          number: participantData.phone.replace(/\D/g, "").substring(2),
         },
       },
       back_urls: {
@@ -259,15 +286,15 @@ export async function POST(request: NextRequest) {
         excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
         excluded_payment_methods: getExcludedPaymentMethods(paymentData.method),
         installments:
-          paymentData.method === "credit_card"
+          paymentData.method === "credit_card" && selectedOption.final_value >= 5
             ? paymentData.installments || 1
             : 1,
         default_installments:
-          paymentData.method === "credit_card"
+          paymentData.method === "credit_card" && selectedOption.final_value >= 5
             ? paymentData.installments || 1
             : 1,
         max_installments:
-          paymentData.method === "credit_card"
+          paymentData.method === "credit_card" && selectedOption.final_value >= 5
             ? paymentData.installments || 1
             : 1,
       },
