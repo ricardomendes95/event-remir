@@ -13,11 +13,11 @@ import { PaymentConfig } from "@/backend/schemas/eventSchemas";
 function getExcludedPaymentTypes(selectedMethod: string) {
   switch (selectedMethod) {
     case "pix":
-      return [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }]; // Só PIX (account_money)
+      return [{ id: "credit_card" }, { id: "debit_card" }, { id: "ticket" }];
     case "credit_card":
-      return [{ id: "account_money" }, { id: "ticket" }]; // Só cartões (crédito/débito)
+      return [{ id: "ticket" }]; // Não excluir account_money pois pode causar problemas
     case "debit_card":
-      return [{ id: "credit_card" }, { id: "account_money" }, { id: "ticket" }]; // Só débito
+      return [{ id: "ticket" }]; // Não excluir account_money pois pode causar problemas
     default:
       return [];
   }
@@ -238,7 +238,6 @@ export async function POST(request: NextRequest) {
         failure: `${process.env.NEXTAUTH_URL}/payment/failure`,
         pending: `${process.env.NEXTAUTH_URL}/payment/pending`,
       },
-      auto_return: "approved",
       notification_url: `${process.env.NEXTAUTH_URL}/api/payments/webhook`,
       external_reference: `event_${eventId}_cpf_${participantData.cpf.replace(
         /\D/g,
