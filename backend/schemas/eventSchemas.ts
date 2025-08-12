@@ -87,9 +87,26 @@ export const EventSearchSchema = z.object({
   upcoming: z.boolean().optional(),
 });
 
+// Schema para atualização de preferência de pagamento
+export const updatePreferenceSchema = z.object({
+  registrationId: z.string().min(1, "ID da inscrição é obrigatório"),
+  paymentData: z.object({
+    method: z.enum(["pix", "credit_card", "debit_card"], {
+      message: "Método de pagamento inválido",
+    }),
+    installments: z
+      .number()
+      .int("Número de parcelas deve ser um inteiro")
+      .min(1, "Mínimo 1 parcela")
+      .max(12, "Máximo 12 parcelas")
+      .optional(),
+  }),
+});
+
 export type EventData = z.infer<typeof EventCreateSchema>;
 export type EventUpdateData = z.infer<typeof EventUpdateSchema>;
 export type EventSearchData = z.infer<typeof EventSearchSchema>;
 export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
 export type PaymentMethodConfig = z.infer<typeof PaymentMethodConfigSchema>;
 export type CreditCardConfig = z.infer<typeof CreditCardConfigSchema>;
+export type UpdatePreferenceData = z.infer<typeof updatePreferenceSchema>;

@@ -54,6 +54,12 @@ export default function EventRegistrationModal({
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<PaymentMethodSelection | null>(null);
 
+  // Estados para fluxo de atualização - NOVO
+  const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+  const [existingRegistrationId, setExistingRegistrationId] = useState<
+    string | null
+  >(null);
+
   // Estados para modais
   const [proofModalOpen, setProofModalOpen] = useState(false);
 
@@ -139,21 +145,32 @@ export default function EventRegistrationModal({
     return !!(hasFormData && hasPaymentMethod);
   };
 
-  // Etapas do processo
-  const steps = [
-    {
-      title: "Dados",
-      description: "Informações pessoais",
-    },
-    {
-      title: "Método de pagamento",
-      description: "",
-    },
-    {
-      title: "Finalizar inscrição",
-      description: "",
-    },
-  ];
+  // Etapas do processo - com lógica dinâmica para atualização
+  const steps = isUpdatingPayment
+    ? [
+        {
+          title: "Método de pagamento",
+          description: "Escolher novo método",
+        },
+        {
+          title: "Confirmar pagamento",
+          description: "",
+        },
+      ]
+    : [
+        {
+          title: "Dados",
+          description: "Informações pessoais",
+        },
+        {
+          title: "Método de pagamento",
+          description: "",
+        },
+        {
+          title: "Finalizar inscrição",
+          description: "",
+        },
+      ];
 
   // Função original simplificada (manter compatibilidade)
 
@@ -162,6 +179,29 @@ export default function EventRegistrationModal({
 
     // Abrir modal de comprovante com dados preenchidos
     setProofModalOpen(true);
+  };
+
+  const handleContinuePayment = () => {
+    if (!existingRegistration) return;
+
+    // Configurar modo de atualização
+    setIsUpdatingPayment(true);
+    setExistingRegistrationId(existingRegistration.id);
+
+    // Pré-carregar dados da inscrição existente
+    const existingFormData: RegistrationFormData = {
+      name: existingRegistration.name,
+      email: existingRegistration.email,
+      cpf: existingRegistration.cpf,
+      phone: existingRegistration.phone,
+    };
+    setFormData(existingFormData);
+
+    // Pular direto para seleção de método de pagamento (step 0 no modo update)
+    setCurrentStep(0);
+
+    // Limpar verificação de CPF para remover o alert
+    clearCpfVerification();
   };
 
   // Mapear dados da existingRegistration para o formato do RegistrationProofModal
@@ -229,19 +269,34 @@ export default function EventRegistrationModal({
 
     setLoading(true);
     try {
-      const response = await fetch("/api/payments/create-preference", {
-        method: "POST",
+      // Determinar qual API chamar baseado no modo
+      const apiEndpoint = isUpdatingPayment
+        ? "/api/payments/update-preference"
+        : "/api/payments/create-preference";
+
+      const requestBody = isUpdatingPayment
+        ? {
+            registrationId: existingRegistrationId,
+            paymentData: {
+              method: selectedPaymentMethod.method,
+              installments: selectedPaymentMethod.installments,
+            },
+          }
+        : {
+            eventId: event.id,
+            participantData: formData,
+            paymentData: {
+              method: selectedPaymentMethod.method,
+              installments: selectedPaymentMethod.installments,
+            },
+          };
+
+      const response = await fetch(apiEndpoint, {
+        method: isUpdatingPayment ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          eventId: event.id,
-          participantData: formData,
-          paymentData: {
-            method: selectedPaymentMethod.method,
-            installments: selectedPaymentMethod.installments,
-          },
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
@@ -251,7 +306,6 @@ export default function EventRegistrationModal({
       }
 
       // Redirecionar para MercadoPago
-      // A API retorna checkoutUrl (produção) ou sandboxCheckoutUrl (desenvolvimento)
       const redirectUrl = data.checkoutUrl || data.sandboxCheckoutUrl;
 
       if (redirectUrl) {
@@ -279,6 +333,11 @@ export default function EventRegistrationModal({
     setCurrentStep(0);
     setFormData(null);
     setSelectedPaymentMethod(null);
+
+    // NOVO: Reset estados de atualização
+    setIsUpdatingPayment(false);
+    setExistingRegistrationId(null);
+
     onClose();
   };
 
@@ -288,7 +347,9 @@ export default function EventRegistrationModal({
         title={
           <div className="text-center">
             <h2 className="text-xl font-semibold mb-2">
-              Inscrição - {event.name}
+              {isUpdatingPayment
+                ? `Continuar Pagamento - ${event.name}`
+                : `Inscrição - ${event.name}`}
             </h2>
             <Steps current={currentStep} size="small" className="mb-4">
               {steps.map((step, index) => (
@@ -307,8 +368,8 @@ export default function EventRegistrationModal({
         width={800}
         destroyOnHidden
       >
-        {/* Etapa 0: Dados pessoais */}
-        {currentStep === 0 && (
+        {/* Etapa 0: Dados pessoais OU Método de pagamento (se updating) */}
+        {currentStep === 0 && !isUpdatingPayment && (
           <div>
             <EventSummary event={event} />
 
@@ -316,10 +377,7 @@ export default function EventRegistrationModal({
               <ExistingRegistrationAlert
                 registration={existingRegistration}
                 onCheckReceipt={handleCheckReceipt}
-                onContinuePayment={() => {
-                  // TODO: Implementar continuar pagamento pendente
-                  clearCpfVerification();
-                }}
+                onContinuePayment={handleContinuePayment}
               />
             )}
 
@@ -334,49 +392,85 @@ export default function EventRegistrationModal({
           </div>
         )}
 
-        {/* Etapa 1: Seleção de método de pagamento */}
-        {currentStep === 1 && formData && (
-          <div>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-2">Método de Pagamento</h3>
-              <p className="text-gray-600">
-                Escolha como deseja pagar sua inscrição
-              </p>
+        {/* Etapa 0 (updating) ou 1 (normal): Seleção de método de pagamento */}
+        {((currentStep === 0 && isUpdatingPayment) ||
+          (currentStep === 1 && !isUpdatingPayment)) &&
+          formData && (
+            <div>
+              {isUpdatingPayment && (
+                <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">
+                    Dados da Inscrição:
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    <strong>Nome:</strong> {formData.name} |
+                    <strong> CPF:</strong> {formData.cpf} |
+                    <strong> Email:</strong> {formData.email}
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Os dados pessoais não podem ser alterados. Apenas selecione
+                    um novo método de pagamento.
+                  </p>
+                </div>
+              )}
+
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2">
+                  {isUpdatingPayment
+                    ? "Novo Método de Pagamento"
+                    : "Método de Pagamento"}
+                </h3>
+                <p className="text-gray-600">
+                  Escolha como deseja pagar sua inscrição
+                </p>
+              </div>
+
+              <PaymentMethodSelector
+                eventId={event.id}
+                onSelectionChange={(selection) => {
+                  handlePaymentMethodSelect({
+                    method: selection.method,
+                    installments: selection.installments,
+                    totalAmount: selection.finalValue,
+                    description: selection.description,
+                  });
+                }}
+              />
+
+              <div className="flex justify-between mt-4">
+                {!isUpdatingPayment && (
+                  <button
+                    type="button"
+                    onClick={handlePreviousStep}
+                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    Voltar
+                  </button>
+                )}
+                {isUpdatingPayment && (
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                )}
+              </div>
             </div>
+          )}
 
-            <PaymentMethodSelector
-              eventId={event.id}
-              onSelectionChange={(selection) => {
-                handlePaymentMethodSelect({
-                  method: selection.method,
-                  installments: selection.installments,
-                  totalAmount: selection.finalValue,
-                  description: selection.description,
-                });
-              }}
-            />
-
-            <div className="flex justify-between mt-4">
-              <button
-                type="button"
-                onClick={handlePreviousStep}
-                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Voltar
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Etapa 2: Confirmação - Versão Melhorada */}
-        {currentStep === 2 && (
+        {/* Etapa 1 (updating) ou 2 (normal): Confirmação */}
+        {((currentStep === 1 && isUpdatingPayment) ||
+          (currentStep === 2 && !isUpdatingPayment)) && (
           <div>
             {/* Debug info - remover em produção se necessário */}
             {process.env.NODE_ENV === "development" && (
               <div className="mb-2 p-2 bg-yellow-100 text-xs space-y-1">
                 <div>
                   Debug: Step={currentStep}, FormData={!!formData},
-                  PaymentMethod={!!selectedPaymentMethod}
+                  PaymentMethod={!!selectedPaymentMethod}, IsUpdating=
+                  {isUpdatingPayment}
                 </div>
                 {deviceInfo.isIOS && (
                   <div className="text-blue-600">
@@ -456,7 +550,9 @@ export default function EventRegistrationModal({
               <>
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-4">
-                    Confirmação da Inscrição
+                    {isUpdatingPayment
+                      ? "Confirmar Novo Pagamento"
+                      : "Confirmação da Inscrição"}
                   </h3>
 
                   {/* Resumo dos dados */}
