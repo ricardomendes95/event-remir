@@ -19,6 +19,7 @@ import { PaymentMethodSelector } from "./PaymentMethodSelector";
 
 // Hook customizado
 import { useCpfVerification } from "@/hooks/useCpfVerification";
+import { useDeviceDetection } from "@/hooks/useDeviceDetection";
 
 // Utilitário para tradução dos métodos de pagamento
 import { getPaymentMethodName } from "@/utils/paymentMethods";
@@ -66,6 +67,77 @@ export default function EventRegistrationModal({
     handleCpfChange,
     clearCpfVerification,
   } = useCpfVerification();
+
+  // Hook de detecção de dispositivo
+  const deviceInfo = useDeviceDetection();
+
+  // Função auxiliar para formatação segura de moeda
+  const formatCurrency = (amount: number): string => {
+    try {
+      // Para dispositivos iOS antigos, usar formatação simplificada
+      if (deviceInfo.isOldIOS) {
+        return `R$ ${amount.toFixed(2).replace(".", ",")}`;
+      }
+
+      return amount.toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
+    } catch (error) {
+      console.warn(
+        "Erro na formatação de moeda:",
+        error,
+        "Amount:",
+        amount,
+        "Device:",
+        deviceInfo
+      );
+      // Fallback manual para formatação
+      return `R$ ${amount.toFixed(2).replace(".", ",")}`;
+    }
+  };
+
+  // Função para validar se podemos avançar para a etapa de confirmação
+  const canShowConfirmationStep = (): boolean => {
+    const hasFormData =
+      formData &&
+      formData.name &&
+      formData.email &&
+      formData.cpf &&
+      formData.phone;
+
+    const hasPaymentMethod =
+      selectedPaymentMethod &&
+      selectedPaymentMethod.method &&
+      typeof selectedPaymentMethod.totalAmount === "number";
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("Debug - Validation:", {
+        step: currentStep,
+        hasFormData,
+        hasPaymentMethod,
+        formData: formData ? Object.keys(formData) : null,
+        paymentMethod: selectedPaymentMethod
+          ? Object.keys(selectedPaymentMethod)
+          : null,
+        device: deviceInfo,
+      });
+    }
+
+    // Log especial para dispositivos iOS com problemas
+    if (deviceInfo.isIOS && currentStep === 2) {
+      console.log("iOS Debug - Confirmation Step:", {
+        isOldIOS: deviceInfo.isOldIOS,
+        browser: deviceInfo.browser,
+        formDataValid: !!hasFormData,
+        paymentMethodValid: !!hasPaymentMethod,
+        formDataContent: formData,
+        paymentMethodContent: selectedPaymentMethod,
+      });
+    }
+
+    return !!(hasFormData && hasPaymentMethod);
+  };
 
   // Etapas do processo
   const steps = [
@@ -140,6 +212,12 @@ export default function EventRegistrationModal({
 
   const handlePaymentMethodSelect = (paymentMethod: PaymentMethodSelection) => {
     setSelectedPaymentMethod(paymentMethod);
+
+    // Log especial para dispositivos iOS
+    if (deviceInfo.isIOS) {
+      console.log("iOS - Payment method selected:", paymentMethod);
+    }
+
     handleNextStep();
   };
 
@@ -290,74 +368,160 @@ export default function EventRegistrationModal({
           </div>
         )}
 
-        {/* Etapa 2: Confirmação */}
-        {currentStep === 2 && formData && selectedPaymentMethod && (
+        {/* Etapa 2: Confirmação - Versão Melhorada */}
+        {currentStep === 2 && (
           <div>
-            <div className="mb-6">
-              <h3 className="text-lg font-medium mb-4">
-                Confirmação da Inscrição
-              </h3>
-
-              {/* Resumo dos dados */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <h4 className="font-medium mb-2">Dados Pessoais:</h4>
-                <p>
-                  <strong>Nome:</strong> {formData.name}
-                </p>
-                <p>
-                  <strong>Email:</strong> {formData.email}
-                </p>
-                <p>
-                  <strong>CPF:</strong> {formData.cpf}
-                </p>
-                <p>
-                  <strong>Telefone:</strong> {formData.phone}
-                </p>
-              </div>
-
-              {/* Resumo do pagamento */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <h4 className="font-medium mb-2">Método de Pagamento:</h4>
-                <p>
-                  <strong>Método:</strong>{" "}
-                  {getPaymentMethodName(selectedPaymentMethod.method)}
-                </p>
-                {selectedPaymentMethod.installments && (
-                  <p>
-                    <strong>Parcelas:</strong>{" "}
-                    {selectedPaymentMethod.installments}x
-                  </p>
+            {/* Debug info - remover em produção se necessário */}
+            {process.env.NODE_ENV === "development" && (
+              <div className="mb-2 p-2 bg-yellow-100 text-xs space-y-1">
+                <div>
+                  Debug: Step={currentStep}, FormData={!!formData},
+                  PaymentMethod={!!selectedPaymentMethod}
+                </div>
+                {deviceInfo.isIOS && (
+                  <div className="text-blue-600">
+                    iOS Device - Old: {deviceInfo.isOldIOS ? "Yes" : "No"},
+                    Browser: {deviceInfo.browser}
+                  </div>
                 )}
-                <p>
-                  <strong>Valor Total:</strong>{" "}
-                  {selectedPaymentMethod.totalAmount.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </p>
               </div>
-            </div>
+            )}
 
-            <div className="flex justify-between">
-              <button
-                type="button"
-                onClick={handlePreviousStep}
-                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-                disabled={loading}
-              >
-                Voltar
-              </button>
+            {/* Verificação de dados com fallback */}
+            {!canShowConfirmationStep() ? (
+              <div className="text-center py-8">
+                <p className="text-red-600 mb-4">
+                  Dados incompletos detectados. Por favor, volte e preencha
+                  novamente.
+                </p>
+                <div className="mb-4 text-sm text-gray-600">
+                  <p className="font-medium mb-2">Status dos dados:</p>
+                  <div className="space-y-1">
+                    <div>
+                      Dados pessoais:{" "}
+                      {formData ? "✅ Completo" : "❌ Incompleto"}
+                    </div>
+                    <div>
+                      Método de pagamento:{" "}
+                      {selectedPaymentMethod ? "✅ Completo" : "❌ Incompleto"}
+                    </div>
+                    {deviceInfo.isIOS && (
+                      <div className="text-blue-600 mt-2">
+                        Dispositivo iOS detectado - Versão antiga:{" "}
+                        {deviceInfo.isOldIOS ? "Sim" : "Não"}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-              <button
-                type="button"
-                onClick={handleFinalSubmit}
-                disabled={loading}
-                className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                <CreditCard className="h-5 w-5 text-white" />
-                {loading ? "Processando..." : "Finalizar Inscrição"}
-              </button>
-            </div>
+                {/* Botões de ação */}
+                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(0)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Voltar ao Início
+                  </button>
+
+                  {formData && !selectedPaymentMethod && (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      Selecionar Pagamento
+                    </button>
+                  )}
+
+                  {/* Botão de força refresh para iOS problemáticos */}
+                  {deviceInfo.isIOS && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Force re-render
+                        setCurrentStep(2);
+                        setTimeout(() => {
+                          setCurrentStep(2);
+                        }, 100);
+                      }}
+                      className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-xs"
+                    >
+                      Recarregar Dados
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-4">
+                    Confirmação da Inscrição
+                  </h3>
+
+                  {/* Resumo dos dados */}
+                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                    <h4 className="font-medium mb-2">Dados Pessoais:</h4>
+                    <p>
+                      <strong>Nome:</strong> {formData?.name || "Não informado"}
+                    </p>
+                    <p>
+                      <strong>Email:</strong>{" "}
+                      {formData?.email || "Não informado"}
+                    </p>
+                    <p>
+                      <strong>CPF:</strong> {formData?.cpf || "Não informado"}
+                    </p>
+                    <p>
+                      <strong>Telefone:</strong>{" "}
+                      {formData?.phone || "Não informado"}
+                    </p>
+                  </div>
+
+                  {/* Resumo do pagamento */}
+                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                    <h4 className="font-medium mb-2">Método de Pagamento:</h4>
+                    <p>
+                      <strong>Método:</strong>{" "}
+                      {selectedPaymentMethod?.method
+                        ? getPaymentMethodName(selectedPaymentMethod.method)
+                        : "Não selecionado"}
+                    </p>
+                    {selectedPaymentMethod?.installments && (
+                      <p>
+                        <strong>Parcelas:</strong>{" "}
+                        {selectedPaymentMethod.installments}x
+                      </p>
+                    )}
+                    <p>
+                      <strong>Valor Total:</strong>{" "}
+                      {formatCurrency(selectedPaymentMethod?.totalAmount || 0)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between">
+                  <button
+                    type="button"
+                    onClick={handlePreviousStep}
+                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                    disabled={loading}
+                  >
+                    Voltar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFinalSubmit}
+                    disabled={loading || !canShowConfirmationStep()}
+                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <CreditCard className="h-5 w-5 text-white" />
+                    {loading ? "Processando..." : "Finalizar Inscrição"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </Modal>
