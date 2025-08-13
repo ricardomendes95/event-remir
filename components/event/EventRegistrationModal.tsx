@@ -70,6 +70,8 @@ export default function EventRegistrationModal({
   const {
     existingRegistration,
     showExistingOptions,
+    isValidatingCpf,
+    cpfValidationError,
     handleCpfChange,
     clearCpfVerification,
   } = useCpfVerification();
@@ -385,6 +387,8 @@ export default function EventRegistrationModal({
               form={form}
               loading={loading}
               disabled={showExistingOptions}
+              isValidatingCpf={isValidatingCpf}
+              cpfValidationError={cpfValidationError}
               onSubmit={handleFormSubmit}
               onCancel={handleCancel}
               onCpfChange={handleCpfChange}

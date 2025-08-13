@@ -26,6 +26,8 @@ interface RegistrationFormProps {
   form: FormInstance;
   loading: boolean;
   disabled: boolean;
+  isValidatingCpf?: boolean;
+  cpfValidationError?: string | null;
   onSubmit: (values: RegistrationFormData) => Promise<void>;
   onCancel: () => void;
   onCpfChange: (cpf: string) => void;
@@ -35,6 +37,8 @@ export function RegistrationForm({
   form,
   loading,
   disabled,
+  isValidatingCpf = false,
+  cpfValidationError = null,
   onSubmit,
   onCancel,
   onCpfChange,
@@ -103,9 +107,17 @@ export function RegistrationForm({
             <div className="flex items-center space-x-2">
               <FileText className="h-4 w-4" />
               <span>CPF</span>
+              {isValidatingCpf && (
+                <div className="flex items-center space-x-1 ml-2">
+                  <div className="animate-spin w-3 h-3 border border-blue-500 border-t-transparent rounded-full"></div>
+                  <span className="text-xs text-blue-600">Verificando...</span>
+                </div>
+              )}
             </div>
           }
           rules={[{ required: true, message: "CPF é obrigatório" }]}
+          validateStatus={cpfValidationError ? "error" : undefined}
+          help={cpfValidationError}
         >
           <Input
             placeholder="000.000.000-00"
@@ -116,6 +128,7 @@ export function RegistrationForm({
               onCpfChange(formatted);
             }}
             maxLength={14}
+            status={cpfValidationError ? "error" : undefined}
           />
         </Form.Item>
 
