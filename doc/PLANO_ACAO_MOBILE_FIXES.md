@@ -137,12 +137,12 @@ Configurar atributos de teclado adequados para cada tipo de input em dispositivo
 
 ### ✅ **Critérios de Aceitação**
 
-- [ ] **CA01**: Input CPF abre teclado numérico
-- [ ] **CA02**: Input Email abre teclado com @ e .com
-- [ ] **CA03**: Input Telefone abre teclado numérico
-- [ ] **CA04**: Input Nome mantém teclado padrão
-- [ ] **CA05**: Funciona em iOS Safari e Android Chrome
-- [ ] **CA06**: Não quebra funcionalidade existente
+- [x] **CA01**: Input CPF abre teclado numérico ✅
+- [x] **CA02**: Input Email abre teclado com @ e .com ✅
+- [x] **CA03**: Input Telefone abre teclado numérico ✅
+- [x] **CA04**: Input Nome mantém teclado padrão ✅
+- [ ] **CA05**: Funciona em iOS Safari e Android Chrome 🧪 TESTAR
+- [ ] **CA06**: Não quebra funcionalidade existente 🧪 TESTAR
 
 ### 📂 **Arquivos a Modificar**
 

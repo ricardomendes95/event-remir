@@ -284,6 +284,8 @@ export function RegistrationProofModal({
                 prefix={<Search className="h-4 w-4 text-gray-400" />}
                 placeholder="000.000.000-00"
                 maxLength={14}
+                inputMode="numeric"
+                pattern="[0-9]*"
                 onChange={(e) => {
                   const formatted = formatCPF(e.target.value);
                   form.setFieldValue("cpf", formatted);

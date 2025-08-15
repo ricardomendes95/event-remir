@@ -111,7 +111,13 @@ export function RegistrationForm({
             { type: "email", message: "Email inválido" },
           ]}
         >
-          <Input placeholder="seu@email.com" size="large" />
+          <Input 
+            placeholder="seu@email.com" 
+            size="large" 
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+          />
         </Form.Item>
 
         <Form.Item
@@ -135,6 +141,8 @@ export function RegistrationForm({
           <Input
             placeholder="000.000.000-00"
             size="large"
+            inputMode="numeric"
+            pattern="[0-9]*"
             onChange={(e) => {
               const formatted = formatCPF(e.target.value);
               form.setFieldValue("cpf", formatted);
@@ -154,6 +162,9 @@ export function RegistrationForm({
           <Input
             placeholder="(00) 00000-0000"
             size="large"
+            inputMode="tel"
+            pattern="[0-9 ()+-]*"
+            autoComplete="tel"
             onChange={(e) => {
               const formatted = formatPhone(e.target.value);
               form.setFieldValue("phone", formatted);

@@ -1,14 +1,14 @@
 /**
  * Validador de CPF com dígitos verificadores
  * Implementa algoritmo oficial da Receita Federal
- * 
+ *
  * @example
  * ```typescript
  * import { validateCpfDigits, isValidCpf } from '@/utils/cpfValidator';
- * 
+ *
  * // Validação simples
  * const isValid = validateCpfDigits('12345678909');
- * 
+ *
  * // Validação com feedback detalhado
  * const result = isValidCpf('123.456.789-09');
  * if (!result.isValid) {
@@ -24,21 +24,21 @@
  */
 export function validateCpfDigits(cpf: string): boolean {
   // Remove qualquer formatação
-  const cleanCpf = cpf.replace(/\D/g, '');
-  
+  const cleanCpf = cpf.replace(/\D/g, "");
+
   // Verifica se tem 11 dígitos
   if (cleanCpf.length !== 11) {
     return false;
   }
-  
+
   // Verifica se todos os dígitos são iguais (casos inválidos como 111.111.111-11)
   if (/^(\d)\1{10}$/.test(cleanCpf)) {
     return false;
   }
-  
+
   // Converte para array de números
-  const digits = cleanCpf.split('').map(Number);
-  
+  const digits = cleanCpf.split("").map(Number);
+
   // Calcula primeiro dígito verificador
   let sum = 0;
   for (let i = 0; i < 9; i++) {
@@ -46,12 +46,12 @@ export function validateCpfDigits(cpf: string): boolean {
   }
   let remainder = sum % 11;
   const firstDigit = remainder < 2 ? 0 : 11 - remainder;
-  
+
   // Verifica primeiro dígito
   if (digits[9] !== firstDigit) {
     return false;
   }
-  
+
   // Calcula segundo dígito verificador
   sum = 0;
   for (let i = 0; i < 10; i++) {
@@ -59,7 +59,7 @@ export function validateCpfDigits(cpf: string): boolean {
   }
   remainder = sum % 11;
   const secondDigit = remainder < 2 ? 0 : 11 - remainder;
-  
+
   // Verifica segundo dígito
   return digits[10] === secondDigit;
 }
@@ -76,51 +76,51 @@ export function isValidCpf(cpf: string): {
   if (!cpf) {
     return {
       isValid: false,
-      error: 'CPF é obrigatório'
+      error: "CPF é obrigatório",
     };
   }
-  
-  const cleanCpf = cpf.replace(/\D/g, '');
-  
+
+  const cleanCpf = cpf.replace(/\D/g, "");
+
   if (cleanCpf.length === 0) {
     return {
       isValid: false,
-      error: 'CPF não pode estar vazio'
+      error: "CPF não pode estar vazio",
     };
   }
-  
+
   if (cleanCpf.length < 11) {
     return {
       isValid: false,
-      error: 'CPF incompleto'
+      error: "CPF incompleto",
     };
   }
-  
+
   if (cleanCpf.length > 11) {
     return {
       isValid: false,
-      error: 'CPF deve ter exatamente 11 dígitos'
+      error: "CPF deve ter exatamente 11 dígitos",
     };
   }
-  
+
   // Verifica se todos os dígitos são iguais
   if (/^(\d)\1{10}$/.test(cleanCpf)) {
     return {
       isValid: false,
-      error: 'CPF inválido (todos os dígitos são iguais)'
+      error: "CPF inválido (todos os dígitos são iguais)",
     };
   }
-  
+
   // Valida dígitos verificadores
   if (!validateCpfDigits(cleanCpf)) {
     return {
       isValid: false,
-      error: 'CPF inválido (dígitos verificadores incorretos)'
+      error: "CPF inválido (dígitos verificadores incorretos)",
     };
   }
-  
+
   return {
-    isValid: true
+    isValid: true,
   };
 }
 
@@ -129,18 +129,18 @@ export function isValidCpf(cpf: string): {
  * Útil para validação em desenvolvimento
  */
 export const INVALID_CPFS = [
-  '00000000000',
-  '11111111111',
-  '22222222222',
-  '33333333333',
-  '44444444444',
-  '55555555555',
-  '66666666666',
-  '77777777777',
-  '88888888888',
-  '99999999999',
-  '12345678900',
-  '98765432100'
+  "00000000000",
+  "11111111111",
+  "22222222222",
+  "33333333333",
+  "44444444444",
+  "55555555555",
+  "66666666666",
+  "77777777777",
+  "88888888888",
+  "99999999999",
+  "12345678900",
+  "98765432100",
 ];
 
 /**
@@ -148,12 +148,12 @@ export const INVALID_CPFS = [
  * Útil para desenvolvimento e testes unitários
  */
 export const VALID_CPFS_FOR_TESTING = [
-  '12345678909',
-  '98765432100' // Este será inválido, vou corrigir
+  "12345678909",
+  "98765432100", // Este será inválido, vou corrigir
 ];
 
 // Correção: CPFs válidos reais para teste
 export const VALID_TEST_CPFS = [
-  '11144477735', // CPF válido para teste
-  '12345678909'  // CPF válido para teste
+  "11144477735", // CPF válido para teste
+  "12345678909", // CPF válido para teste
 ];
