@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { isValidCpf } from "@/utils/cpfValidator";
 
 interface ExistingRegistration {
   id: string;
@@ -51,6 +52,13 @@ export function useCpfVerification() {
 
         if (cleanCpf.length !== 11) {
           return; // CPF incompleto, não verificar ainda
+        }
+
+        // 🆕 NOVA VALIDAÇÃO: Verificar dígitos verificadores ANTES da requisição HTTP
+        const validation = isValidCpf(cleanCpf);
+        if (!validation.isValid) {
+          setCpfValidationError(validation.error || "CPF inválido");
+          return;
         }
 
         const response = await fetch("/api/registrations/search-by-cpf", {

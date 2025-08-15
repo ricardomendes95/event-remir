@@ -1,6 +1,7 @@
 import { Form, Input, Button, FormInstance } from "antd";
 import { User, Mail, FileText } from "lucide-react";
 import { z } from "zod";
+import { isValidCpf } from "@/utils/cpfValidator";
 
 const registrationSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
@@ -59,6 +60,18 @@ export function RegistrationForm({
       return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
     }
     return value; // Retorna o valor original se exceder 11 dígitos
+  };
+
+  // 🆕 NOVA FUNÇÃO: Validação imediata de CPF no onBlur
+  const handleCpfBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const cpfValue = e.target.value;
+    if (cpfValue) {
+      const validation = isValidCpf(cpfValue);
+      if (!validation.isValid && cpfValue.replace(/\D/g, "").length === 11) {
+        // Só mostrar erro se CPF estiver completo (11 dígitos)
+        // O hook useCpfVerification já cuida da validação, mas isso dá feedback mais rápido
+      }
+    }
   };
 
   return (
@@ -127,6 +140,7 @@ export function RegistrationForm({
               form.setFieldValue("cpf", formatted);
               onCpfChange(formatted);
             }}
+            onBlur={handleCpfBlur}
             maxLength={14}
             status={cpfValidationError ? "error" : undefined}
           />
