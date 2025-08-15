@@ -8,16 +8,26 @@ const registrationSchema = z.object({
   email: z.string().email("Email inválido"),
   cpf: z
     .string()
-    .regex(
-      /^\d{3}\.\d{3}\.\d{3}-\d{2}$/,
-      "CPF deve estar no formato 000.000.000-00"
-    ),
+    .refine((cpf) => {
+      const cleanCpf = cpf.replace(/\D/g, "");
+      // Se CPF estiver incompleto (menos de 11 dígitos), não validar ainda
+      if (cleanCpf.length < 11) {
+        return true;
+      }
+      // Se CPF estiver completo, validar matematicamente
+      return isValidCpf(cleanCpf).isValid;
+    }, "CPF inválido"),
   phone: z
     .string()
-    .regex(
-      /^\(\d{2}\) \d{4,5}-\d{4}$/,
-      "Telefone deve estar no formato (00) 00000-0000"
-    ),
+    .refine((phone) => {
+      const cleanPhone = phone.replace(/\D/g, "");
+      // Se telefone estiver incompleto (menos de 10 dígitos), não validar ainda
+      if (cleanPhone.length < 10) {
+        return true;
+      }
+      // Telefone válido deve ter 10 ou 11 dígitos
+      return cleanPhone.length >= 10 && cleanPhone.length <= 11;
+    }, "Telefone inválido"),
 });
 
 export type RegistrationFormData = z.infer<typeof registrationSchema>;
@@ -46,20 +56,35 @@ export function RegistrationForm({
 }: RegistrationFormProps) {
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
-    if (cpf.length <= 11) {
+    
+    // Só formatear quando tiver pelo menos 3 dígitos
+    if (cpf.length >= 11) {
       return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    } else if (cpf.length >= 9) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, "$1.$2.$3-$4").replace(/-$/, "");
+    } else if (cpf.length >= 6) {
+      return cpf.replace(/(\d{3})(\d{3})(\d{0,3})/, "$1.$2.$3").replace(/\.$/, "");
+    } else if (cpf.length >= 3) {
+      return cpf.replace(/(\d{3})(\d{0,3})/, "$1.$2").replace(/\.$/, "");
     }
-    return value; // Retorna o valor original se exceder 11 dígitos
+    
+    return cpf; // Retorna apenas os números se tiver menos de 3 dígitos
   };
 
   const formatPhone = (value: string) => {
     const phone = value.replace(/\D/g, "");
-    if (phone.length <= 10) {
-      return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-    } else if (phone.length === 11) {
+    
+    if (phone.length >= 11) {
       return phone.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+    } else if (phone.length >= 10) {
+      return phone.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+    } else if (phone.length >= 6) {
+      return phone.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3").replace(/-$/, "");
+    } else if (phone.length >= 2) {
+      return phone.replace(/(\d{2})(\d{0,5})/, "($1) $2").replace(/ $/, "");
     }
-    return value; // Retorna o valor original se exceder 11 dígitos
+    
+    return phone; // Retorna apenas os números se tiver menos de 2 dígitos
   };
 
   // 🆕 NOVA FUNÇÃO: Validação imediata de CPF no onBlur
@@ -134,7 +159,29 @@ export function RegistrationForm({
               )}
             </div>
           }
-          rules={[{ required: true, message: "CPF é obrigatório" }]}
+          rules={[
+            { required: true, message: "CPF é obrigatório" },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                
+                const cleanCpf = value.replace(/\D/g, "");
+                
+                // Se CPF ainda estiver sendo digitado (menos de 11 dígitos), não validar
+                if (cleanCpf.length < 11) {
+                  return Promise.resolve();
+                }
+                
+                // Se CPF estiver completo, validar matematicamente
+                const validation = isValidCpf(cleanCpf);
+                if (!validation.isValid) {
+                  return Promise.reject(new Error(validation.error || "CPF inválido"));
+                }
+                
+                return Promise.resolve();
+              },
+            },
+          ]}
           validateStatus={cpfValidationError ? "error" : undefined}
           help={cpfValidationError}
         >
@@ -142,7 +189,6 @@ export function RegistrationForm({
             placeholder="000.000.000-00"
             size="large"
             inputMode="numeric"
-            pattern="[0-9]*"
             onChange={(e) => {
               const formatted = formatCPF(e.target.value);
               form.setFieldValue("cpf", formatted);
@@ -157,13 +203,33 @@ export function RegistrationForm({
         <Form.Item
           name="phone"
           label="Telefone"
-          rules={[{ required: true, message: "Telefone é obrigatório" }]}
+          rules={[
+            { required: true, message: "Telefone é obrigatório" },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                
+                const cleanPhone = value.replace(/\D/g, "");
+                
+                // Se telefone ainda estiver sendo digitado (menos de 10 dígitos), não validar
+                if (cleanPhone.length < 10) {
+                  return Promise.resolve();
+                }
+                
+                // Telefone válido deve ter 10 ou 11 dígitos
+                if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+                  return Promise.reject(new Error("Telefone deve ter 10 ou 11 dígitos"));
+                }
+                
+                return Promise.resolve();
+              },
+            },
+          ]}
         >
           <Input
             placeholder="(00) 00000-0000"
             size="large"
             inputMode="tel"
-            pattern="[0-9 ()+-]*"
             autoComplete="tel"
             onChange={(e) => {
               const formatted = formatPhone(e.target.value);
