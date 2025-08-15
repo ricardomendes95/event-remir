@@ -14,19 +14,15 @@ Ajustar conforme necessário
 
 ## 📋 **RESUMO EXECUTIVO**
 
-| **Categoria** | **Implementado** | **Pendente**## 🚀 **PRÓXIMA AÇÃO**
+| **Categoria** | **Implementado** | **Pendente** | **Progresso** |
+| ------------- | :--------------: | :----------: | :-----------: |
+| APIs e Retry  |       3/4        |     1/4      |    75% ✅     |
+| Validação     |       3/3        |     0/3      |    100% ✅    |
+| UX Mobile     |       2/4        |     2/4      |    50% ⚠️     |
+| Robustez      |       1/4        |     3/4      |    25% ❌     |
+| **TOTAL**     |     **9/15**     |   **6/15**   |    **60%**    |
 
-> **ETAPA 4 ✅ CONCLUÍDA - PROSSEGUIR PARA ETAPA 5**
->
-> **PRÓXIMO**: Touch Target Optimization
->
-> | Implementação rápida (15-20min) para melhorar áreas de toque em mobile**ogresso** |
-> | --------------------------------------------------------------------------------- | :-------: | :------: | :-----: |
-> | APIs e Retry                                                                      |    4/4    |   0/4    | 100% ✅ |
-> | Validação                                                                         |    3/3    |   0/3    | 100% ✅ |
-> | UX Mobile                                                                         |    3/4    |   1/4    | 75% ✅  |
-> | Robustez                                                                          |    1/4    |   3/4    | 25% ❌  |
-> | **TOTAL**                                                                         | **11/15** | **4/15** | **73%** |
+---
 
 ---
 
@@ -454,26 +450,28 @@ Implementar tracking de métricas de performance e conversão por dispositivo.
 
 ### 📊 **Tracking de Progresso**
 
-| **Etapa**                  |  **Status**  | **Data**   | **Observações**                       |
-| -------------------------- | :----------: | ---------- | ------------------------------------- |
-| 1 - Validação CPF          | ✅ CONCLUÍDA | 15/08/2025 | Funcionando perfeitamente em mobile   |
-| 2 - Keyboard Types         | ✅ CONCLUÍDA | 15/08/2025 | Teclados corretos em iOS/Android      |
-| 3 - Modal Responsive       | ✅ CONCLUÍDA | 15/08/2025 | Modal responsivo + scroll automático  |
-| 4 - Redirect Payment       | ✅ CONCLUÍDA | 15/08/2025 | Redirecionamento robusto implementado |
-| 5 - Touch Targets          | ⏳ PENDENTE  | -          | -                                     |
-| 6 - Error Boundaries       | ⏳ PENDENTE  | -          | -                                     |
-| 7 - Offline Detection      | ⏳ PENDENTE  | -          | -                                     |
-| 8 - Performance Monitoring | ⏳ PENDENTE  | -          | -                                     |
+| **Etapa**                  |  **Status**  | **Data**   | **Observações**                            |
+| -------------------------- | :----------: | ---------- | ------------------------------------------ |
+| 1 - Validação CPF          | ✅ CONCLUÍDA | 15/08/2025 | Funcionando perfeitamente em mobile        |
+| 2 - Keyboard Types         | ✅ CONCLUÍDA | 15/08/2025 | Teclados corretos em iOS/Android           |
+| 3 - Modal Responsive       | ❌ REVERTIDA | 15/08/2025 | Modal original mantido conforme solicitado |
+| 4 - Redirect Payment       | ✅ CONCLUÍDA | 15/08/2025 | Redirecionamento robusto implementado      |
+| 5 - Touch Targets          | ⏳ PENDENTE  | -          | -                                          |
+| 6 - Error Boundaries       | ⏳ PENDENTE  | -          | -                                          |
+| 7 - Offline Detection      | ⏳ PENDENTE  | -          | -                                          |
+| 8 - Performance Monitoring | ⏳ PENDENTE  | -          | -                                          |
 
 ---
 
 ## 🚀 **PRÓXIMA AÇÃO**
 
-> **ETAPA 3 ✅ CONCLUÍDA - PROSSEGUIR PARA ETAPA 4**
+> **ETAPAS 1, 2, 4 ✅ CONCLUÍDAS - ETAPA 3 REVERTIDA**
 >
-> **PRÓXIMO**: Fix Redirecionamento Pagamento
+> **PRÓXIMO**: Touch Target Optimization (Etapa 5)
 >
-> Implementação crítica (20-30min) para pagamento funcionar em browsers embebidos**Comando para começar (branch main):**
+> **Progresso atual: 60%** - Modal mantido como original conforme solicitado
+
+**Comando para começar (branch main):**
 
 ```bash
 cd /home/ricardo/dev/event-remir
