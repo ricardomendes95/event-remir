@@ -15,12 +15,12 @@ Ajustar conforme necessário
 ## 📋 **RESUMO EXECUTIVO**
 
 | **Categoria** | **Implementado** | **Pendente** | **Progresso** |
-| ------------- | :--------------: | :----------: | :-----------: |
-| APIs e Retry  |       3/4        |     1/4      |    75% ✅     |
-| Validação     |       3/3        |     0/3      |    100% ✅    |
-| UX Mobile     |       1/4        |     3/4      |    25% ⚠️     |
-| Robustez      |       1/4        |     3/4      |    25% ❌     |
-| **TOTAL**     |     **8/15**     |   **7/15**   |    **53%**    |
+|---------------|:---------------:|:------------:|:-------------:|
+| APIs e Retry  | 3/4 | 1/4 | 75% ✅ |
+| Validação     | 3/3 | 0/3 | 100% ✅ |
+| UX Mobile     | 2/4 | 2/4 | 50% ⚠️ |
+| Robustez      | 1/4 | 3/4 | 25% ❌ |
+| **TOTAL**     | **9/15** | **6/15** | **60%** |
 
 ---
 
@@ -111,12 +111,11 @@ const handleCpfBlur = (cpf: string) => {
 - [ ] Mensagem de erro clara
 - [ ] Performance não degradada
 
-### 🚀 **Comando para começar Etapa 2 (branch main):**
-
+**Comando para começar Etapa 3 (branch main):**
 ```bash
 cd /home/ricardo/dev/event-remir
-# Próxima: Keyboard Type Attributes
-code components/registration/RegistrationForm.tsx
+# Próxima: Modal Responsive com Scroll
+code components/event/EventRegistrationModal.tsx
 ```
 
 ---
@@ -141,8 +140,8 @@ Configurar atributos de teclado adequados para cada tipo de input em dispositivo
 - [x] **CA02**: Input Email abre teclado com @ e .com ✅
 - [x] **CA03**: Input Telefone abre teclado numérico ✅
 - [x] **CA04**: Input Nome mantém teclado padrão ✅
-- [ ] **CA05**: Funciona em iOS Safari e Android Chrome 🧪 TESTAR
-- [ ] **CA06**: Não quebra funcionalidade existente 🧪 TESTAR
+- [x] **CA05**: Funciona em iOS Safari e Android Chrome ✅
+- [x] **CA06**: Não quebra funcionalidade existente ✅
 
 ### 📂 **Arquivos a Modificar**
 
@@ -451,8 +450,8 @@ Implementar tracking de métricas de performance e conversão por dispositivo.
 | **Etapa**                  |  **Status**  | **Data**   | **Observações**                     |
 | -------------------------- | :----------: | ---------- | ----------------------------------- |
 | 1 - Validação CPF          | ✅ CONCLUÍDA | 15/08/2025 | Funcionando perfeitamente em mobile |
-| 2 - Keyboard Types         |  🔄 PRÓXIMA  | -          | -                                   |
-| 3 - Modal Responsive       | ⏳ PENDENTE  | -          | -                                   |
+| 2 - Keyboard Types         | ✅ CONCLUÍDA | 15/08/2025 | Teclados corretos em iOS/Android   |
+| 3 - Modal Responsive       |  🔄 PRÓXIMA  | -          | -                                   |
 | 4 - Redirect Payment       | ⏳ PENDENTE  | -          | -                                   |
 | 5 - Touch Targets          | ⏳ PENDENTE  | -          | -                                   |
 | 6 - Error Boundaries       | ⏳ PENDENTE  | -          | -                                   |
@@ -463,11 +462,11 @@ Implementar tracking de métricas de performance e conversão por dispositivo.
 
 ## 🚀 **PRÓXIMA AÇÃO**
 
-> **ETAPA 1 ✅ CONCLUÍDA - PROSSEGUIR PARA ETAPA 2**
->
-> **PRÓXIMO**: Keyboard Type Attributes Mobile
->
-> Implementação rápida (15-20min) para melhorar UX em dispositivos móveis**Comando para começar (branch main):**
+> **ETAPA 2 ✅ CONCLUÍDA - PROSSEGUIR PARA ETAPA 3**
+> 
+> **PRÓXIMO**: Modal Responsive com Scroll
+> 
+> Implementação média (25-35min) para modal funcionar perfeitamente em telas pequenas**Comando para começar (branch main):**
 
 ```bash
 cd /home/ricardo/dev/event-remir
