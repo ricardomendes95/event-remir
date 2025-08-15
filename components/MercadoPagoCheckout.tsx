@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { Spin, Result, Button } from "antd";
 import { CreditCard, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  redirectToPayment,
+  detectEmbeddedEnvironment,
+} from "@/utils/paymentRedirect";
 
 interface PaymentStatus {
   status: "processing" | "success" | "error" | "pending";
@@ -37,8 +41,16 @@ export function MercadoPagoCheckout({
 
     const checkoutUrl = `${baseUrl}?pref_id=${preferenceId}`;
 
-    // Redirecionar para o checkout
-    window.location.href = checkoutUrl;
+    // 🆕 NOVO - Redirecionamento robusto para browsers embebidos
+    const result = redirectToPayment(checkoutUrl);
+
+    // Se precisar de fallback, mostrar link manual
+    if (result.fallbackNeeded) {
+      console.warn(
+        "⚠️ Redirecionamento automático falhou, usuário precisará clicar manualmente"
+      );
+      // Aqui você pode mostrar um modal com link manual se necessário
+    }
   };
 
   const renderProcessing = () => (

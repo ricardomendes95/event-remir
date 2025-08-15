@@ -1,0 +1,191 @@
+/* 📱 Modal Mobile Responsivo - Etapa 3 do Plano de Ação */
+
+/* Configurações base para modal responsivo */
+.registration-modal {
+  --modal-padding: 16px;
+  --modal-max-height: 80vh;
+}
+
+/* Responsividade para telas pequenas */
+@media (max-height: 700px) {
+  .registration-modal .ant-modal-content {
+    margin: 0 !important;
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .registration-modal .ant-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: var(--modal-padding) !important;
+  }
+
+  .registration-modal .ant-modal-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+}
+
+/* Telas muito pequenas (como iPhone SE) */
+@media (max-height: 600px) {
+  .registration-modal .ant-modal-content {
+    margin: 8px !important;
+    max-height: 96vh;
+  }
+
+  .registration-modal .ant-modal-body {
+    padding: 12px !important;
+  }
+  
+  .registration-modal .ant-modal-header .ant-modal-title h2 {
+    font-size: 18px !important;
+    margin-bottom: 8px !important;
+  }
+}
+
+/* Responsividade mobile width */
+@media (max-width: 768px) {
+  .registration-modal .ant-modal {
+    width: 95% !important;
+    max-width: 95% !important;
+    margin: 0 auto;
+  }
+
+  .registration-modal .ant-modal-content {
+    margin: 16px 8px;
+  }
+  
+  /* Ajustar steps para mobile */
+  .registration-modal .ant-steps-small .ant-steps-item-title {
+    font-size: 12px !important;
+  }
+  
+  .registration-modal .ant-steps-small .ant-steps-item-description {
+    font-size: 11px !important;
+  }
+}
+
+/* Suporte para teclado virtual iOS */
+@supports (env(keyboard-inset-height)) {
+  .registration-modal.modal-with-keyboard {
+    padding-bottom: env(keyboard-inset-height);
+  }
+}
+
+/* Landscape mode em mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .registration-modal .ant-modal-content {
+    max-height: 88vh;
+  }
+  
+  .registration-modal .ant-modal-header {
+    padding: 12px 16px;
+  }
+  
+  .registration-modal .ant-modal-body {
+    padding: 12px 16px !important;
+  }
+}
+
+/* Scroll suave e performance */
+.registration-modal .ant-modal-body {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db transparent;
+}
+
+.registration-modal .ant-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.registration-modal .ant-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.registration-modal .ant-modal-body::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 3px;
+}
+
+.registration-modal .ant-modal-body::-webkit-scrollbar-thumb:hover {
+  background-color: #9ca3af;
+}
+
+/* Garantir que inputs ficam visíveis com teclado virtual */
+.registration-modal .ant-input:focus,
+.registration-modal .ant-select-focused .ant-select-selector {
+  position: relative;
+  z-index: 1;
+}
+
+/* Fix para antd Steps em mobile */
+@media (max-width: 480px) {
+  .registration-modal .ant-steps {
+    margin-bottom: 16px !important;
+  }
+  
+  .registration-modal .ant-steps-item {
+    padding-inline-start: 0 !important;
+  }
+}
+
+/* 🆕 NOVO - Melhorias adicionais para Etapa 3 */
+
+/* Garantir que botões sempre fiquem visíveis */
+.registration-modal .registration-buttons {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 16px 0;
+  margin: 16px -16px -16px -16px;
+  border-top: 1px solid #f0f0f0;
+  z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .registration-modal .registration-buttons {
+    margin: 16px -12px -12px -12px;
+    padding: 12px;
+  }
+}
+
+/* Melhor comportamento do formulário em mobile */
+@media (max-width: 768px) {
+  .registration-modal .ant-form-item {
+    margin-bottom: 16px;
+  }
+  
+  .registration-modal .ant-input,
+  .registration-modal .ant-select-selector {
+    font-size: 16px; /* Previne zoom no iOS */
+    height: 44px; /* Touch target adequado */
+  }
+  
+  .registration-modal .ant-btn {
+    height: 44px; /* Touch target adequado */
+    font-size: 16px;
+  }
+}
+
+/* Animação suave para mudanças de layout */
+.registration-modal .ant-modal-content,
+.registration-modal .ant-modal-body {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estados específicos para teclado ativo */
+.registration-modal.modal-with-keyboard {
+  --modal-padding: 12px;
+}
+
+.registration-modal.modal-with-keyboard .ant-modal-content {
+  max-height: 85vh;
+}
+
+/* Garantir que o conteúdo não seja obscurecido pelo teclado */
+@supports (env(keyboard-inset-height)) {
+  .registration-modal.modal-with-keyboard .ant-modal-body {
+    padding-bottom: calc(env(keyboard-inset-height) + 16px);
+  }
+}

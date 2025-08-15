@@ -6,6 +6,9 @@ import { CreditCard } from "lucide-react";
 import { Event } from "@/types/event";
 import { z } from "zod";
 
+// 🆕 NOVO - CSS responsivo para modal mobile
+import "@/styles/modal-mobile.css";
+
 // Componentes especializados
 import {
   EventSummary,
@@ -20,9 +23,12 @@ import { PaymentMethodSelector } from "./PaymentMethodSelector";
 // Hook customizado
 import { useCpfVerification } from "@/hooks/useCpfVerification";
 import { useDeviceDetection } from "@/hooks/useDeviceDetection";
+import { useVirtualKeyboard } from "@/hooks/useVirtualKeyboard";
+import { useAutoScrollToActiveInput } from "@/hooks/useAutoScrollToActiveInput";
 
 // Utilitário para tradução dos métodos de pagamento
 import { getPaymentMethodName } from "@/utils/paymentMethods";
+import { redirectToPayment } from "@/utils/paymentRedirect";
 
 const { Step } = Steps;
 
@@ -76,8 +82,14 @@ export default function EventRegistrationModal({
     clearCpfVerification,
   } = useCpfVerification();
 
-  // Hook de detecção de dispositivo
+  // Hook para detecção de dispositivo
   const deviceInfo = useDeviceDetection();
+
+  // 🆕 NOVO - Hook para detecção de teclado virtual
+  const { isKeyboardActive } = useVirtualKeyboard();
+
+  // 🆕 NOVO - Hook para scroll automático em inputs
+  useAutoScrollToActiveInput();
 
   // Função auxiliar para formatação segura de moeda
   const formatCurrency = (amount: number): string => {
@@ -311,7 +323,14 @@ export default function EventRegistrationModal({
       const redirectUrl = data.checkoutUrl || data.sandboxCheckoutUrl;
 
       if (redirectUrl) {
-        window.location.href = redirectUrl;
+        // 🆕 NOVO - Redirecionamento robusto
+        const result = redirectToPayment(redirectUrl);
+
+        if (result.fallbackNeeded) {
+          message.warning(
+            "Se a página de pagamento não abrir, tente novamente ou use outro navegador"
+          );
+        }
       } else {
         message.error("Erro: Link de pagamento não foi gerado");
       }
@@ -369,6 +388,21 @@ export default function EventRegistrationModal({
         footer={null}
         width={800}
         destroyOnHidden
+        // 🆕 NOVO - Configurações responsivas
+        bodyStyle={{
+          maxHeight: "80vh",
+          overflowY: "auto",
+          padding: "16px",
+          WebkitOverflowScrolling: "touch",
+        }}
+        style={{
+          top: 20,
+          paddingBottom: 0,
+        }}
+        centered={false}
+        className={`registration-modal ${
+          isKeyboardActive ? "modal-with-keyboard" : ""
+        }`}
       >
         {/* Etapa 0: Dados pessoais OU Método de pagamento (se updating) */}
         {currentStep === 0 && !isUpdatingPayment && (
