@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Modal, Form, message, Steps } from "antd";
 import { CreditCard } from "lucide-react";
 import { Event } from "@/types/event";
@@ -48,6 +48,19 @@ export default function EventRegistrationModal({
 }: EventRegistrationModalProps) {
   // Estados principais
   const [loading, setLoading] = useState(false);
+  // Fallback manual para checkout
+  const [manualCheckoutUrl, setManualCheckoutUrl] = useState<string | null>(
+    null
+  );
+  // Ref para scroll automático
+  const fallbackRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll automático para o fallback manual
+  useEffect(() => {
+    if (manualCheckoutUrl && fallbackRef.current) {
+      fallbackRef.current.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [manualCheckoutUrl]);
 
   // Estados para controle de etapas
   const [currentStep, setCurrentStep] = useState(0);
@@ -83,8 +96,13 @@ export default function EventRegistrationModal({
   // Função auxiliar para formatação segura de moeda
   const formatCurrency = (amount: number): string => {
     try {
-      // Para dispositivos iOS antigos, usar formatação simplificada
-      if (deviceInfo.isOldIOS) {
+      // 🆕 NOVO - Instagram iOS sempre usar fallback
+      const isInstagramIOS =
+        /Instagram/.test(navigator.userAgent) &&
+        /iPhone|iPad/.test(navigator.userAgent);
+
+      // Para dispositivos iOS antigos ou Instagram iOS, usar formatação simplificada
+      if (deviceInfo.isOldIOS || isInstagramIOS) {
         return `R$ ${amount.toFixed(2).replace(".", ",")}`;
       }
 
@@ -120,7 +138,10 @@ export default function EventRegistrationModal({
       selectedPaymentMethod.method &&
       typeof selectedPaymentMethod.totalAmount === "number";
 
-    if (process.env.NODE_ENV === "development") {
+    if (
+      process.env.NODE_ENV === "development" &&
+      !navigator.userAgent.includes("Instagram")
+    ) {
       console.log("Debug - Validation:", {
         step: currentStep,
         hasFormData,
@@ -133,8 +154,12 @@ export default function EventRegistrationModal({
       });
     }
 
-    // Log especial para dispositivos iOS com problemas
-    if (deviceInfo.isIOS && currentStep === 2) {
+    // Log especial para dispositivos iOS com problemas (não Instagram)
+    if (
+      deviceInfo.isIOS &&
+      currentStep === 2 &&
+      !navigator.userAgent.includes("Instagram")
+    ) {
       console.log("iOS Debug - Confirmation Step:", {
         isOldIOS: deviceInfo.isOldIOS,
         browser: deviceInfo.browser,
@@ -256,8 +281,8 @@ export default function EventRegistrationModal({
   const handlePaymentMethodSelect = (paymentMethod: PaymentMethodSelection) => {
     setSelectedPaymentMethod(paymentMethod);
 
-    // Log especial para dispositivos iOS
-    if (deviceInfo.isIOS) {
+    // Log especial para dispositivos iOS (exceto Instagram)
+    if (deviceInfo.isIOS && !navigator.userAgent.includes("Instagram")) {
       console.log("iOS - Payment method selected:", paymentMethod);
     }
 
@@ -271,6 +296,9 @@ export default function EventRegistrationModal({
     }
 
     setLoading(true);
+    let redirectAttempted = false;
+    setManualCheckoutUrl(null); // Limpa fallback manual
+
     try {
       // Determinar qual API chamar baseado no modo
       const apiEndpoint = isUpdatingPayment
@@ -294,14 +322,20 @@ export default function EventRegistrationModal({
             },
           };
 
+      // 🆕 NOVO - Fetch com timeout para Instagram iOS
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
       const response = await fetch(apiEndpoint, {
         method: isUpdatingPayment ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(requestBody),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (!response.ok) {
@@ -312,12 +346,19 @@ export default function EventRegistrationModal({
       const redirectUrl = data.checkoutUrl || data.sandboxCheckoutUrl;
 
       if (redirectUrl) {
+        redirectAttempted = true;
         // 🆕 NOVO - Redirecionamento robusto
         const result = redirectToPayment(redirectUrl);
+        // Limpar loading após delay para permitir redirecionamento
+        setTimeout(() => {
+          setLoading(false);
+        }, 2000);
 
+        // Se falhou, exibe fallback manual
         if (result.fallbackNeeded) {
+          setManualCheckoutUrl(redirectUrl);
           message.warning(
-            "Se a página de pagamento não abrir, tente novamente ou use outro navegador"
+            "Se a página de pagamento não abrir, clique no botão abaixo ou abra no navegador externo."
           );
         }
       } else {
@@ -325,11 +366,19 @@ export default function EventRegistrationModal({
       }
     } catch (error) {
       console.error("Erro:", error);
-      message.error(
-        error instanceof Error ? error.message : "Erro ao processar inscrição"
-      );
+
+      if (error instanceof Error && error.name === "AbortError") {
+        message.error("Conexão lenta. Tente novamente.");
+      } else {
+        message.error(
+          error instanceof Error ? error.message : "Erro ao processar inscrição"
+        );
+      }
     } finally {
-      setLoading(false);
+      // Só limpar loading se não redirecionou
+      if (!redirectAttempted) {
+        setLoading(false);
+      }
     }
   };
 
@@ -521,11 +570,12 @@ export default function EventRegistrationModal({
                 </div>
 
                 {/* Botões de ação */}
-                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <div className="flex flex-col gap-3 justify-center">
                   <button
                     type="button"
                     onClick={() => setCurrentStep(0)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    style={{ minHeight: "48px" }}
+                    className="px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
                   >
                     Voltar ao Início
                   </button>
@@ -534,7 +584,8 @@ export default function EventRegistrationModal({
                     <button
                       type="button"
                       onClick={() => setCurrentStep(1)}
-                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                      style={{ minHeight: "48px" }}
+                      className="px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 w-full"
                     >
                       Selecionar Pagamento
                     </button>
@@ -551,7 +602,8 @@ export default function EventRegistrationModal({
                           setCurrentStep(2);
                         }, 100);
                       }}
-                      className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-xs"
+                      style={{ minHeight: "44px" }}
+                      className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm w-full"
                     >
                       Recarregar Dados
                     </button>
@@ -608,11 +660,12 @@ export default function EventRegistrationModal({
                   </div>
                 </div>
 
-                <div className="flex justify-between">
+                <div className="flex flex-col sm:flex-row justify-between gap-3">
                   <button
                     type="button"
                     onClick={handlePreviousStep}
-                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                    style={{ minHeight: "48px" }}
+                    className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 w-full sm:w-auto"
                     disabled={loading}
                   >
                     Voltar
@@ -622,12 +675,54 @@ export default function EventRegistrationModal({
                     type="button"
                     onClick={handleFinalSubmit}
                     disabled={loading || !canShowConfirmationStep()}
-                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                    style={{
+                      minHeight: "48px",
+                      WebkitTapHighlightColor: "rgba(0,0,0,0.1)",
+                    }}
+                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                   >
-                    <CreditCard className="h-5 w-5 text-white" />
-                    {loading ? "Processando..." : "Finalizar Inscrição"}
+                    <div className="flex items-center justify-center gap-2">
+                      <CreditCard className="h-5 w-5" />
+                      {loading ? "Processando..." : "Finalizar Inscrição"}
+                    </div>
                   </button>
                 </div>
+
+                {/* Fallback manual para iOS/Instagram: exibe botão se redirect falhar */}
+                {manualCheckoutUrl && (
+                  <div
+                    ref={fallbackRef}
+                    className="mt-6 p-4 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-lg text-center shadow-lg animate-fade-in"
+                  >
+                    <p className="mb-3 text-white font-bold text-base drop-shadow">
+                      ⚠️ Não foi possível abrir o pagamento automaticamente.
+                      <br />
+                      Toque no botão abaixo para abrir manualmente.
+                      <br />
+                      Se não funcionar, copie o link e abra no navegador externo
+                      (Safari).
+                    </p>
+                    <div className="bg-[#015C91] hover:bg-[#2C82B5] rounded-xl px-8 py-4 shadow-2xl border-4 border-white ">
+                      <a
+                        href={manualCheckoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block text-white rounded-xl font-extrabold text-xl  "
+                        style={{
+                          minWidth: 240,
+                          letterSpacing: 1,
+                          textDecoration: "none", // Remove o sublinhado padrão
+                          color: "white", // Respeita a cor definida
+                        }}
+                      >
+                        🚀 Abrir Pagamento Manualmente
+                      </a>
+                    </div>
+                    <div className="mt-3 text-xs break-all text-white/80 select-all">
+                      {manualCheckoutUrl}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
