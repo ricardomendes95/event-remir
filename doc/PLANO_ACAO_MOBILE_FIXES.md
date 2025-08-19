@@ -16,11 +16,11 @@ Ajustar conforme necessário
 
 | **Categoria** | **Implementado** | **Pendente** | **Progresso** |
 | ------------- | :--------------: | :----------: | :-----------: |
-| APIs e Retry  |       3/4        |     1/4      |    75% ✅     |
+| APIs e Retry  |       4/4        |     0/4      |    100% ✅    |
 | Validação     |       3/3        |     0/3      |    100% ✅    |
-| UX Mobile     |       2/4        |     2/4      |    50% ⚠️     |
-| Robustez      |       1/4        |     3/4      |    25% ❌     |
-| **TOTAL**     |     **9/15**     |   **6/15**   |    **60%**    |
+| UX Mobile     |       3/4        |     1/4      |    75% ✅     |
+| Robustez      |       2/4        |     2/4      |    50% ⚠️     |
+| **TOTAL**     |    **12/15**     |   **3/15**   |    **80%**    |
 
 ---
 
@@ -206,104 +206,80 @@ Configurar atributos de teclado adequados para cada tipo de input em dispositivo
 
 ---
 
-## 🏆 **ETAPA 3 - MODAL RESPONSIVE COM SCROLL**
+## 🏆 **ETAPA 3 - INSTAGRAM IOS FIXES (ETAPA CRÍTICA)**
 
-> **📱 PRIORIDADE ALTA** | **⏱️ Tempo estimado: 25-35min**
+> **� PRIORIDADE CRÍTICA** | **⏱️ Tempo estimado: 20-30min**
 
 ### 🎯 **Objetivo**
 
-Garantir que o modal de inscrição seja totalmente acessível em telas pequenas e com teclado virtual ativo.
+Corrigir problemas críticos na Etapa 3 (finalização) que podem falhar especificamente no Instagram iOS.
 
-### 📍 **Problema Atual**
+### 📍 **Problemas Identificados e Corrigidos**
 
-- Modal pode ficar cortado em telas pequenas
-- Teclado virtual pode cobrir campos importantes
-- Scroll automático não funciona adequadamente
+- ❌ Botões pequenos/difíceis de tocar no Instagram iOS
+- ❌ Fetch API sem timeout (conexão pode travar)
+- ❌ Console logs excessivos causando memory leaks
+- ❌ Formatação de moeda inconsistente
+- ❌ Estados de loading não limpos adequadamente
 
 ### ✅ **Critérios de Aceitação**
 
-- [x] **CA01**: Modal ajusta altura automaticamente ✅
-- [x] **CA02**: Scroll funciona quando teclado aparece ✅
-- [x] **CA03**: Campos ficam visíveis durante edição ✅
-- [x] **CA04**: Botões sempre acessíveis ✅
-- [x] **CA05**: Funciona em orientação portrait/landscape ✅
-- [x] **CA06**: Performance mantida ✅
+- [x] **CA01**: Botões têm mínimo 48px altura para touch ✅
+- [x] **CA02**: Fetch com timeout de 15s para conexões lentas ✅
+- [x] **CA03**: Console logs desabilitados no Instagram ✅
+- [x] **CA04**: Formatação de moeda forçada simples no Instagram iOS ✅
+- [x] **CA05**: Loading state limpo corretamente após redirecionamento ✅
+- [x] **CA06**: Error handling robusto para AbortError ✅
+- [x] **CA07**: Layout responsivo mobile-first ✅
 
-### 📂 **Arquivos a Modificar**
+### 📂 **Arquivos Modificados**
 
-#### 1. **Modificar**: `components/event/EventRegistrationModal.tsx`
+#### 1. **Modificado**: `components/event/EventRegistrationModal.tsx`
+
+**Principais mudanças:**
 
 ```typescript
-// Configurar modal responsivo
-<Modal
-  // Props existentes...
-  bodyStyle={{
-    maxHeight: '80vh',      // 🆕 NOVO
-    overflowY: 'auto',      // 🆕 NOVO
-    padding: '16px'         // 🆕 NOVO - mobile padding
-  }}
-  style={{
-    top: 20,                // 🆕 NOVO - espaço no topo
-    paddingBottom: 0        // 🆕 NOVO
-  }}
-  centered={false}          // 🆕 NOVO - não centralizar
->
-```
+// 🆕 Touch-friendly buttons
+style={{ minHeight: '48px', WebkitTapHighlightColor: 'rgba(0,0,0,0.1)' }}
+className="w-full sm:w-auto px-6 py-3 ..."
 
-#### 2. **Criar**: `styles/modal-mobile.css`
+// 🆕 Fetch com timeout
+const controller = new AbortController();
+const timeoutId = setTimeout(() => controller.abort(), 15000);
+signal: controller.signal
 
-```css
-/* Responsividade específica para modal */
-@media (max-height: 700px) {
-  .ant-modal-content {
-    margin: 0 !important;
-    max-height: 95vh;
-    display: flex;
-    flex-direction: column;
-  }
+// 🆕 Instagram iOS detection
+const isInstagramIOS = /Instagram/.test(navigator.userAgent) && /iPhone|iPad/.test(navigator.userAgent);
 
-  .ant-modal-body {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-}
+// 🆕 Console logs condicionais
+if (process.env.NODE_ENV === "development" && !navigator.userAgent.includes('Instagram'))
 
-/* Ajustes para teclado virtual iOS */
-@supports (env(keyboard-inset-height)) {
-  .modal-with-keyboard {
-    padding-bottom: env(keyboard-inset-height);
-  }
-}
+// 🆕 Loading state cleanup
+let redirectAttempted = false;
+setTimeout(() => setLoading(false), 2000); // Para permitir redirecionamento
 ```
 
 ### 🧪 **Como Testar**
 
-#### **Cenários de Teste**
+#### **Cenários Críticos Instagram iOS**
 
-1. **Tela Pequena**: iPhone SE (375x667) → Modal deve caber
-2. **Teclado Ativo**: Tocar input → Campo deve permanecer visível
-3. **Rotação**: Portrait/Landscape → Modal deve se adaptar
-4. **Scroll**: Conteúdo longo → Deve rolar suavemente
+1. **Touch Targets**: Todos os botões fáceis de tocar
+2. **Timeout**: Simular conexão lenta → Erro claro após 15s
+3. **Memory**: Sem console logs no Instagram → Performance OK
+4. **Moeda**: Formatação simples "R$ 99,00" sempre
+5. **Loading**: Estado limpo após redirecionamento
 
-### 🚀 **Comando para Testar**
+#### **Comando para Testar**
 
 ```bash
-# Testar em device real + dev tools
-npm run dev
+# Testar especificamente em Instagram iOS:
+# 1. Compartilhar link do evento no Instagram
+# 2. Abrir pelo app do Instagram
+# 3. Fazer inscrição completa
+# 4. Verificar se pagamento abre corretamente
 
-# Chrome DevTools:
-# 1. F12 → Device Mode → iPhone SE
-# 2. Resize para várias resoluções
-# 3. Simular teclado virtual
-
-# Device Real:
-# 1. Abrir modal
-# 2. Tocar em diferentes campos
-# 3. Verificar se scroll funciona
-
-# Para reverter se der problema:
-# git reset --hard HEAD~1
+# Desktop simulation:
+# User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 12.0.0.16.90
 ```
 
 ---
@@ -454,7 +430,7 @@ Implementar tracking de métricas de performance e conversão por dispositivo.
 | -------------------------- | :----------: | ---------- | ------------------------------------------ |
 | 1 - Validação CPF          | ✅ CONCLUÍDA | 15/08/2025 | Funcionando perfeitamente em mobile        |
 | 2 - Keyboard Types         | ✅ CONCLUÍDA | 15/08/2025 | Teclados corretos em iOS/Android           |
-| 3 - Modal Responsive       | ❌ REVERTIDA | 15/08/2025 | Modal original mantido conforme solicitado |
+| 3 - Instagram iOS Fixes    | ✅ CONCLUÍDA | 15/08/2025 | **NOVO**: Correções críticas implementadas |
 | 4 - Redirect Payment       | ✅ CONCLUÍDA | 15/08/2025 | Redirecionamento robusto implementado      |
 | 5 - Touch Targets          | ⏳ PENDENTE  | -          | -                                          |
 | 6 - Error Boundaries       | ⏳ PENDENTE  | -          | -                                          |
@@ -465,13 +441,22 @@ Implementar tracking de métricas de performance e conversão por dispositivo.
 
 ## 🚀 **PRÓXIMA AÇÃO**
 
-> **ETAPAS 1, 2, 4 ✅ CONCLUÍDAS - ETAPA 3 REVERTIDA**
+> **ETAPAS 1, 2, 3, 4 ✅ CONCLUÍDAS**
 >
 > **PRÓXIMO**: Touch Target Optimization (Etapa 5)
 >
-> **Progresso atual: 60%** - Modal mantido como original conforme solicitado
+> **Progresso atual: 80%** - Instagram iOS otimizado!
 
-**Comando para começar (branch main):**
+**🎉 CONQUISTA IMPORTANTE**: Instagram iOS agora tem:
+
+- ✅ Botões touch-friendly (48px mínimo)
+- ✅ Fetch com timeout (15s)
+- ✅ Console limpo (sem memory leaks)
+- ✅ Formatação de moeda robusta
+- ✅ Loading states corretos
+- ✅ Layout responsivo mobile-first
+
+**Comando para testar (branch main):**
 
 ```bash
 cd /home/ricardo/dev/event-remir
