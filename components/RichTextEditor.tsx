@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import LineHeight from "./LineHeight";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
@@ -60,6 +61,7 @@ export default function RichTextEditor({
           class: "text-blue-500 hover:text-blue-700 underline",
         },
       }),
+      LineHeight,
     ],
     content: value,
     immediatelyRender: false, // Fix SSR hydration issues
@@ -82,6 +84,13 @@ export default function RichTextEditor({
       },
     },
   });
+
+  const handleLineHeightChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (editor) {
+      editor.chain().focus().setLineHeight(value).run();
+    }
+  };
 
   // Atualiza o editor quando o value externo muda
   React.useEffect(() => {
@@ -122,7 +131,23 @@ export default function RichTextEditor({
   return (
     <div className="border border-gray-300 rounded-lg overflow-hidden">
       {/* Toolbar */}
-      <div className="bg-gray-50 border-b border-gray-200 p-2">
+      <div className="bg-gray-50 border-b border-gray-200 p-2 flex flex-wrap items-center gap-2">
+        {/* Espaçamento entre linhas */}
+        <Tooltip title="Espaçamento entre linhas">
+          <select
+            className="border rounded px-1 py-0.5 text-xs"
+            onChange={handleLineHeightChange}
+            disabled={disabled}
+            value={editor.getAttributes("paragraph").lineHeight || "1.5"}
+            style={{ minWidth: 60 }}
+          >
+            <option value="1">Simples</option>
+            <option value="1.5">1.5</option>
+            <option value="2">Duplo</option>
+            <option value="2.5">2.5</option>
+            <option value="3">3</option>
+          </select>
+        </Tooltip>
         <Space size="small" wrap>
           {/* Undo/Redo */}
           <Tooltip title="Desfazer">
