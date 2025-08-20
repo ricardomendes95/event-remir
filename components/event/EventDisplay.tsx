@@ -119,7 +119,7 @@ export function EventDisplay() {
               {/* Detalhes do Evento */}
               <div className="grid sm:grid-cols-2 gap-4 mb-8">
                 <div className="flex items-center space-x-3">
-                  <CalendarDays className="h-5 w-5 text-blue-600" />
+                  <CalendarDays className="text-blue-600" size={20} />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Data</p>
                     <p className="text-sm text-gray-600 capitalize">
@@ -129,7 +129,7 @@ export function EventDisplay() {
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <Clock className="h-5 w-5 text-blue-600" />
+                  <Clock className="text-blue-600" size={20} />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Horário</p>
                     <p className="text-sm text-gray-600">
@@ -140,7 +140,7 @@ export function EventDisplay() {
 
                 {event.location && (
                   <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-blue-600" />
+                    <MapPin className=" text-blue-600" size={20} />
                     <div>
                       <p className="text-sm font-medium text-gray-900">Local</p>
                       <p className="text-sm text-gray-600">{event.location}</p>
@@ -149,7 +149,7 @@ export function EventDisplay() {
                 )}
 
                 <div className="flex items-center space-x-3">
-                  <Users className="h-5 w-5 text-blue-600" />
+                  <Users className="text-blue-600" size={20} />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Vagas</p>
                     <p className="text-sm text-gray-600">

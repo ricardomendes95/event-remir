@@ -62,7 +62,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <Image
               src="/logo.png"
@@ -113,7 +113,7 @@ export default function HomePage() {
       {/* Main Content */}
       <main>
         {/* Hero Section - Event Display */}
-        <section ref={eventoRef} id="evento" className="py-12 lg:py-20">
+        <section ref={eventoRef} id="evento" className="py-5">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <Suspense
               fallback={
