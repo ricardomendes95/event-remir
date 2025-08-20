@@ -13,7 +13,7 @@ export const EventCreateSchema = z
     description: z
       .string()
       .min(10, "Descrição deve ter pelo menos 10 caracteres")
-      .max(1000, "Descrição muito longa"),
+      .max(2000, "Descrição muito longa"),
     slug: z
       .string()
       .min(3, "Slug deve ter pelo menos 3 caracteres")
