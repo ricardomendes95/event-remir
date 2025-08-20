@@ -8,10 +8,11 @@ export async function GET() {
         isActive: true,
       },
       include: {
-        _count: {
-          select: {
-            registrations: true,
+        registrations: {
+          where: {
+            status: "CONFIRMED",
           },
+          select: { id: true },
         },
       },
     });
@@ -28,7 +29,9 @@ export async function GET() {
       eventDate: activeEvent.startDate.toISOString(), // startDate -> eventDate
       location: activeEvent.location,
       capacity: activeEvent.maxParticipants, // maxParticipants -> capacity
-      currentRegistrations: activeEvent._count.registrations,
+      currentRegistrations: Array.isArray(activeEvent.registrations)
+        ? activeEvent.registrations.length
+        : 0,
       price: Number(activeEvent.price),
       bannerUrl: activeEvent.bannerUrl,
       isActive: activeEvent.isActive,
