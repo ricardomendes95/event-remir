@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import {
+  PaymentFeeCalculator,
+  PaymentConfig,
+} from "@/backend/utils/paymentFeeCalculator";
 
 export async function GET(request: NextRequest) {
   try {
@@ -66,6 +70,8 @@ export async function GET(request: NextRequest) {
       });
 
     // Calcular receita total usando helper de retry
+
+    // Receita líquida considerando taxas e repasse
     const totalRevenue = await withPrismaRetry(async () => {
       const confirmedRegistrations = await prisma.registration.findMany({
         where: { ...where, status: "CONFIRMED" },
@@ -73,15 +79,80 @@ export async function GET(request: NextRequest) {
           event: {
             select: {
               price: true,
+              paymentConfig: true,
             },
           },
+          paymentDetails: true,
         },
       });
 
-      return confirmedRegistrations.reduce(
-        (sum, registration) => sum + registration.event.price,
-        0
-      );
+      let total = 0;
+      for (const reg of confirmedRegistrations) {
+        // Valor base
+        const baseValue = reg.event.price;
+        // Tenta extrair método, parcelas e valor do paymentDetails
+        let method = "pix";
+        let installments = 1;
+        let paymentConfig: PaymentConfig | undefined = undefined;
+        if (reg.event.paymentConfig) {
+          if (typeof reg.event.paymentConfig === "string") {
+            try {
+              paymentConfig = JSON.parse(reg.event.paymentConfig);
+            } catch {
+              paymentConfig = undefined;
+            }
+          } else {
+            paymentConfig = reg.event.paymentConfig as PaymentConfig;
+          }
+        }
+        let amountPaid = baseValue;
+
+        if (reg.paymentDetails) {
+          try {
+            const details =
+              typeof reg.paymentDetails === "string"
+                ? JSON.parse(reg.paymentDetails)
+                : reg.paymentDetails;
+            if (details.method) method = details.method;
+            if (details.installments) installments = details.installments;
+            if (typeof details.amountPaid === "number")
+              amountPaid = details.amountPaid;
+            // passthrough_fee não é necessário aqui, pois o cálculo já é feito pelo PaymentFeeCalculator
+          } catch {}
+        }
+
+        // Calcula opções de pagamento para o evento
+        let calc: ReturnType<
+          typeof PaymentFeeCalculator.calculatePaymentOptions
+        >;
+        try {
+          calc = PaymentFeeCalculator.calculatePaymentOptions(
+            amountPaid,
+            paymentConfig
+          );
+        } catch {
+          // fallback para valor base
+          total += amountPaid;
+          continue;
+        }
+
+        // Busca a opção correspondente ao método/parcelas
+        const option = calc.available_methods.find(
+          (opt) =>
+            opt.method === method && (opt.installments || 1) === installments
+        );
+        if (!option) {
+          // fallback para valor base
+          total += amountPaid;
+        } else {
+          // Se repassa a taxa, soma o valor final (cliente pagou a taxa)
+          // Se não repassa, soma o valor base (receita líquida)
+          total += option.passthrough_fee
+            ? option.final_value
+            : option.base_value;
+        }
+      }
+      return Math.round(total * 100) / 100;
     });
 
     return NextResponse.json({
