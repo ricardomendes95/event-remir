@@ -4,6 +4,8 @@ import {
   CreditCardConfig,
 } from "../schemas/eventSchemas";
 
+export type { PaymentConfig };
+
 // Taxas padrão do MercadoPago (baseadas na pesquisa)
 const DEFAULT_FEES = {
   pix: 0.0099, // 0,99%
