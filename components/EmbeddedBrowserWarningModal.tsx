@@ -51,8 +51,6 @@ export default function EmbeddedBrowserWarningModal() {
     }
   };
 
-  const handleClose = () => setShow(false);
-
   return (
     <div
       role="dialog"
@@ -81,25 +79,6 @@ export default function EmbeddedBrowserWarningModal() {
           position: "relative",
         }}
       >
-        <button
-          onClick={handleClose}
-          aria-label="Fechar aviso"
-          style={{
-            position: "absolute",
-            top: 12,
-            right: 12,
-            background: "#f3f4f6",
-            border: "none",
-            borderRadius: 8,
-            fontSize: 18,
-            fontWeight: 700,
-            color: "#888",
-            padding: "4px 12px",
-            cursor: "pointer",
-          }}
-        >
-          ×
-        </button>
         <div style={{ marginBottom: 16 }}>
           <Image
             src="/logo.png"
