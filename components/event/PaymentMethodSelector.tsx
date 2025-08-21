@@ -297,66 +297,63 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                       padding: "16px",
                     }}
                   >
-                    <Radio value={radioValue} style={{ width: "100%" }}>
-                      <div className={styles.methodContent}>
-                        {/* Linha principal com método e valor */}
-                        <div className={styles.methodMainRow}>
-                          <Space size={12} className={styles.methodInfo}>
-                            {getMethodIcon(method)}
-                            <Text strong style={{ fontSize: "16px" }}>
-                              {option.description}
-                            </Text>
-                          </Space>
-                          <div className={styles.methodPrice}>
-                            <Text
-                              strong
-                              style={{
-                                color: getMethodColor(method),
-                                fontSize: "20px",
-                                fontWeight: 700,
-                                lineHeight: 1,
-                              }}
-                            >
-                              {formatCurrency(option.final_value)}
-                            </Text>
-                            {option.installments && option.installments > 1 && (
-                              <div style={{ marginTop: "4px" }}>
-                                <Text
-                                  type="secondary"
-                                  style={{
-                                    fontSize: "13px",
-                                    display: "block",
-                                    fontWeight: 500,
-                                  }}
-                                >
-                                  {option.installments}x de{" "}
-                                  {formatCurrency(
-                                    option.final_value / option.installments
-                                  )}
-                                </Text>
-                              </div>
-                            )}
-                          </div>
+                    <div className={styles.methodContent}>
+                      {/* Linha principal com método e valor */}
+                      <div className={styles.methodMainRow}>
+                        <Space size={12} className={styles.methodInfo}>
+                          {getMethodIcon(method)}
+                          <Text strong style={{ fontSize: "16px" }}>
+                            {option.description}
+                          </Text>
+                        </Space>
+                        <div className={styles.methodPrice}>
+                          <Text
+                            strong
+                            style={{
+                              color: getMethodColor(method),
+                              fontSize: "20px",
+                              fontWeight: 700,
+                              lineHeight: 1,
+                            }}
+                          >
+                            {formatCurrency(option.final_value)}
+                          </Text>
+                          {option.installments && option.installments > 1 && (
+                            <div style={{ marginTop: "4px" }}>
+                              <Text
+                                type="secondary"
+                                style={{
+                                  fontSize: "13px",
+                                  display: "block",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {option.installments}x de{" "}
+                                {formatCurrency(
+                                  option.final_value / option.installments
+                                )}
+                              </Text>
+                            </div>
+                          )}
                         </div>
-
-                        {/* Taxa de serviço em linha separada para mobile */}
-                        {option.passthrough_fee && (
-                          <div className={styles.methodFee}>
-                            <Text
-                              type="secondary"
-                              style={{
-                                fontSize: "13px",
-                                color: "#666",
-                              }}
-                            >
-                              Taxa de serviço:{" "}
-                              {formatCurrency(option.fee_amount)} (
-                              {(option.fee_percentage * 100).toFixed(2)}%)
-                            </Text>
-                          </div>
-                        )}
                       </div>
-                    </Radio>
+
+                      {/* Taxa de serviço em linha separada para mobile */}
+                      {option.passthrough_fee && (
+                        <div className={styles.methodFee}>
+                          <Text
+                            type="secondary"
+                            style={{
+                              fontSize: "13px",
+                              color: "#666",
+                            }}
+                          >
+                            Taxa de serviço: {formatCurrency(option.fee_amount)}{" "}
+                            ({(option.fee_percentage * 100).toFixed(2)}%)
+                          </Text>
+                        </div>
+                      )}
+                    </div>
                   </Card>
                 );
               })}
