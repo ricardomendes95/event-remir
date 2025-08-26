@@ -306,6 +306,8 @@ export async function POST(request: NextRequest) {
         fee_amount: selectedOption.fee_amount,
         final_value: selectedOption.final_value,
       },
+      // Forçar retorno automático ao site quando pagamento for aprovado
+      auto_return: "approved",
       payment_methods: {
         excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
         excluded_payment_methods: getExcludedPaymentMethods(paymentData.method),
