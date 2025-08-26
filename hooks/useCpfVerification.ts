@@ -7,7 +7,7 @@ interface ExistingRegistration {
   email: string;
   cpf: string;
   phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId: string | null;
   registrationDate: string;
   event: {

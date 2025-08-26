@@ -197,33 +197,50 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Se há uma inscrição existente, verificar se é para atualização
+    let registrationAction: "CREATE" | "UPDATE" = "CREATE";
+    let targetRegistrationId: string | null = null;
+
     if (existingRegistration) {
-      // Se não foi fornecido registrationId, retornar erro
-      if (!registrationId) {
+      // Verificar se status permite nova tentativa de pagamento
+      if (
+        !["PENDING", "CANCELLED", "PAYMENT_FAILED"].includes(
+          existingRegistration.status
+        )
+      ) {
         return NextResponse.json(
-          { error: "CPF já possui inscrição neste evento" },
+          { error: "CPF já possui inscrição confirmada neste evento" },
           { status: 400 }
         );
       }
 
-      // Verificar se o registrationId corresponde à inscrição existente
-      if (registrationId !== existingRegistration.id) {
+      // Se registrationId foi fornecido, validar se corresponde à inscrição existente
+      if (registrationId && registrationId !== existingRegistration.id) {
         return NextResponse.json(
           { error: "ID de inscrição não corresponde ao CPF informado" },
           { status: 400 }
         );
       }
 
-      // Verificar se a inscrição está em status que permite nova tentativa de pagamento
-      if (
-        existingRegistration.status !== "PENDING" &&
-        existingRegistration.status !== "CANCELLED"
-      ) {
-        return NextResponse.json(
-          { error: "Esta inscrição já foi confirmada" },
-          { status: 400 }
-        );
+      // Lógica refinada baseada em status + existência de paymentId
+      const { status, paymentId } = existingRegistration;
+
+      if (status === "CANCELLED" || status === "PAYMENT_FAILED") {
+        // CANCELLED ou PAYMENT_FAILED: criar nova preferência no MP (não dá pra atualizar a existente)
+        // Ação no banco: UPDATE do registro existente
+        registrationAction = "UPDATE";
+        targetRegistrationId = existingRegistration.id;
+      } else if (status === "PENDING") {
+        if (!paymentId) {
+          // PENDING sem paymentId: criar nova preferência no MP (não existe preferência anterior)
+          // Ação no banco: UPDATE do registro existente
+          registrationAction = "UPDATE";
+          targetRegistrationId = existingRegistration.id;
+        } else {
+          // PENDING com paymentId: criar nova preferência no MP (substituir a anterior)
+          // Ação no banco: UPDATE do registro existente
+          registrationAction = "UPDATE";
+          targetRegistrationId = existingRegistration.id;
+        }
       }
     }
 
@@ -330,18 +347,20 @@ export async function POST(request: NextRequest) {
       response.external_reference
     );
 
-    // Criar ou atualizar registro (pending)
-    if (existingRegistration && registrationId) {
-      // Atualizar inscrição existente com novo paymentId
+    // Criar ou atualizar registro baseado na ação determinada
+    if (registrationAction === "UPDATE" && targetRegistrationId) {
       await prisma.registration.update({
-        where: { id: registrationId },
+        where: { id: targetRegistrationId },
         data: {
+          // Atualizar dados do participante (caso tenham mudado)
+          name: participantData.name,
+          email: participantData.email,
+          phone: participantData.phone.replace(/\D/g, ""),
           status: "PENDING",
           paymentId: response.id,
         },
       });
     } else {
-      // Criar nova inscrição
       await prisma.registration.create({
         data: {
           eventId,

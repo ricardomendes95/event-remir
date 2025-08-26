@@ -73,6 +73,9 @@ export default function EventRegistrationModal({
   const [existingRegistrationId, setExistingRegistrationId] = useState<
     string | null
   >(null);
+  // Forçar criação de nova preferência mesmo quando mostramos apenas seleção de método
+  const [forceCreateNewPreference, setForceCreateNewPreference] =
+    useState(false);
 
   // Estados para modais
   const [proofModalOpen, setProofModalOpen] = useState(false);
@@ -212,10 +215,6 @@ export default function EventRegistrationModal({
   const handleContinuePayment = () => {
     if (!existingRegistration) return;
 
-    // Configurar modo de atualização
-    setIsUpdatingPayment(true);
-    setExistingRegistrationId(existingRegistration.id);
-
     // Pré-carregar dados da inscrição existente
     const existingFormData: RegistrationFormData = {
       name: existingRegistration.name,
@@ -224,6 +223,23 @@ export default function EventRegistrationModal({
       phone: existingRegistration.phone,
     };
     setFormData(existingFormData);
+
+    // Se a inscrição existente está em CANCELLED ou PAYMENT_FAILED, queremos
+    // que o usuário apenas escolha o método (mesmo comportamento visual do
+    // "continuar pagamento"), mas em backend vamos criar uma NOVA preferência.
+    if (
+      existingRegistration.status === "CANCELLED" ||
+      existingRegistration.status === "PAYMENT_FAILED"
+    ) {
+      setForceCreateNewPreference(true);
+      setIsUpdatingPayment(true); // mostrar apenas seleção de método
+      setExistingRegistrationId(null);
+    } else {
+      // Para PENDING (ou outros que permitimos atualizar), usar o fluxo de update
+      setForceCreateNewPreference(false);
+      setIsUpdatingPayment(true);
+      setExistingRegistrationId(existingRegistration.id);
+    }
 
     // Pular direto para seleção de método de pagamento (step 0 no modo update)
     setCurrentStep(0);
@@ -300,34 +316,45 @@ export default function EventRegistrationModal({
     setManualCheckoutUrl(null); // Limpa fallback manual
 
     try {
-      // Determinar qual API chamar baseado no modo
-      const apiEndpoint = isUpdatingPayment
+      // Determinar se devemos criar nova preferência:
+      // - forceCreateNewPreference (setado no handler ao clicar em Refazer)
+      // - ou se a inscrição existente está em CANCELLED/PAYMENT_FAILED
+      const shouldCreateNewPreference =
+        forceCreateNewPreference ||
+        (!!existingRegistration &&
+          (existingRegistration.status === "CANCELLED" ||
+            existingRegistration.status === "PAYMENT_FAILED"));
+
+      const apiEndpoint = shouldCreateNewPreference
+        ? "/api/payments/create-preference"
+        : isUpdatingPayment
         ? "/api/payments/update-preference"
         : "/api/payments/create-preference";
 
-      const requestBody = isUpdatingPayment
-        ? {
-            registrationId: existingRegistrationId,
-            paymentData: {
-              method: selectedPaymentMethod.method,
-              installments: selectedPaymentMethod.installments,
-            },
-          }
-        : {
-            eventId: event.id,
-            participantData: formData,
-            paymentData: {
-              method: selectedPaymentMethod.method,
-              installments: selectedPaymentMethod.installments,
-            },
-          };
+      const requestBody =
+        apiEndpoint === "/api/payments/update-preference"
+          ? {
+              registrationId: existingRegistrationId,
+              paymentData: {
+                method: selectedPaymentMethod.method,
+                installments: selectedPaymentMethod.installments,
+              },
+            }
+          : {
+              eventId: event.id,
+              participantData: formData,
+              paymentData: {
+                method: selectedPaymentMethod.method,
+                installments: selectedPaymentMethod.installments,
+              },
+            };
 
       // 🆕 NOVO - Fetch com timeout para Instagram iOS
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
       const response = await fetch(apiEndpoint, {
-        method: isUpdatingPayment ? "PUT" : "POST",
+        method: apiEndpoint.includes("update-preference") ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -379,6 +406,8 @@ export default function EventRegistrationModal({
       if (!redirectAttempted) {
         setLoading(false);
       }
+      // Resetar flag após tentativa
+      setForceCreateNewPreference(false);
     }
   };
 

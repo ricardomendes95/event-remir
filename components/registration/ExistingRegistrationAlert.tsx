@@ -7,7 +7,7 @@ interface ExistingRegistration {
   email: string;
   cpf: string;
   phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId: string | null;
   registrationDate: string;
   event: {
@@ -85,7 +85,6 @@ export function ExistingRegistrationAlert({
                 Ver Comprovante
               </Button>
             )}
-
             {registration.status === "PENDING" && registration.paymentId && (
               <Button
                 type="primary"
@@ -94,6 +93,18 @@ export function ExistingRegistrationAlert({
                 className="w-full"
               >
                 Continuar Pagamento
+              </Button>
+            )}
+
+            {(registration.status === "CANCELLED" ||
+              registration.status === "PAYMENT_FAILED") && (
+              <Button
+                type="primary"
+                icon={<CreditCard className="h-4 w-4" />}
+                onClick={onContinuePayment}
+                className="w-full"
+              >
+                Refazer Pagamento
               </Button>
             )}
           </div>

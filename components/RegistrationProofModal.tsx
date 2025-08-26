@@ -15,7 +15,7 @@ interface RegistrationProof {
   email: string;
   cpf: string;
   phone: string;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId: string;
   registrationDate: string;
   event: {
@@ -75,6 +75,12 @@ export function RegistrationProofModal({
           color: "red",
           icon: <XCircle className="w-4 h-4" />,
           text: "Cancelado",
+        };
+      case "PAYMENT_FAILED":
+        return {
+          color: "red",
+          icon: <XCircle className="w-4 h-4" />,
+          text: "Falha no Pagamento",
         };
       default:
         return { color: "default", icon: null, text: status };
