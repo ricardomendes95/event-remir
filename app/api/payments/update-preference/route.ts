@@ -221,6 +221,8 @@ export async function PUT(request: NextRequest) {
         final_value: selectedOption.final_value,
         is_update: true, // Flag para identificar atualizações
       },
+      // Forçar retorno automático ao site quando pagamento for aprovado
+      auto_return: "approved",
       payment_methods: {
         excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
         excluded_payment_methods: getExcludedPaymentMethods(),
