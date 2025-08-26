@@ -48,6 +48,33 @@ function getExcludedPaymentMethods(selectedMethod: string) {
   }
 }
 
+// Helper para extrair DDD e telefone de forma mais robusta
+export function parsePhoneNumber(phone: string) {
+  const cleanPhone = phone.replace(/\D/g, "");
+
+  // Se tem 11 dígitos (9 + DDD), extrair normalmente
+  if (cleanPhone.length === 11) {
+    return {
+      area_code: cleanPhone.substring(0, 2),
+      number: cleanPhone.substring(2),
+    };
+  }
+
+  // Se tem 10 dígitos (8 + DDD), extrair normalmente
+  if (cleanPhone.length === 10) {
+    return {
+      area_code: cleanPhone.substring(0, 2),
+      number: cleanPhone.substring(2),
+    };
+  }
+
+  // Fallback: assumir que os 2 primeiros são DDD
+  return {
+    area_code: cleanPhone.substring(0, 2) || "11",
+    number: cleanPhone.substring(2) || cleanPhone,
+  };
+}
+
 // Schema de validação
 const createPreferenceSchema = z.object({
   eventId: z.string().min(1, "ID do evento é obrigatório"),
@@ -252,6 +279,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extrair telefone de forma mais robusta
+    const phoneData = parsePhoneNumber(participantData.phone);
+
     // Criar preferência no Mercado Pago
     const preference = new Preference(mercadoPagoClient);
 
@@ -279,10 +309,7 @@ export async function POST(request: NextRequest) {
           type: "CPF",
           number: participantData.cpf.replace(/\D/g, ""),
         },
-        phone: {
-          area_code: participantData.phone.replace(/\D/g, "").substring(0, 2),
-          number: participantData.phone.replace(/\D/g, "").substring(2),
-        },
+        phone: phoneData,
       },
       back_urls: {
         success: `${process.env.NEXTAUTH_URL}/payment/success`,
@@ -290,10 +317,13 @@ export async function POST(request: NextRequest) {
         pending: `${process.env.NEXTAUTH_URL}/payment/pending`,
       },
       notification_url: `${process.env.NEXTAUTH_URL}/api/payments/webhook`,
+      // External reference mais único incluindo timestamp
       external_reference: `event_${eventId}_cpf_${participantData.cpf.replace(
         /\D/g,
         ""
-      )}`, // 🔍 Para facilitar identificação
+      )}_${Date.now()}`,
+      // Statement descriptor para aparecer na fatura (máximo 13 caracteres)
+      statement_descriptor: event.title.substring(0, 13).toUpperCase(),
       metadata: {
         event_id: eventId,
         participant_name: participantData.name,
@@ -305,9 +335,12 @@ export async function POST(request: NextRequest) {
         base_value: selectedOption.base_value,
         fee_amount: selectedOption.fee_amount,
         final_value: selectedOption.final_value,
+        registration_id: targetRegistrationId, // Útil para rastreamento
       },
-      // Forçar retorno automático ao site quando pagamento for aprovado
-      auto_return: "approved",
+      // Forçar retorno automático quando pagamento for aprovado
+      auto_return: "all",
+      // Modo binário: aprovado ou rejeitado (sem pending para cartão)
+      binary_mode: paymentData.method !== "pix", // PIX pode ficar pending
       payment_methods: {
         excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
         excluded_payment_methods: getExcludedPaymentMethods(paymentData.method),
@@ -381,6 +414,13 @@ export async function POST(request: NextRequest) {
       preferenceId: response.id,
       checkoutUrl: response.init_point,
       sandboxCheckoutUrl: response.sandbox_init_point,
+      // Adicionar informações úteis para o frontend
+      paymentInfo: {
+        method: paymentData.method,
+        installments: paymentData.installments || 1,
+        finalValue: selectedOption.final_value,
+        expiresAt: preferenceData.expiration_date_to,
+      },
     });
   } catch (error) {
     console.error("Erro ao criar preferência:", error);

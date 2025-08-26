@@ -11,6 +11,7 @@ import {
   PaymentConfig,
   updatePreferenceSchema,
 } from "@/backend/schemas/eventSchemas";
+import { parsePhoneNumber } from "../create-preference/route";
 
 // Helper functions para mapear métodos de pagamento para exclusões do MercadoPago
 function getExcludedPaymentTypes(selectedMethod: string) {
@@ -168,6 +169,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Extrair telefone de forma mais robusta
+    const phoneData = parsePhoneNumber(registration.phone);
+
     // 9. Atualizar preferência no MercadoPago
     const preference = new Preference(mercadoPagoClient);
 
@@ -195,10 +199,7 @@ export async function PUT(request: NextRequest) {
           type: "CPF",
           number: registration.cpf.replace(/\D/g, ""),
         },
-        phone: {
-          area_code: registration.phone.replace(/\D/g, "").substring(0, 2),
-          number: registration.phone.replace(/\D/g, "").substring(2),
-        },
+        phone: phoneData,
       },
       back_urls: {
         success: `${process.env.NEXTAUTH_URL}/payment/success`,
@@ -206,7 +207,14 @@ export async function PUT(request: NextRequest) {
         pending: `${process.env.NEXTAUTH_URL}/payment/pending`,
       },
       notification_url: `${process.env.NEXTAUTH_URL}/api/payments/webhook`,
-      external_reference: `event_${registration.event.id}_reg_${registrationId}`,
+      // External reference mais único incluindo timestamp
+      external_reference: `event_${
+        registration.eventId
+      }_cpf_${registration.cpf.replace(/\D/g, "")}_${Date.now()}`,
+      // Statement descriptor para aparecer na fatura (máximo 13 caracteres)
+      statement_descriptor: registration?.event?.title
+        .substring(0, 13)
+        .toUpperCase(),
       metadata: {
         registration_id: registrationId,
         event_id: registration.event.id,
@@ -222,7 +230,8 @@ export async function PUT(request: NextRequest) {
         is_update: true, // Flag para identificar atualizações
       },
       // Forçar retorno automático ao site quando pagamento for aprovado
-      auto_return: "approved",
+      auto_return: "all",
+      binary_mode: paymentData.method !== "pix", // PIX pode ficar pending
       payment_methods: {
         excluded_payment_types: getExcludedPaymentTypes(paymentData.method),
         excluded_payment_methods: getExcludedPaymentMethods(),
