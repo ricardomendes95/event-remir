@@ -277,7 +277,12 @@ export function RegistrationProofModal({
       <div className="py-4">
         {/* Formulário de Busca */}
         <div className="mb-6">
-          <Form form={form} onFinish={handleSearch} layout="vertical">
+          <Form
+            form={form}
+            onFinish={handleSearch}
+            layout="vertical"
+            noValidate
+          >
             <Form.Item
               label="CPF do participante"
               name="cpf"
@@ -291,7 +296,6 @@ export function RegistrationProofModal({
                 placeholder="000.000.000-00"
                 maxLength={14}
                 inputMode="numeric"
-                pattern="[0-9]*"
                 onChange={(e) => {
                   const formatted = formatCPF(e.target.value);
                   form.setFieldValue("cpf", formatted);
