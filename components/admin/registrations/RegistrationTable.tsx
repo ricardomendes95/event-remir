@@ -12,6 +12,7 @@ import {
   Typography,
   Tooltip,
   Badge,
+  Row,
 } from "antd";
 
 const { Title } = Typography;
@@ -251,7 +252,12 @@ export default function RegistrationTable({
 
   return (
     <Card>
-      <div className="mb-4 flex justify-between items-center">
+      <Row
+        gutter={[16, 16]}
+        align="middle"
+        justify="space-between"
+        className="mb-4"
+      >
         <div className="flex items-center space-x-4">
           <Title level={4} className="mb-0">
             Lista de Inscrições
@@ -266,7 +272,7 @@ export default function RegistrationTable({
         >
           Nova Inscrição Manual
         </Button>
-      </div>
+      </Row>
 
       <Table
         columns={columns}

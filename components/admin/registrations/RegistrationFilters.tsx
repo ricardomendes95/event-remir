@@ -36,7 +36,7 @@ export default function RegistrationFilters({
 }: RegistrationFiltersProps) {
   return (
     <Card className="mb-6">
-      <Row gutter={16} align="middle">
+      <Row gutter={[16, 16]} align="middle">
         <Col flex="auto">
           <Search
             placeholder="Buscar por nome, email, CPF ou evento..."
