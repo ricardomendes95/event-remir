@@ -31,6 +31,7 @@ interface EventRegistrationModalProps {
   event: Event;
   open: boolean;
   onClose: () => void;
+  initialCpf?: string;
 }
 
 // Tipos para os dados de pagamento
@@ -45,6 +46,7 @@ export default function EventRegistrationModal({
   event,
   open,
   onClose,
+  initialCpf,
 }: EventRegistrationModalProps) {
   // Estados principais
   const [loading, setLoading] = useState(false);
@@ -95,6 +97,24 @@ export default function EventRegistrationModal({
 
   // Hook para detecção de dispositivo
   const deviceInfo = useDeviceDetection();
+
+  // Pré-preencher CPF quando modal abrir
+  useEffect(() => {
+    if (open && initialCpf) {
+      const formatCPF = (value: string) => {
+        const cpf = value.replace(/\D/g, "");
+        if (cpf.length >= 11) {
+          return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+        }
+        return cpf;
+      };
+
+      const formattedCpf = formatCPF(initialCpf);
+      form.setFieldValue("cpf", formattedCpf);
+      // Trigger CPF validation
+      handleCpfChange(formattedCpf);
+    }
+  }, [open, initialCpf]);
 
   // Função auxiliar para formatação segura de moeda
   const formatCurrency = (amount: number): string => {

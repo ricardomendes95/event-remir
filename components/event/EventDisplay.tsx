@@ -8,10 +8,21 @@ import { Event } from "@/types/event";
 // formatTextToHtml removido - agora usamos HTML direto do TipTap
 import { CountdownTimer } from "../CountdownTimer";
 
-export function EventDisplay() {
+interface EventDisplayProps {
+  initialCpf?: string;
+}
+
+export function EventDisplay({ initialCpf }: EventDisplayProps) {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // Abrir modal automaticamente se há CPF inicial
+  useEffect(() => {
+    if (initialCpf && event) {
+      setModalOpen(true);
+    }
+  }, [initialCpf, event]);
 
   useEffect(() => {
     const fetchActiveEvent = async () => {
@@ -220,6 +231,7 @@ export function EventDisplay() {
         event={event}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
+        initialCpf={initialCpf}
       />
     </>
   );

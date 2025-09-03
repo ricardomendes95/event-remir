@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useRef, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { EventDisplay } from "@/components/event/EventDisplay";
 import { SearchComprovante } from "@/components/SearchComprovante";
 import { AutoShowProofModal } from "@/components/AutoShowProofModal";
@@ -8,10 +9,23 @@ import { Button } from "antd";
 import { UserCheck, CreditCard, ArrowUp } from "lucide-react";
 import Image from "next/image";
 
-export default function HomePage() {
+function HomePageContent() {
+  const searchParams = useSearchParams();
   const eventoRef = useRef<HTMLElement>(null);
   const comprovanteRef = useRef<HTMLElement>(null);
   const [showFloatingButton, setShowFloatingButton] = useState(false);
+  const [urlCpf, setUrlCpf] = useState<string>("");
+
+  useEffect(() => {
+    const cpfParam = searchParams?.get("cpf");
+    if (cpfParam) {
+      setUrlCpf(cpfParam);
+      // Scroll para a seção do evento
+      setTimeout(() => {
+        scrollToSection(eventoRef);
+      }, 100);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -122,7 +136,7 @@ export default function HomePage() {
                 </div>
               }
             >
-              <EventDisplay />
+              <EventDisplay initialCpf={urlCpf} />
             </Suspense>
           </div>
         </section>
@@ -202,5 +216,19 @@ export default function HomePage() {
       {/* Auto Show Proof Modal */}
       <AutoShowProofModal />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      }
+    >
+      <HomePageContent />
+    </Suspense>
   );
 }
