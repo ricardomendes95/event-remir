@@ -34,6 +34,7 @@ const registrationSchema = z.object({
   status: z
     .enum(["PENDING", "CONFIRMED", "CANCELLED", "PAYMENT_FAILED"])
     .default("CONFIRMED"),
+  paymentMethod: z.enum(["MERCADO_PAGO", "MANUAL"]).default("MANUAL"),
 });
 
 interface Event {
@@ -148,6 +149,10 @@ export default function RegistrationModal({
               name="eventId"
               label="Evento"
               rules={[{ required: true, message: "Evento é obrigatório" }]}
+              initialValue={
+                editingRegistration?.event.id ||
+                events.filter((event) => event.isActive)[0]?.id
+              }
             >
               <Select placeholder="Selecione o evento" size="large">
                 {events
@@ -241,6 +246,7 @@ export default function RegistrationModal({
               name="status"
               label="Status da Inscrição"
               rules={[{ required: true, message: "Status é obrigatório" }]}
+              initialValue="CONFIRMED"
             >
               <Select placeholder="Selecione o status" size="large">
                 <Option value="CONFIRMED">
@@ -251,6 +257,34 @@ export default function RegistrationModal({
                 </Option>
                 <Option value="CANCELLED">
                   <Tag color="red">Cancelado</Tag>
+                </Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={16}>
+          <Col span={24}>
+            <Form.Item
+              name="paymentMethod"
+              label="Método de Pagamento"
+              initialValue="MANUAL"
+              rules={[
+                {
+                  required: true,
+                  message: "Método de pagamento é obrigatório",
+                },
+              ]}
+            >
+              <Select
+                placeholder="Selecione o método de pagamento"
+                size="large"
+              >
+                <Option value="MERCADO_PAGO">
+                  <Tag color="blue">Mercado Pago</Tag>
+                </Option>
+
+                <Option value="MANUAL">
+                  <Tag color="orange">Manual</Tag>
                 </Option>
               </Select>
             </Form.Item>

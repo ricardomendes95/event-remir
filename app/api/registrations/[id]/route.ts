@@ -52,7 +52,7 @@ export async function PUT(
   try {
     const params = await context.params;
     const body = await request.json();
-    const { name, email, cpf, phone, status } = body;
+    const { name, email, cpf, phone, status, paymentMethod } = body;
 
     // Verificar se a inscrição existe
     const existingRegistration = await prisma.registration.findUnique({
@@ -75,6 +75,7 @@ export async function PUT(
         ...(cpf && { cpf: cpf.replace(/\D/g, "") }),
         ...(phone && { phone: phone.replace(/\D/g, "") }),
         ...(status && { status }),
+        ...(paymentMethod && { paymentMethod }),
       },
       include: {
         event: {

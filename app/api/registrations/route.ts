@@ -87,7 +87,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, email, cpf, phone, eventId, status = "CONFIRMED" } = body;
+    const {
+      name,
+      email,
+      cpf,
+      phone,
+      eventId,
+      status = "CONFIRMED",
+      paymentMethod = "MANUAL",
+    } = body;
 
     // Validar se o evento existe
     const event = await prisma.event.findUnique({
@@ -131,6 +139,7 @@ export async function POST(request: NextRequest) {
         paymentId: `manual_${Date.now()}_${Math.random()
           .toString(36)
           .substr(2, 9)}`,
+        paymentMethod: paymentMethod,
       },
       include: {
         event: {

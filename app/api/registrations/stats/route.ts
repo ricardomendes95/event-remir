@@ -69,10 +69,8 @@ export async function GET(request: NextRequest) {
         }
       });
 
-    // Calcular receita total usando helper de retry
-
-    // Receita líquida considerando taxas e repasse
-    const totalRevenue = await withPrismaRetry(async () => {
+    // Calcular receita total e receita não-manual usando helper de retry
+    const [totalRevenue, nonManualRevenue] = await withPrismaRetry(async () => {
       const confirmedRegistrations = await prisma.registration.findMany({
         where: { ...where, status: "CONFIRMED" },
         select: {
@@ -83,76 +81,112 @@ export async function GET(request: NextRequest) {
             },
           },
           paymentDetails: true,
+          paymentMethod: true,
         },
       });
 
       let total = 0;
+      let nonManualTotal = 0;
+
       for (const reg of confirmedRegistrations) {
-        // Valor base
+        // Valor base do evento
         const baseValue = reg.event.price;
-        // Tenta extrair método, parcelas e valor do paymentDetails
-        let method = "pix";
-        let installments = 1;
-        let paymentConfig: PaymentConfig | undefined = undefined;
-        if (reg.event.paymentConfig) {
-          if (typeof reg.event.paymentConfig === "string") {
+        let finalRevenue = baseValue; // Valor que será somado à receita
+
+        // Se não é inscrição manual, calcular com desconto das taxas
+        if (reg.paymentMethod !== "MANUAL") {
+          // Extrair informações do pagamento
+          let paymentMethod = "pix"; // padrão
+          let installments = 1;
+
+          if (reg.paymentDetails) {
             try {
-              paymentConfig = JSON.parse(reg.event.paymentConfig);
-            } catch {
-              paymentConfig = undefined;
+              const details =
+                typeof reg.paymentDetails === "string"
+                  ? JSON.parse(reg.paymentDetails)
+                  : reg.paymentDetails;
+
+              // Mapear método do MercadoPago para nosso formato
+              if (details.paymentMethod) {
+                const mpMethod = details.paymentMethod.toLowerCase();
+                if (mpMethod === "pix") {
+                  paymentMethod = "pix";
+                } else if (
+                  mpMethod === "master" ||
+                  mpMethod === "visa" ||
+                  mpMethod === "credit_card"
+                ) {
+                  paymentMethod = "credit_card";
+                } else if (mpMethod === "debit_card") {
+                  paymentMethod = "debit_card";
+                }
+              }
+
+              if (details.installments) {
+                installments = parseInt(details.installments) || 1;
+              }
+            } catch (error) {
+              console.warn("Erro ao processar paymentDetails:", error);
             }
-          } else {
-            paymentConfig = reg.event.paymentConfig as PaymentConfig;
+          }
+
+          // Obter configuração de pagamento do evento
+          let paymentConfig: PaymentConfig | undefined;
+          if (reg.event.paymentConfig) {
+            try {
+              paymentConfig =
+                typeof reg.event.paymentConfig === "string"
+                  ? JSON.parse(reg.event.paymentConfig)
+                  : (reg.event.paymentConfig as PaymentConfig);
+            } catch (error) {
+              console.warn("Erro ao processar paymentConfig:", error);
+            }
+          }
+
+          // Calcular valor líquido (com desconto das taxas se o evento não repassa)
+          try {
+            const calc = PaymentFeeCalculator.calculatePaymentOptions(
+              baseValue,
+              paymentConfig
+            );
+
+            const option = calc.available_methods.find(
+              (opt) =>
+                opt.method === paymentMethod &&
+                (opt.installments || 1) === installments
+            );
+
+            if (option) {
+              // Se o evento não repassa a taxa (passthrough_fee = false),
+              // a receita líquida é o valor base menos a taxa que foi descontada
+              if (!option.passthrough_fee) {
+                // Receita = valor base - taxa do MercadoPago
+                finalRevenue = baseValue - baseValue * option.fee_percentage;
+              } else {
+                // Se repassa a taxa, a receita é o valor base (cliente pagou a taxa)
+                finalRevenue = baseValue;
+              }
+            }
+          } catch (error) {
+            console.warn("Erro ao calcular taxas de pagamento:", error);
+            // Fallback para valor base
+            finalRevenue = baseValue;
           }
         }
-        let amountPaid = baseValue;
+        // Para inscrições manuais, usar valor base sem desconto
 
-        if (reg.paymentDetails) {
-          try {
-            const details =
-              typeof reg.paymentDetails === "string"
-                ? JSON.parse(reg.paymentDetails)
-                : reg.paymentDetails;
-            if (details.method) method = details.method;
-            if (details.installments) installments = details.installments;
-            if (typeof details.amountPaid === "number")
-              amountPaid = details.amountPaid;
-            // passthrough_fee não é necessário aqui, pois o cálculo já é feito pelo PaymentFeeCalculator
-          } catch {}
-        }
+        total += finalRevenue;
 
-        // Calcula opções de pagamento para o evento
-        let calc: ReturnType<
-          typeof PaymentFeeCalculator.calculatePaymentOptions
-        >;
-        try {
-          calc = PaymentFeeCalculator.calculatePaymentOptions(
-            amountPaid,
-            paymentConfig
-          );
-        } catch {
-          // fallback para valor base
-          total += amountPaid;
-          continue;
-        }
-
-        // Busca a opção correspondente ao método/parcelas
-        const option = calc.available_methods.find(
-          (opt) =>
-            opt.method === method && (opt.installments || 1) === installments
-        );
-        if (!option) {
-          // fallback para valor base
-          total += amountPaid;
-        } else {
-          // Se repassa a taxa, soma o valor final (cliente pagou a taxa)
-          // Se não repassa, soma o valor base (receita líquida)
-          total += option.passthrough_fee
-            ? option.final_value
-            : option.base_value;
+        // Se não é manual, somar ao total não-manual
+        if (reg.paymentMethod !== "MANUAL") {
+          nonManualTotal += finalRevenue;
         }
       }
-      return Math.round(total * 100) / 100;
+
+      return [
+        Math.round(total * 100) / 100,
+        Math.round(nonManualTotal * 100) / 100,
+      ];
     });
 
     return NextResponse.json({
@@ -163,6 +197,7 @@ export async function GET(request: NextRequest) {
         pending: pendingCount,
         cancelled: cancelledCount,
         totalRevenue,
+        nonManualRevenue,
       },
     });
   } catch (error) {

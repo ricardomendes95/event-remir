@@ -15,13 +15,14 @@ interface RegistrationStatsProps {
     pending: number;
     cancelled: number;
     totalRevenue: number;
+    nonManualRevenue: number;
   };
 }
 
 export default function RegistrationStats({ stats }: RegistrationStatsProps) {
   return (
     <Row gutter={16} className="mb-6">
-      <Col span={6}>
+      <Col span={4}>
         <Card>
           <Statistic
             title="Total de Inscrições"
@@ -30,7 +31,7 @@ export default function RegistrationStats({ stats }: RegistrationStatsProps) {
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col span={4}>
         <Card>
           <Statistic
             title="Confirmadas"
@@ -40,7 +41,7 @@ export default function RegistrationStats({ stats }: RegistrationStatsProps) {
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col span={4}>
         <Card>
           <Statistic
             title="Pendentes"
@@ -50,13 +51,28 @@ export default function RegistrationStats({ stats }: RegistrationStatsProps) {
           />
         </Card>
       </Col>
-      <Col span={6}>
+      <Col span={4}>
+        <Card>
+          <Statistic
+            title="Inscritos no Site"
+            value={stats.nonManualRevenue.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
+            precision={2}
+            valueStyle={{ color: "#1890ff" }}
+          />
+        </Card>
+      </Col>
+      <Col span={4}>
         <Card>
           <Statistic
             title="Receita Total"
-            value={stats.totalRevenue}
+            value={stats.totalRevenue.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}
             precision={2}
-            prefix="R$"
             valueStyle={{ color: "#1890ff" }}
           />
         </Card>

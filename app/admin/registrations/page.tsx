@@ -76,6 +76,7 @@ export default function RegistrationsPage() {
     pending: 0,
     cancelled: 0,
     totalRevenue: 0,
+    nonManualRevenue: 0,
   });
 
   // Buscar estatísticas
@@ -94,6 +95,7 @@ export default function RegistrationsPage() {
 
       const response = await fetch(`/api/registrations/stats?${params}`);
       const data = await response.json();
+      console.log("Estatísticas de inscrições:", data);
 
       if (data.success) {
         setStats(data.data);
@@ -253,6 +255,8 @@ export default function RegistrationsPage() {
         : "/api/registrations";
 
       const method = editingRegistration ? "PUT" : "POST";
+
+      console.log({ cleanValues });
 
       const response = await fetch(url, {
         method,
