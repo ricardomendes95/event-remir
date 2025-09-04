@@ -22,7 +22,7 @@ export const Header = () => {
     { label: "Sobre", href: "#about" },
     { label: "Pastores", href: "#pastors" },
     { label: "Ministérios", href: "#ministries" },
-    { label: "Eventos", href: "#events" },
+    { label: "Eventos", href: "/eventos" },
     { label: "Localização", href: "#location" },
   ];
 

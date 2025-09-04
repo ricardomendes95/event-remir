@@ -22,7 +22,13 @@ export const Card: React.FC<CardProps> = ({
     >
       {image && (
         <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden">
-          <Image src={image} alt={title} fill className="object-cover" />
+          <Image
+            src={image}
+            alt={title}
+            fill
+            className="object-cover"
+            quality={50}
+          />
         </div>
       )}
       {Icon && (

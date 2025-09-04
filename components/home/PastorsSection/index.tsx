@@ -80,13 +80,6 @@ export const PastorsSection = () => {
                       do poder do evangelho.
                     </p>
                   </div>
-
-                  <div className="pt-4">
-                    <Button variant="outline">
-                      <Heart className="mr-2" size={20} />
-                      Conheça Nossa Liderança
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>

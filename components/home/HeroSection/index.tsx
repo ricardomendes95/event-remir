@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/Button";
-import { Heart, BookOpen, Calendar } from "lucide-react";
+import { Youtube, BookOpen, Calendar } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { Container } from "../Container";
@@ -77,14 +77,17 @@ export const HeroSection = () => {
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
-              <Button
-                variant="primary"
-                size="lg"
+              <a
+                href="https://www.youtube.com/@ministerioremir3524"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex-1 sm:flex-none"
               >
-                <Heart className="mr-2" size={20} />
-                Conheça Nossa História
-              </Button>
+                <Button variant="primary" size="lg" className="w-full">
+                  <Youtube className="mr-2" size={25} />
+                  Conheça Nosso Canal
+                </Button>
+              </a>
               <Button
                 variant="secondary"
                 size="lg"

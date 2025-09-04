@@ -1,18 +1,34 @@
 import { Button } from "@/components/ui/Button";
 import { Card } from "../Card";
 import { Container } from "../Container";
-import { Heart, Users, BookOpen } from "lucide-react";
+import {
+  Heart,
+  Users,
+  BookOpen,
+  Calendar,
+  Camera,
+  Coffee,
+  Globe,
+  HandHeart,
+  Handshake,
+  Shield,
+  UserCheck,
+} from "lucide-react";
+import { useState } from "react";
 
 // Ministries Section
 export const MinistriesSection = () => {
-  const ministries = [
+  const [showAll, setShowAll] = useState(false);
+
+  const allMinistries = [
     {
-      title: "Louvor e Adoração",
+      title: "Ministério Casais",
       description:
-        "Celebramos a Deus através da música, criando um ambiente de adoração que toca corações.",
+        "Deus nos deu uma direção profética sobre entrar nas casas com o departamento de casais.",
       icon: Heart,
-      image: "/louvor.jpg",
+      image: "/casais.jpg",
     },
+
     {
       title: "Ministério Infantil",
       description:
@@ -31,10 +47,72 @@ export const MinistriesSection = () => {
       title: "Café com Bíblia",
       description:
         "Aprofundando o conhecimento da Palavra de Deus através de estudos sistemáticos.",
-      icon: BookOpen,
+      icon: Coffee,
       image: "/cafe.jpg",
     },
+    {
+      title: "Louvor e Adoração",
+      description:
+        "Celebramos a Deus através da música, criando um ambiente de adoração que toca corações.",
+      icon: Heart,
+      image: "/louvor.jpg",
+    },
+    {
+      title: "Mulheres Remidas",
+      description:
+        "Um ministério dedicado ao empoderamento e crescimento espiritual das mulheres da igreja.",
+      icon: UserCheck,
+      image: "/mulheres.jpg",
+    },
+    {
+      title: "Intercessão",
+      description:
+        "Dedicados à oração e intercessão, buscando a face de Deus pela igreja e nações.",
+      icon: Shield,
+      image: "/intercessao.jpg",
+    },
+    {
+      title: "Ministério de Homens",
+      description:
+        "Formando homens segundo o coração de Deus, pais e líderes comprometidos.",
+      icon: Handshake,
+      image: "/homens.jpg",
+    },
+    {
+      title: "Missões",
+      description:
+        "Levando o evangelho além fronteiras, alcançando vidas para o Reino de Deus.",
+      icon: Globe,
+      image: "/missoes.jpg",
+    },
+    {
+      title: "Multimídia",
+      description:
+        "Usando a tecnologia para comunicar o evangelho e apoiar os cultos e eventos.",
+      icon: Camera,
+      image: "/multimidia.jpg",
+    },
+    {
+      title: "Ação Social",
+      description:
+        "Demonstrando o amor de Cristo através de ações práticas na comunidade.",
+      icon: HandHeart,
+      image: "/acao.jpg",
+    },
+    {
+      title: "Ministério Eventos",
+      description:
+        "Organizando e coordenando eventos que abençoam e edificam o Corpo de Cristo.",
+      icon: Calendar,
+      image: "/eventos.jpg",
+    },
   ];
+
+  const ministriesToShow = showAll ? allMinistries : allMinistries.slice(0, 4);
+
+  const handleToggleMinistries = () => {
+    setShowAll(!showAll);
+  };
 
   return (
     <section id="ministries" className="py-20 bg-gray-50">
@@ -50,7 +128,7 @@ export const MinistriesSection = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {ministries.map((ministry, index) => (
+          {ministriesToShow.map((ministry, index) => (
             <Card
               key={index}
               title={ministry.title}
@@ -63,8 +141,8 @@ export const MinistriesSection = () => {
         </div>
 
         <div className="text-center mt-12">
-          <Button variant="primary" size="lg">
-            Conheça Todos os Ministérios
+          <Button variant="primary" size="lg" onClick={handleToggleMinistries}>
+            {showAll ? "Ver Menos Ministérios" : "Conheça Todos os Ministérios"}
           </Button>
         </div>
       </Container>
