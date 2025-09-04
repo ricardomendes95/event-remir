@@ -60,6 +60,7 @@ type CardProps = {
   title: string;
   description: string;
   icon?: React.ComponentType<{ className?: string; size?: number }>;
+  image?: string;
   className?: string;
 };
 
@@ -67,18 +68,26 @@ const Card: React.FC<CardProps> = ({
   title,
   description,
   icon: Icon,
+  image,
   className = "",
 }) => {
   return (
     <div
-      className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 ${className}`}
+      className={`bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 p-6 border border-gray-100 ${className} relative`}
     >
+      {image && (
+        <div className="relative w-full h-48 mb-4 rounded-lg overflow-hidden">
+          <Image src={image} alt={title} fill className="object-cover" />
+        </div>
+      )}
       {Icon && (
-        <div className="bg-blue-100 rounded-full p-3 w-fit mb-4">
+        <div className="bg-blue-100 rounded-full p-3 w-fit mb-4 absolute top-2 left-2">
           <Icon className="text-[#015C91]" size={24} />
         </div>
       )}
-      <h3 className="text-xl font-semibold text-gray-800 mb-3">{title}</h3>
+      <h3 className="text-xl font-semibold text-[var(--color-primary-700)] mb-3">
+        {title}
+      </h3>
       <p className="text-gray-600 leading-relaxed">{description}</p>
     </div>
   );
@@ -455,24 +464,28 @@ const MinistriesSection = () => {
       description:
         "Celebramos a Deus através da música, criando um ambiente de adoração que toca corações.",
       icon: Heart,
+      image: "/louvor.jpg",
     },
     {
       title: "Ministério Infantil",
       description:
         "Cuidando e ensinando nossas crianças os caminhos do Senhor de forma lúdica e amorosa.",
       icon: Users,
+      image: "/dp-infantil.jpg",
     },
     {
       title: "Ministério Jovens",
       description:
         "Capacitando a nova geração para viver com propósito e impactar sua geração.",
       icon: BookOpen,
+      image: "/jovens.jpg",
     },
     {
       title: "Café com Bíblia",
       description:
         "Aprofundando o conhecimento da Palavra de Deus através de estudos sistemáticos.",
       icon: BookOpen,
+      image: "/cafe.jpg",
     },
   ];
 
@@ -496,6 +509,7 @@ const MinistriesSection = () => {
               title={ministry.title}
               description={ministry.description}
               icon={ministry.icon}
+              image={ministry.image}
               className="hover:scale-105 cursor-pointer"
             />
           ))}
@@ -672,8 +686,9 @@ const Footer = () => {
                   className="hover:underline"
                 >
                   <span>
-                    Rua Tomaz Antônio de Gonzaga, 222-120 - São Francisco,
-                    Caruaru - PE, 55008-520
+                    Rua Tomaz Antônio de Gonzaga
+                    <br />
+                    São Francisco, Caruaru - PE
                   </span>
                 </a>
               </div>
