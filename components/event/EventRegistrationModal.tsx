@@ -336,38 +336,16 @@ export default function EventRegistrationModal({
     setManualCheckoutUrl(null); // Limpa fallback manual
 
     try {
-      // Determinar se devemos criar nova preferência:
-      // - forceCreateNewPreference (setado no handler ao clicar em Refazer)
-      // - ou se a inscrição existente está em CANCELLED/PAYMENT_FAILED
-      const shouldCreateNewPreference =
-        forceCreateNewPreference ||
-        (!!existingRegistration &&
-          (existingRegistration.status === "CANCELLED" ||
-            existingRegistration.status === "PAYMENT_FAILED"));
+      const apiEndpoint = "/api/payments/create-preference";
 
-      const apiEndpoint = shouldCreateNewPreference
-        ? "/api/payments/create-preference"
-        : isUpdatingPayment
-        ? "/api/payments/update-preference"
-        : "/api/payments/create-preference";
-
-      const requestBody =
-        apiEndpoint === "/api/payments/update-preference"
-          ? {
-              registrationId: existingRegistrationId,
-              paymentData: {
-                method: selectedPaymentMethod.method,
-                installments: selectedPaymentMethod.installments,
-              },
-            }
-          : {
-              eventId: event.id,
-              participantData: formData,
-              paymentData: {
-                method: selectedPaymentMethod.method,
-                installments: selectedPaymentMethod.installments,
-              },
-            };
+      const requestBody = {
+        eventId: event.id,
+        participantData: formData,
+        paymentData: {
+          method: selectedPaymentMethod.method,
+          installments: selectedPaymentMethod.installments,
+        },
+      };
 
       // 🆕 NOVO - Fetch com timeout para Instagram iOS
       const controller = new AbortController();
