@@ -101,12 +101,14 @@ export const LocationSection = () => {
               <Button
                 variant="primary"
                 className="flex-1 sm:flex-none"
-                onClick={() =>
-                  window.open(
-                    "https://maps.app.goo.gl/cRBtoigkTLunVQsS6",
-                    "_blank"
-                  )
-                }
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.open(
+                      "https://maps.app.goo.gl/cRBtoigkTLunVQsS6",
+                      "_blank"
+                    );
+                  }
+                }}
               >
                 <MapPin className="mr-2" size={20} />
                 Ver no Google Maps
@@ -114,7 +116,11 @@ export const LocationSection = () => {
               <Button
                 variant="outline"
                 className="flex-1 sm:flex-none"
-                onClick={() => window.open("tel:+5581947700036")}
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.open("tel:+5581947700036");
+                  }
+                }}
               >
                 <Phone className="mr-2" size={20} />
                 Ligar Agora

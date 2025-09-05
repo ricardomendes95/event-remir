@@ -17,6 +17,8 @@ export const Header = () => {
   const { eventoRef, comprovanteRef } = refs;
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
@@ -25,12 +27,14 @@ export const Header = () => {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     // TODO liberar esse depois do evento.
     // if (window.location.pathname.includes("/eventos")) {
     if (window.location.pathname === "/") {
       setViewButtonsEvent(true);
     }
-  }, [window.location.pathname]);
+  }, []);
 
   const menuItems = [
     { label: "Início", href: "/home" },
@@ -140,7 +144,11 @@ export const Header = () => {
           {/* CTA Button */}
           <div
             className="hidden lg:flex"
-            onClick={() => (window.location.href = "#location")}
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.href = "#location";
+              }
+            }}
           >
             <Button variant="primary">Visite-nos</Button>
           </div>
@@ -172,7 +180,11 @@ export const Header = () => {
                 <Button
                   variant="primary"
                   className="w-full"
-                  onClick={() => (window.location.href = "#location")}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.location.href = "#location";
+                    }
+                  }}
                 >
                   Visite-nos
                 </Button>
