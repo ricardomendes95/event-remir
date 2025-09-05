@@ -1,13 +1,20 @@
-import { X, Menu } from "lucide-react";
+"use client";
+import { X, Menu, UserCheck, CreditCard } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Button } from "./ui/Button";
 import { Container } from "./home/Container";
+import { Button } from "./ui/Button";
+import { Button as AntButton } from "antd";
+import { useSectionRefs } from "@/contexts/SectionRefsContext";
+import Link from "next/link";
 
 // Header Component
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [viewButtonsEvent, setViewButtonsEvent] = useState(false);
+  const { refs, scrollToSection } = useSectionRefs();
+  const { eventoRef, comprovanteRef } = refs;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -17,14 +24,49 @@ export const Header = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    // TODO liberar esse depois do evento.
+    // if (window.location.pathname.includes("/eventos")) {
+    if (window.location.pathname === "/") {
+      setViewButtonsEvent(true);
+    }
+  }, [window.location.pathname]);
+
   const menuItems = [
-    { label: "Início", href: "#home" },
-    { label: "Sobre", href: "#about" },
-    { label: "Pastores", href: "#pastors" },
-    { label: "Ministérios", href: "#ministries" },
+    { label: "Início", href: "/home" },
+    { label: "Sobre", href: "/home#about" },
+    { label: "Pastores", href: "/home#pastors" },
+    { label: "Ministérios", href: "/home#ministries" },
     { label: "Eventos", href: "/eventos" },
-    { label: "Localização", href: "#location" },
+    { label: "Localização", href: "/home#location" },
   ];
+
+  const handleInscricaoClick = () => {
+    // Feedback visual suave
+    if (navigator.vibrate) {
+      navigator.vibrate(50); // Vibração sutil de 50ms
+    }
+
+    // Scroll para a seção do evento
+    scrollToSection(eventoRef);
+
+    // Aguarda o scroll terminar e então clica no botão de inscrição
+    setTimeout(() => {
+      const inscricaoButton = document.querySelector(
+        '[data-testid="inscricao-button"]'
+      ) as HTMLButtonElement;
+      if (inscricaoButton && !inscricaoButton.disabled) {
+        inscricaoButton.click();
+      }
+    }, 800);
+  };
+
+  const handleComprovanteClick = () => {
+    if (navigator.vibrate) {
+      navigator.vibrate(30); // Vibração mais suave para ação secundária
+    }
+    scrollToSection(comprovanteRef);
+  };
 
   return (
     <header
@@ -39,36 +81,61 @@ export const Header = () => {
           {/* Logo */}
           <div className="flex items-center space-x-3">
             <div className="relative">
-              <Image
-                src="/logo.png"
-                alt="Igreja Remir Logo"
-                width={60}
-                height={40}
-              />
+              <Link href="/home">
+                <Image
+                  src="/logo.png"
+                  alt="Igreja Remir Logo"
+                  width={60}
+                  height={40}
+                />
+              </Link>
             </div>
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-[#015C91]">
-                Igreja Remir
-              </h1>
-              <p className="text-xs text-gray-500 hidden lg:block">
-                Chamados à liberdade
-              </p>
-            </div>
+            {!viewButtonsEvent && (
+              <div>
+                <h1 className="text-xl lg:text-2xl font-bold text-[#015C91]">
+                  Igreja Remir
+                </h1>
+                <p className="text-xs text-gray-500 hidden lg:block">
+                  Chamados à liberdade
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Desktop Menu */}
           <nav className="hidden lg:flex items-center space-x-8">
             {menuItems.map((item) => (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className="text-gray-700 hover:text-[#015C91] font-medium transition-colors duration-300 relative group"
               >
                 {item.label}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#015C91] group-hover:w-full transition-all duration-300"></span>
-              </a>
+              </Link>
             ))}
           </nav>
+          {viewButtonsEvent && (
+            <div className="flex  space-x-2">
+              <AntButton
+                size="small"
+                icon={<CreditCard size={16} />}
+                onClick={handleComprovanteClick}
+                className="flex items-center"
+              >
+                Comprovante
+              </AntButton>
+              <AntButton
+                type="primary"
+                size="small"
+                icon={<UserCheck size={16} />}
+                onClick={handleInscricaoClick}
+                className="flex items-center"
+              >
+                Inscreva-se
+              </AntButton>
+            </div>
+          )}
 
           {/* CTA Button */}
           <div

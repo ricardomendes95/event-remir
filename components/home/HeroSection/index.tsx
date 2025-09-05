@@ -33,7 +33,7 @@ export const HeroSection = () => {
   return (
     <section
       id="home"
-      className="relative min-h-screen flex items-center bg-gradient-to-br from-blue-50 via-white to-blue-100 mt-16 lg:mt-20"
+      className="relative min-h-screen flex items-center bg-gradient-to-br from-blue-50 via-white to-blue-100 "
     >
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-30">

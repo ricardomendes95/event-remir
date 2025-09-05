@@ -1,18 +1,18 @@
 "use client";
 
-import { Suspense, useRef, useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { EventDisplay } from "@/components/event/EventDisplay";
 import { SearchComprovante } from "@/components/SearchComprovante";
 import { AutoShowProofModal } from "@/components/AutoShowProofModal";
+import { useSectionRefs } from "@/contexts/SectionRefsContext";
 import { Button } from "antd";
 import { UserCheck, CreditCard, ArrowUp } from "lucide-react";
-import Image from "next/image";
 
 function HomePageContent() {
   const searchParams = useSearchParams();
-  const eventoRef = useRef<HTMLElement>(null);
-  const comprovanteRef = useRef<HTMLElement>(null);
+  const { refs, scrollToSection } = useSectionRefs();
+  const { eventoRef, comprovanteRef } = refs;
   const [showFloatingButton, setShowFloatingButton] = useState(false);
   const [urlCpf, setUrlCpf] = useState<string>("");
 
@@ -25,7 +25,7 @@ function HomePageContent() {
         scrollToSection(eventoRef);
       }, 100);
     }
-  }, [searchParams]);
+  }, [searchParams, scrollToSection, eventoRef]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,13 +37,6 @@ function HomePageContent() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  const scrollToSection = (ref: React.RefObject<HTMLElement | null>) => {
-    ref.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
 
   const handleInscricaoClick = () => {
     // Feedback visual suave
@@ -75,54 +68,6 @@ function HomePageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Image
-              src="/logo.png"
-              alt="Igreja Remir"
-              width={50}
-              height={60}
-              className="h-auto"
-              priority
-            />
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex space-x-6">
-              <a href="#evento" className="text-gray-600 hover:text-gray-900">
-                Evento
-              </a>
-              <a
-                href="#comprovante"
-                className="text-gray-600 hover:text-gray-900"
-              >
-                Meu Comprovante
-              </a>
-            </nav>
-
-            {/* Mobile Action Buttons */}
-            <div className="flex md:hidden space-x-2">
-              <Button
-                size="small"
-                icon={<CreditCard size={16} />}
-                onClick={handleComprovanteClick}
-                className="flex items-center"
-              >
-                Comprovante
-              </Button>
-              <Button
-                type="primary"
-                size="small"
-                icon={<UserCheck size={16} />}
-                onClick={handleInscricaoClick}
-                className="flex items-center"
-              >
-                Inscreva-se
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Main Content */}
       <main>

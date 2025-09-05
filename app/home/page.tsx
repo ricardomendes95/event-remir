@@ -1,7 +1,6 @@
 "use client";
 import React from "react";
 
-import { Header } from "@/components/Header";
 import { HeroSection } from "@/components/home/HeroSection";
 import { Footer } from "@/components/Footer";
 import { AboutSection } from "@/components/home/AboutSection";
@@ -13,7 +12,6 @@ import { PastorsSection } from "@/components/home/PastorsSection";
 const home = () => {
   return (
     <div>
-      <Header />
       <main>
         <HeroSection />
         <AboutSection />
