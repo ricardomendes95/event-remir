@@ -2,6 +2,8 @@ import { Modal, Form, Input, Button, message, Descriptions, Tag } from "antd";
 import { FileText, Search, CheckCircle, Clock, XCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { z } from "zod";
+import QRCode from "qrcode";
+import Image from "next/image";
 
 interface ProofModalProps {
   open: boolean;
@@ -42,6 +44,7 @@ export function RegistrationProofModal({
     preloadedData
   );
   const [searched, setSearched] = useState(!!preloadedData);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
 
   // Atualizar registration quando preloadedData mudar
   useEffect(() => {
@@ -50,6 +53,29 @@ export function RegistrationProofModal({
       setSearched(true);
     }
   }, [preloadedData]);
+
+  // Gerar QR code quando registration mudar
+  useEffect(() => {
+    const generateQRCode = async () => {
+      if (registration?.id) {
+        try {
+          const qrCodeDataUrl = await QRCode.toDataURL(registration.id, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: "#000000",
+              light: "#FFFFFF",
+            },
+          });
+          setQrCodeUrl(qrCodeDataUrl);
+        } catch (error) {
+          console.error("Erro ao gerar QR code:", error);
+        }
+      }
+    };
+
+    generateQRCode();
+  }, [registration]);
 
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
@@ -134,16 +160,34 @@ export function RegistrationProofModal({
     form.resetFields();
     setRegistration(null);
     setSearched(false);
+    setQrCodeUrl("");
     onClose();
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     if (!registration) return;
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
     const statusConfig = getStatusConfig(registration.status);
+
+    // Gerar QR code para impressão se não existir
+    let qrCodeDataUrl = qrCodeUrl;
+    if (!qrCodeDataUrl && registration.id) {
+      try {
+        qrCodeDataUrl = await QRCode.toDataURL(registration.id, {
+          width: 200,
+          margin: 2,
+          color: {
+            dark: "#000000",
+            light: "#FFFFFF",
+          },
+        });
+      } catch (error) {
+        console.error("Erro ao gerar QR code para impressão:", error);
+      }
+    }
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -225,9 +269,22 @@ export function RegistrationProofModal({
 
             <div class="section">
               <div class="section-title">Dados da Inscrição</div>
-              <div class="info-row"><span class="label">ID da Inscrição:</span> <span class="value">${
-                registration.id
-              }</span></div>
+              <div class="info-row">
+                <span class="label">ID da Inscrição:</span> 
+                <span class="value">${registration.id}</span>
+              </div>
+              ${
+                qrCodeDataUrl
+                  ? `
+              <div class="info-row" style="text-align: center; margin: 20px 0;">
+                <div style="display: inline-block;">
+                  <img src="${qrCodeDataUrl}" alt="QR Code do ID da Inscrição" style="border: 1px solid #ddd; border-radius: 4px;" />
+                  <div style="font-size: 10px; color: #666; margin-top: 5px;">QR Code para Check-in</div>
+                </div>
+              </div>
+              `
+                  : ""
+              }
               <div class="info-row"><span class="label">Status:</span> <span class="status">${
                 statusConfig.text
               }</span></div>
@@ -440,12 +497,26 @@ export function RegistrationProofModal({
                   }
                 )}
               </Descriptions.Item>
-              <Descriptions.Item label="ID da Inscrição">
-                {registration.id}
-              </Descriptions.Item>
-
               <Descriptions.Item label="ID do Pagamento">
                 {registration.paymentId}
+              </Descriptions.Item>
+              <Descriptions.Item label="QR Code da Inscrição">
+                <div className="flex items-center gap-4">
+                  {qrCodeUrl && (
+                    <div className="flex flex-col items-center">
+                      <Image
+                        src={qrCodeUrl}
+                        alt="QR Code do ID da Inscrição"
+                        width={200}
+                        height={200}
+                        className="border border-gray-200 rounded"
+                      />
+                      <span className="text-xs text-gray-500 mt-1">
+                        QR Code para Check-in
+                      </span>
+                    </div>
+                  )}
+                </div>
               </Descriptions.Item>
             </Descriptions>
           </div>
