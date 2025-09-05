@@ -329,19 +329,40 @@ export function RegistrationProofModal({
 
         {/* Comprovante */}
         {registration && (
-          <div className="border rounded-lg p-6 bg-gray-50">
+          <div className="border rounded-lg p-6 bg-gray-50 flex flex-col gap-4">
+            {registration.status !== "CONFIRMED" && (
+              <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <p className="text-orange-800">
+                  Esta inscrição ainda está com o pagamento pendente. Clique no
+                  botão <b>&quot;Continuar Pagamento&quot;</b> para finalizar
+                  sua inscrição.
+                </p>
+              </div>
+            )}
             <div className="flex justify-between items-start mb-6">
               <h3 className="text-lg font-semibold text-gray-900">
                 Comprovante de Inscrição
               </h3>
-              <Button
-                type="primary"
-                ghost
-                onClick={handlePrint}
-                icon={<FileText className="h-4 w-4" />}
-              >
-                Imprimir
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="primary"
+                  ghost
+                  onClick={handlePrint}
+                  icon={<FileText className="h-4 w-4" />}
+                >
+                  Imprimir
+                </Button>
+                {registration.status !== "CONFIRMED" && (
+                  <Button
+                    type="primary"
+                    onClick={() =>
+                      (window.location.href = `/?cpf=${registration.cpf}`)
+                    }
+                  >
+                    Continuar Pagamento
+                  </Button>
+                )}
+              </div>
             </div>
 
             <Descriptions
@@ -398,13 +419,11 @@ export function RegistrationProofModal({
               size="small"
               column={1}
             >
-              <Descriptions.Item label="ID da Inscrição">
-                {registration.id}
-              </Descriptions.Item>
               <Descriptions.Item label="Status">
                 <Tag
                   color={getStatusConfig(registration.status).color}
                   icon={getStatusConfig(registration.status).icon}
+                  className="flex gap-1 items-center"
                 >
                   {getStatusConfig(registration.status).text}
                 </Tag>
@@ -421,6 +440,10 @@ export function RegistrationProofModal({
                   }
                 )}
               </Descriptions.Item>
+              <Descriptions.Item label="ID da Inscrição">
+                {registration.id}
+              </Descriptions.Item>
+
               <Descriptions.Item label="ID do Pagamento">
                 {registration.paymentId}
               </Descriptions.Item>
