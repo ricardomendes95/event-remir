@@ -40,7 +40,7 @@ export const HeroSection = () => {
         <div className="absolute top-20 left-10 w-32 h-32 bg-blue-300 rounded-full">
           <Image
             src="/left.jpg"
-            alt="Cross"
+            alt="Membros da Igreja Remir em momento de comunhão"
             layout="fill"
             className="rounded-full"
           />
@@ -48,7 +48,7 @@ export const HeroSection = () => {
         <div className="absolute bottom-20 right-10 w-48 h-48 bg-blue-200 rounded-full">
           <Image
             src="/right.jpg"
-            alt="Cross"
+            alt="Comunidade da Igreja Remir reunida em culto"
             layout="fill"
             className="rounded-full"
           />
@@ -56,7 +56,7 @@ export const HeroSection = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-100 rounded-full">
           <Image
             src="/fachada.jpg"
-            alt="Cross"
+            alt="Fachada da Igreja Remir Caruaru no bairro São Francisco"
             layout="fill"
             className="rounded-full"
           />

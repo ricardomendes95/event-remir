@@ -4,6 +4,7 @@ import "./globals.css";
 import EmbeddedBrowserWarningModal from "@/components/EmbeddedBrowserWarningModal";
 import { Header } from "@/components/Header";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
+import { StructuredData } from "@/components/StructuredData";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,12 +17,79 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Igreja Remir Caruaru",
-  description: "Pagina oficial da Igreja Remir Caruaru",
+  title: {
+    default: "Igreja Remir Caruaru | Igreja Evangélica em Caruaru - PE",
+    template: "%s | Igreja Remir Caruaru",
+  },
+  description:
+    "Igreja Remir Caruaru - Igreja evangélica em Caruaru, Pernambuco. Cultos, ministérios, eventos e comunidade cristã. Venha nos visitar e fazer parte da nossa família.",
+  keywords: [
+    "igreja em caruaru",
+    "igreja evangélica em caruaru",
+    "igreja caruaru",
+    "igreja evangelica caruaru",
+    "igreja remir",
+    "remir caruaru",
+    "culto caruaru",
+    "igreja pernambuco",
+    "comunidade cristã caruaru",
+    "ministérios igreja",
+    "eventos gospel caruaru",
+  ],
+  authors: [{ name: "Igreja Remir Caruaru" }],
+  creator: "Igreja Remir Caruaru",
+  publisher: "Igreja Remir Caruaru",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  metadataBase: new URL("https://igrejaremircaruaru.com.br"),
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Igreja Remir Caruaru | Igreja Evangélica em Caruaru - PE",
+    description:
+      "Igreja Remir Caruaru - Igreja evangélica em Caruaru, Pernambuco. Cultos, ministérios, eventos e comunidade cristã. Venha nos visitar!",
+    url: "https://igrejaremircaruaru.com.br",
+    siteName: "Igreja Remir Caruaru",
+    locale: "pt_BR",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Igreja Remir Caruaru",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Igreja Remir Caruaru | Igreja Evangélica em Caruaru - PE",
+    description:
+      "Igreja evangélica em Caruaru, Pernambuco. Cultos, ministérios, eventos e comunidade cristã.",
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon-16x16.png",
     apple: "/apple-touch-icon.png",
+  },
+  verification: {
+    google: "CX0QsaSJuqDeThSk38iJ_SxZvc1IU0_sPALAsspvUAE",
   },
 };
 
@@ -35,6 +103,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <StructuredData />
         <SectionRefsProvider>
           <Header />
           <EmbeddedBrowserWarningModal />
