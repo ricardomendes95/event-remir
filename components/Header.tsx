@@ -2,6 +2,7 @@
 import { X, Menu, UserCheck, CreditCard } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Container } from "./home/Container";
 import { Button } from "./ui/Button";
 import { Button as AntButton } from "antd";
@@ -13,6 +14,7 @@ export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [viewButtonsEvent, setViewButtonsEvent] = useState(false);
+  const pathname = usePathname();
   const { refs, scrollToSection } = useSectionRefs();
   const { eventoRef, comprovanteRef } = refs;
 
@@ -27,14 +29,8 @@ export const Header = () => {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // TODO liberar esse depois do evento.
-    // if (window.location.pathname.includes("/eventos")) {
-    if (window.location.pathname === "/") {
-      setViewButtonsEvent(true);
-    }
-  }, []);
+    setViewButtonsEvent(pathname.includes("/eventos"));
+  }, [pathname]);
 
   const menuItems = [
     { label: "Início", href: "/home" },
