@@ -67,6 +67,24 @@ model Admin {
   @@map("admins")
 }
 
+model PageView {
+  id          String   @id @default(cuid())
+  page        String   // URL da página visitada
+  referrer    String?  // Página de origem
+  userAgent   String?  // User agent do navegador
+  sessionId   String?  // ID da sessão do usuário
+  latitude    Float?   // Latitude da localização
+  longitude   Float?   // Longitude da localização
+  city        String?  // Cidade
+  country     String?  // País
+  createdAt   DateTime @default(now())
+
+  @@map("page_views")
+  @@index([page])
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
 enum RegistrationStatus {
   PENDING
   CONFIRMED

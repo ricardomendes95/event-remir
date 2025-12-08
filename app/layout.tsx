@@ -5,6 +5,7 @@ import EmbeddedBrowserWarningModal from "@/components/EmbeddedBrowserWarningModa
 import { Header } from "@/components/Header";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
 import { StructuredData } from "@/components/StructuredData";
+import { PageTracker } from "@/components/PageTracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -104,6 +105,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <StructuredData />
+        <PageTracker />
         <SectionRefsProvider>
           <Header />
           <EmbeddedBrowserWarningModal />
