@@ -18,7 +18,7 @@ interface ExistingRegistration {
   };
 }
 
-export function useCpfVerification() {
+export function useCpfVerification(eventId: string) {
   const [existingRegistration, setExistingRegistration] =
     useState<ExistingRegistration | null>(null);
   const [showExistingOptions, setShowExistingOptions] = useState(false);
@@ -66,8 +66,8 @@ export function useCpfVerification() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ cpf: cleanCpf }),
-          signal: controller.signal, // Adicionar signal de abort
+          body: JSON.stringify({ cpf: cleanCpf, eventId }),
+          signal: controller.signal,
         });
 
         // Se a requisição foi cancelada, não processar resultado

@@ -106,7 +106,7 @@ export default function EventRegistrationModal({
     cpfValidationError,
     handleCpfChange,
     clearCpfVerification,
-  } = useCpfVerification();
+  } = useCpfVerification(event.id);
 
   // Hook para detecção de dispositivo
   const deviceInfo = useDeviceDetection();

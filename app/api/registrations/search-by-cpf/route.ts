@@ -4,17 +4,19 @@ import { z } from "zod";
 
 const searchSchema = z.object({
   cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(11, "CPF inválido"),
+  eventId: z.string().min(1, "ID do evento é obrigatório"),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { cpf } = searchSchema.parse(body);
+    const { cpf, eventId } = searchSchema.parse(body);
 
-    // Buscar inscrição por CPF
+    // Buscar inscrição por CPF dentro do evento específico
     const registration = await prisma.registration.findFirst({
       where: {
-        cpf: cpf.replace(/\D/g, ""), // Remove formatação
+        cpf: cpf.replace(/\D/g, ""),
+        eventId,
       },
       include: {
         event: {
