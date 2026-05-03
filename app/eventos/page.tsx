@@ -4,7 +4,11 @@ import Link from "next/link";
 import { CalendarDays, MapPin, Users, ArrowRight } from "lucide-react";
 import { Event } from "@/types/event";
 
-function EventCard({ event }: { event: Event & { slug: string } }): JSX.Element {
+function EventCard({
+  event,
+}: {
+  event: Event & { slug: string };
+}): JSX.Element {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString("pt-BR", {
       weekday: "short",
@@ -21,7 +25,10 @@ function EventCard({ event }: { event: Event & { slug: string } }): JSX.Element 
   const spotsLeft = event.capacity - event.currentRegistrations;
 
   return (
-    <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+    <Link
+      href={`/eventos/${event.slug}`}
+      className="block bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+    >
       {event.bannerUrl && (
         <div className="aspect-video w-full overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -66,9 +73,7 @@ function EventCard({ event }: { event: Event & { slug: string } }): JSX.Element 
           <div className="flex items-center gap-2">
             <Users size={15} className="text-blue-500 shrink-0" />
             <span>
-              {spotsLeft > 0
-                ? `${spotsLeft} vagas disponíveis`
-                : "Esgotado"}
+              {spotsLeft > 0 ? `${spotsLeft} vagas disponíveis` : "Esgotado"}
             </span>
           </div>
         </div>
@@ -79,19 +84,18 @@ function EventCard({ event }: { event: Event & { slug: string } }): JSX.Element 
           ) : spotsLeft <= 0 ? (
             <span className="text-xs text-red-500 font-medium">Esgotado</span>
           ) : (
-            <span className="text-xs text-green-600 font-medium">Inscrições abertas</span>
+            <span className="text-xs text-green-600 font-medium">
+              Inscrições abertas
+            </span>
           )}
 
-          <Link
-            href={`/eventos/${event.slug}`}
-            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
-          >
+          <span className="flex items-center gap-1 text-sm font-medium text-blue-600">
             Ver detalhes
             <ArrowRight size={14} />
-          </Link>
+          </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
