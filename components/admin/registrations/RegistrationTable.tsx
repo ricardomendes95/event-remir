@@ -24,6 +24,7 @@ import {
   ClockCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
+  PrinterOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
@@ -64,6 +65,9 @@ interface RegistrationTableProps {
   onEditRegistration: (registration: Registration) => void;
   onChangeStatus: (registrationId: string, newStatus: string) => void;
   onDeleteRegistration: (registrationId: string) => void;
+  onPrint?: () => void;
+  isPrinting?: boolean;
+  printDisabled?: boolean;
 }
 
 export default function RegistrationTable({
@@ -75,6 +79,9 @@ export default function RegistrationTable({
   onEditRegistration,
   onChangeStatus,
   onDeleteRegistration,
+  onPrint,
+  isPrinting = false,
+  printDisabled = false,
 }: RegistrationTableProps) {
   // Função para formatar CPF
   const formatCPF = (value: string) => {
@@ -264,14 +271,29 @@ export default function RegistrationTable({
           </Title>
           <Badge count={pagination.total} showZero color="#1890ff" />
         </div>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={onNewRegistration}
-          size="large"
-        >
-          Nova Inscrição Manual
-        </Button>
+        <Space>
+          <Tooltip
+            title={printDisabled ? "Selecione um evento específico para imprimir" : "Imprimir lista de inscrições"}
+          >
+            <Button
+              icon={<PrinterOutlined />}
+              onClick={onPrint}
+              loading={isPrinting}
+              disabled={printDisabled}
+              size="large"
+            >
+              Imprimir Lista
+            </Button>
+          </Tooltip>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={onNewRegistration}
+            size="large"
+          >
+            Nova Inscrição Manual
+          </Button>
+        </Space>
       </Row>
 
       <Table

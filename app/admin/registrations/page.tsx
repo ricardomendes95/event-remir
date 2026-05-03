@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Form, message, Typography } from "antd";
-import { UserAddOutlined } from "@ant-design/icons";
+import { Form, message, Modal, Button, Typography } from "antd";
+import { UserAddOutlined, PrinterOutlined } from "@ant-design/icons";
 import { z } from "zod";
+import dayjs from "dayjs";
 import {
   RegistrationStats,
   RegistrationFilters,
@@ -11,6 +12,8 @@ import {
   RegistrationModal,
   registrationSchema,
 } from "../../../components/admin/registrations";
+import RegistrationsPrintReport from "../../../components/admin/RegistrationsPrintReport";
+import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
 const { Title, Text } = Typography;
 
@@ -49,6 +52,38 @@ interface RegistrationFormData {
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
 }
 
+interface PrintData {
+  event: {
+    id: string;
+    title: string;
+    location?: string | null;
+    startDate: string;
+    endDate?: string | null;
+    price: number;
+    isFree: boolean;
+    dynamicFormFields: DynamicField[];
+  };
+  registrations: Array<{
+    id: string;
+    name: string;
+    email?: string | null;
+    cpf: string;
+    phone?: string | null;
+    status: string;
+    createdAt: string;
+    dynamicFormData: Record<string, unknown>;
+  }>;
+  stats: {
+    total: number;
+    confirmed: number;
+    pending: number;
+    cancelled: number;
+    paymentFailed: number;
+    totalRevenue: number;
+  };
+  exportedAt: string;
+}
+
 export default function RegistrationsPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -78,6 +113,11 @@ export default function RegistrationsPage() {
     totalRevenue: 0,
     nonManualRevenue: 0,
   });
+
+  // Estados de impressão
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printData, setPrintData] = useState<PrintData | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Buscar estatísticas
   const fetchStats = useCallback(async () => {
@@ -340,6 +380,138 @@ export default function RegistrationsPage() {
     }
   };
 
+  // Buscar dados e abrir modal de impressão
+  const handlePrint = async () => {
+    if (!eventFilter || eventFilter === "ALL") {
+      message.warning("Selecione um evento específico para imprimir");
+      return;
+    }
+    setIsPrinting(true);
+    try {
+      const params = new URLSearchParams({ eventId: eventFilter });
+      if (statusFilter !== "ALL") params.append("status", statusFilter);
+
+      const response = await fetch(`/api/registrations/export-admin?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setPrintData(data.data);
+        setShowPrintModal(true);
+      } else {
+        message.error(data.error || "Erro ao gerar relatório");
+      }
+    } catch {
+      message.error("Erro ao gerar relatório de impressão");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  // Abrir janela de impressão com HTML gerado
+  const handleDoPrint = () => {
+    if (!printData) return;
+
+    const dynamicFields = printData.event.dynamicFormFields ?? [];
+
+    const dynamicHeaders = dynamicFields
+      .map((f) => `<th>${f.label}</th>`)
+      .join("");
+
+    const rows = printData.registrations
+      .map((reg, i) => {
+        const statusLabel: Record<string, string> = {
+          CONFIRMED: "Confirmado",
+          PENDING: "Pendente",
+          CANCELLED: "Cancelado",
+          PAYMENT_FAILED: "Falha no Pagamento",
+        };
+        const statusColor: Record<string, string> = {
+          CONFIRMED: "#52c41a",
+          PENDING: "#faad14",
+          CANCELLED: "#ff4d4f",
+          PAYMENT_FAILED: "#ff4d4f",
+        };
+        const dynamicCells = dynamicFields
+          .map((f) => {
+            const val = reg.dynamicFormData?.[f.id];
+            const display = Array.isArray(val)
+              ? val.join(", ") || "—"
+              : val != null
+              ? String(val)
+              : "—";
+            return `<td>${display}</td>`;
+          })
+          .join("");
+
+        return `
+          <tr>
+            <td style="text-align:center">${i + 1}</td>
+            <td style="font-weight:500">${reg.name}</td>
+            <td>${reg.email ?? "—"}</td>
+            <td>${reg.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")}</td>
+            <td>${reg.phone ?? "—"}</td>
+            <td style="color:${statusColor[reg.status] ?? "#000"};font-weight:bold">
+              ${statusLabel[reg.status] ?? reg.status}
+            </td>
+            <td>${dayjs(reg.createdAt).format("DD/MM/YYYY HH:mm")}</td>
+            ${dynamicCells}
+          </tr>`;
+      })
+      .join("");
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Lista de Inscrições - ${printData.event.title}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: Arial, sans-serif; padding: 20px; font-size: 11px; }
+    .header { text-align:center; margin-bottom:24px; border-bottom:2px solid #000; padding-bottom:16px; }
+    .header h1 { font-size:22px; margin-bottom:8px; }
+    .header h2 { font-size:16px; color:#444; margin-bottom:6px; }
+    .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px; margin-bottom:20px; }
+    .stat { border:1px solid #ddd; padding:10px; text-align:center; border-radius:4px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; font-size:10px; }
+    th, td { border:1px solid #ddd; padding:6px 8px; text-align:left; }
+    th { background:#f5f5f5; font-weight:bold; }
+    @media print { body { margin:0; } thead { display:table-header-group; } tr { page-break-inside:avoid; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>LISTA DE INSCRIÇÕES</h1>
+    <h2>${printData.event.title}</h2>
+    ${printData.event.location ? `<p>Local: ${printData.event.location}</p>` : ""}
+    <p>Data do Evento: ${dayjs(printData.event.startDate).format("DD/MM/YYYY HH:mm")}</p>
+    <p style="font-size:10px;color:#999;margin-top:8px">Gerado em: ${dayjs(printData.exportedAt).format("DD/MM/YYYY HH:mm")}</p>
+  </div>
+  <div class="stats">
+    <div class="stat"><p>Total</p><p style="font-size:20px;font-weight:bold;color:#1890ff">${printData.stats.total}</p></div>
+    <div class="stat"><p>Confirmados</p><p style="font-size:20px;font-weight:bold;color:#52c41a">${printData.stats.confirmed}</p></div>
+    <div class="stat"><p>Pendentes</p><p style="font-size:20px;font-weight:bold;color:#faad14">${printData.stats.pending}</p></div>
+    ${printData.stats.cancelled > 0 ? `<div class="stat"><p>Cancelados</p><p style="font-size:20px;font-weight:bold;color:#ff4d4f">${printData.stats.cancelled}</p></div>` : ""}
+  </div>
+  <h3 style="margin-bottom:8px">Participantes (${printData.registrations.length})</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Nome</th><th>Email</th><th>CPF</th><th>Telefone</th><th>Status</th><th>Data Inscrição</th>${dynamicHeaders}
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  ${!printData.event.isFree ? `<p style="margin-top:16px;font-size:11px;color:#666">Receita estimada (confirmados): ${printData.stats.totalRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>` : ""}
+</body>
+</html>`;
+
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      setTimeout(() => printWindow.print(), 500);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
@@ -378,6 +550,9 @@ export default function RegistrationsPage() {
         onEditRegistration={handleEditRegistration}
         onChangeStatus={handleChangeStatus}
         onDeleteRegistration={handleDeleteRegistration}
+        onPrint={handlePrint}
+        isPrinting={isPrinting}
+        printDisabled={!eventFilter || eventFilter === "ALL"}
       />
 
       {/* Modal de Criar/Editar Inscrição */}
@@ -389,6 +564,30 @@ export default function RegistrationsPage() {
         onCancel={() => setIsModalVisible(false)}
         onSave={handleSaveRegistration}
       />
+
+      {/* Modal de Preview de Impressão */}
+      <Modal
+        title="Lista de Inscrições"
+        open={showPrintModal}
+        onCancel={() => setShowPrintModal(false)}
+        width="90%"
+        style={{ top: 20 }}
+        footer={[
+          <Button key="cancel" onClick={() => setShowPrintModal(false)}>
+            Cancelar
+          </Button>,
+          <Button
+            key="print"
+            type="primary"
+            icon={<PrinterOutlined />}
+            onClick={handleDoPrint}
+          >
+            Imprimir
+          </Button>,
+        ]}
+      >
+        {printData && <RegistrationsPrintReport data={printData} />}
+      </Modal>
     </div>
   );
 }
