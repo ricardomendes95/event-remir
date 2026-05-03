@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import EmbeddedBrowserWarningModal from "@/components/EmbeddedBrowserWarningModal";
 import { Header } from "@/components/Header";
+import { Footer } from "@/components/Footer";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
 import { StructuredData } from "@/components/StructuredData";
 import { PageTracker } from "@/components/PageTracker";
@@ -102,14 +103,15 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <StructuredData />
         <PageTracker />
         <SectionRefsProvider>
           <Header />
           <EmbeddedBrowserWarningModal />
-          <div className="mt-16 lg:mt-20">{children}</div>
+          <div className="mt-16 lg:mt-20 flex-1">{children}</div>
+          <Footer />
         </SectionRefsProvider>
       </body>
     </html>

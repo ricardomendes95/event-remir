@@ -118,7 +118,7 @@ export default function EventsListPage(): JSX.Element {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Eventos</h1>
@@ -153,14 +153,6 @@ export default function EventsListPage(): JSX.Element {
           </div>
         )}
       </main>
-
-      <footer className="bg-gray-900 text-white py-8 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-gray-400">
-            © 2025 Igreja Remir. Todos os direitos reservados.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

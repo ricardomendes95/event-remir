@@ -2,7 +2,6 @@
 import React from "react";
 
 import { HeroSection } from "@/components/home/HeroSection";
-import { Footer } from "@/components/Footer";
 import { AboutSection } from "@/components/home/AboutSection";
 import { LocationSection } from "@/components/home/LocationSection";
 import { MinistriesSection } from "@/components/home/MinistriesSection";
@@ -19,7 +18,6 @@ const home = () => {
         <MinistriesSection />
         <LocationSection />
       </main>
-      <Footer />
     </div>
   );
 };

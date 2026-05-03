@@ -45,7 +45,7 @@ const EventPageContent = ({ slug }: { slug: string }): JSX.Element => {
 
     setTimeout(() => {
       const inscricaoButton = document.querySelector(
-        '[data-testid="inscricao-button"]'
+        '[data-testid="inscricao-button"]',
       ) as HTMLButtonElement;
       if (inscricaoButton && !inscricaoButton.disabled) {
         inscricaoButton.click();
@@ -132,16 +132,6 @@ const EventPageContent = ({ slug }: { slug: string }): JSX.Element => {
           />
         </div>
       )}
-
-      <footer className="bg-gray-900 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <p className="text-gray-400">
-              © 2025 Igreja Remir. Todos os direitos reservados.
-            </p>
-          </div>
-        </div>
-      </footer>
 
       <AutoShowProofModal />
     </div>

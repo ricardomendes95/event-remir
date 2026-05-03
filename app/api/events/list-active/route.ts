@@ -12,7 +12,7 @@ export async function GET() {
             select: { id: true },
           },
         },
-        orderBy: { startDate: "asc" },
+        orderBy: { createdAt: "desc" },
       })
     );
 
