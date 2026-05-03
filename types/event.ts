@@ -14,6 +14,7 @@ export interface Event {
   isFree: boolean;
   formMode: EventFormMode;
   dynamicFormFields?: unknown;
+  fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
   registrationEndDate?: string;
   createdAt: string;
   updatedAt: string;

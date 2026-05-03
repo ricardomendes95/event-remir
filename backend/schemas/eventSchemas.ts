@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { DynamicFormFieldsSchema } from "./dynamicFormSchemas";
 
+const FixedFieldsConfigSchema = z
+  .object({
+    email: z.object({ required: z.boolean().default(false) }).optional(),
+    phone: z.object({ required: z.boolean().default(false) }).optional(),
+  })
+  .optional();
+
 // Schema para configuração de métodos de pagamento
 export const PaymentMethodConfigSchema = z.object({
   enabled: z.boolean(),
@@ -63,6 +70,7 @@ export const EventCreateSchema = z
       .enum(["FIXED_ONLY", "DYNAMIC_ONLY", "BOTH"])
       .default("FIXED_ONLY"),
     dynamicFormFields: DynamicFormFieldsSchema.optional(),
+    fixedFieldsConfig: FixedFieldsConfigSchema,
     paymentConfig: PaymentConfigSchema.optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {

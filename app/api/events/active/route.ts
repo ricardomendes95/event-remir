@@ -38,6 +38,7 @@ export async function GET() {
       isFree: activeEvent.isFree,
       formMode: activeEvent.formMode,
       dynamicFormFields: activeEvent.dynamicFormFields,
+      fixedFieldsConfig: activeEvent.fixedFieldsConfig,
       registrationEndDate: activeEvent.registrationEndDate.toISOString(),
       createdAt: activeEvent.createdAt.toISOString(),
       updatedAt: activeEvent.updatedAt.toISOString(),

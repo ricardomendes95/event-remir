@@ -86,6 +86,23 @@ export async function POST(request: NextRequest) {
 
     const requiresDynamic = event.formMode !== "FIXED_ONLY";
 
+    // Validar campos fixos obrigatórios conforme configuração do evento
+    const ffc = (event as Record<string, unknown>).fixedFieldsConfig as
+      | { email?: { required: boolean }; phone?: { required: boolean } }
+      | null;
+    if (ffc?.email?.required && !fixedData.email) {
+      return NextResponse.json(
+        { success: false, error: "Email é obrigatório para este evento" },
+        { status: 422 }
+      );
+    }
+    if (ffc?.phone?.required && !fixedData.phone) {
+      return NextResponse.json(
+        { success: false, error: "Telefone é obrigatório para este evento" },
+        { status: 422 }
+      );
+    }
+
     if (requiresDynamic && !dynamicFormData) {
       return NextResponse.json(
         {

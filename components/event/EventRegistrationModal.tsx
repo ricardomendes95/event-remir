@@ -58,6 +58,10 @@ export default function EventRegistrationModal({
   const showFixed = true;
   const showDynamic = formMode !== "FIXED_ONLY";
 
+  const cfg = event.fixedFieldsConfig;
+  const emailRequired = isFreeEvent ? !!(cfg?.email?.required) : true;
+  const phoneRequired = isFreeEvent ? !!(cfg?.phone?.required) : true;
+
   // Estados principais
   const [loading, setLoading] = useState(false);
   // Fallback manual para checkout
@@ -576,6 +580,8 @@ export default function EventRegistrationModal({
                   isValidatingCpf={isValidatingCpf}
                   cpfValidationError={cpfValidationError}
                   isFree={isFreeEvent}
+                  emailRequired={emailRequired}
+                  phoneRequired={phoneRequired}
                   onSubmit={handleFormSubmit}
                   onCancel={isFreeEvent && showDynamic ? undefined! : handleCancel}
                   onCpfChange={handleCpfChange}

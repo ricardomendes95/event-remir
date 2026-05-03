@@ -12,6 +12,7 @@ import {
   ConfigProvider,
   Radio,
   Alert,
+  Checkbox,
 } from "antd";
 import dayjs from "dayjs";
 import locale from "antd/locale/pt_BR";
@@ -46,6 +47,7 @@ interface Event {
   isFree?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];
+  fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
   paymentConfig?: PaymentConfig;
   _count?: { registrations: number };
 }
@@ -139,6 +141,12 @@ export default function EventModal({
           formModeVal === "FIXED_ONLY"
             ? undefined
             : (values.dynamicFormFields ?? []),
+        fixedFieldsConfig: isFreeVal
+          ? {
+              email: { required: !!(values.fixedFieldsConfig?.email?.required) },
+              phone: { required: !!(values.fixedFieldsConfig?.phone?.required) },
+            }
+          : undefined,
       };
 
       let response;
@@ -494,6 +502,29 @@ export default function EventModal({
             </Radio.Group>
           </Form.Item>
 
+          {/* Campos obrigatórios - visível apenas em eventos gratuitos */}
+          {isFree && (
+            <div className="border rounded p-4 mb-4 bg-gray-50">
+              <p className="text-sm font-medium mb-3">Campos obrigatórios na inscrição</p>
+              <div className="flex gap-6">
+                <Form.Item
+                  name={["fixedFieldsConfig", "email", "required"]}
+                  valuePropName="checked"
+                  className="mb-0"
+                >
+                  <Checkbox>Email obrigatório</Checkbox>
+                </Form.Item>
+                <Form.Item
+                  name={["fixedFieldsConfig", "phone", "required"]}
+                  valuePropName="checked"
+                  className="mb-0"
+                >
+                  <Checkbox>Telefone obrigatório</Checkbox>
+                </Form.Item>
+              </div>
+            </div>
+          )}
+
           {/* Formulário Dinâmico */}
           {formMode && formMode !== "FIXED_ONLY" && (
             <Form.Item
@@ -502,27 +533,17 @@ export default function EventModal({
               validateStatus={getFieldError("dynamicFormFields") ? "error" : ""}
               help={getFieldError("dynamicFormFields")}
             >
-              <DynamicFormBuilder disabled={hasRegistrations} />
+              <DynamicFormBuilder disabled={false} />
             </Form.Item>
           )}
 
           {/* Configuração de Pagamento (oculta em gratuito) */}
           {!isFree && (
-            <>
-              {hasRegistrations && (
-                <Alert
-                  type="info"
-                  message="Este evento já possui inscrições — campos de formulário dinâmico estão bloqueados."
-                  showIcon
-                  style={{ marginBottom: 16 }}
-                />
-              )}
-              <Form.Item name="paymentConfig" label="Configuração de Pagamento">
-                <PaymentConfigForm
-                  eventPrice={watchedPrice || 100}
-                />
-              </Form.Item>
-            </>
+            <Form.Item name="paymentConfig" label="Configuração de Pagamento">
+              <PaymentConfigForm
+                eventPrice={watchedPrice || 100}
+              />
+            </Form.Item>
           )}
 
           <Form.Item name="isActive" label="Status" valuePropName="checked">

@@ -7,6 +7,7 @@ import { Footer } from "@/components/Footer";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
 import { StructuredData } from "@/components/StructuredData";
 import { PageTracker } from "@/components/PageTracker";
+import { AntdProvider } from "@/components/AntdProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -107,12 +108,14 @@ export default function RootLayout({
       >
         <StructuredData />
         <PageTracker />
-        <SectionRefsProvider>
-          <Header />
-          <EmbeddedBrowserWarningModal />
-          <div className="mt-16 lg:mt-20 flex-1">{children}</div>
-          <Footer />
-        </SectionRefsProvider>
+        <AntdProvider>
+          <SectionRefsProvider>
+            <Header />
+            <EmbeddedBrowserWarningModal />
+            <div className="mt-16 lg:mt-20 flex-1">{children}</div>
+            <Footer />
+          </SectionRefsProvider>
+        </AntdProvider>
       </body>
     </html>
   );

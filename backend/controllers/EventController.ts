@@ -235,21 +235,6 @@ export class EventController extends BaseController {
         );
       }
 
-      // Bloquear mudanças em formMode/dynamicFormFields quando já há inscrições.
-      // Compatibilidade de respostas previamente coletadas não é garantida.
-      const wantsFormStructureChange =
-        validatedData.formMode !== undefined ||
-        validatedData.dynamicFormFields !== undefined;
-      if (wantsFormStructureChange) {
-        const registrationCount = await registrationRepository.count({
-          eventId: id,
-        });
-        if (registrationCount > 0) {
-          return this.conflict(
-            `Não é possível alterar a estrutura do formulário (modo ou campos) pois já existem ${registrationCount} inscrição(ões). Duplique o evento para usar um novo formulário.`
-          );
-        }
-      }
 
       // Converter strings de data para objetos Date quando presentes
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

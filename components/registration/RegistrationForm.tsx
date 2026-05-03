@@ -45,6 +45,8 @@ interface RegistrationFormProps {
   hideButtons?: boolean;
   submitLabel?: string;
   isFree?: boolean;
+  emailRequired?: boolean;
+  phoneRequired?: boolean;
   onSubmit: (values: RegistrationFormData) => Promise<void>;
   onCancel: () => void;
   onCpfChange: (cpf: string) => void;
@@ -59,10 +61,14 @@ export function RegistrationForm({
   hideButtons = false,
   submitLabel,
   isFree = false,
+  emailRequired,
+  phoneRequired,
   onSubmit,
   onCancel,
   onCpfChange,
 }: RegistrationFormProps) {
+  const isEmailRequired = emailRequired !== undefined ? emailRequired : !isFree;
+  const isPhoneRequired = phoneRequired !== undefined ? phoneRequired : !isFree;
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
 
@@ -143,11 +149,11 @@ export function RegistrationForm({
           label={
             <div className="flex items-center space-x-2">
               <Mail className="h-4 w-4" />
-              <span>Email{isFree && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>
+              <span>Email{!isEmailRequired && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>
             </div>
           }
           rules={[
-            ...(!isFree ? [{ required: true, message: "Email é obrigatório" }] : []),
+            ...(isEmailRequired ? [{ required: true, message: "Email é obrigatório" }] : []),
             { type: "email", message: "Email inválido" },
           ]}
         >
@@ -219,9 +225,9 @@ export function RegistrationForm({
 
         <Form.Item
           name="phone"
-          label={<span>Telefone{isFree && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>}
+          label={<span>Telefone{!isPhoneRequired && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>}
           rules={[
-            ...(!isFree ? [{ required: true, message: "Telefone é obrigatório" }] : []),
+            ...(isPhoneRequired ? [{ required: true, message: "Telefone é obrigatório" }] : []),
             {
               validator: (_, value) => {
                 if (!value) return Promise.resolve();

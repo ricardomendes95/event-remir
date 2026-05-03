@@ -110,6 +110,7 @@ export interface EventFormData {
   isFree?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];
+  fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
 }
 
 interface FieldError {

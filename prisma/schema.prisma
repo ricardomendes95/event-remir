@@ -27,6 +27,7 @@ model Event {
   isFree                 Boolean  @default(false)
   formMode               EventFormMode @default(FIXED_ONLY)
   dynamicFormFields      Json?
+  fixedFieldsConfig      Json?
   bannerUrl              String?
   paymentConfig          Json?    @default("{}")
   createdAt              DateTime @default(now())
