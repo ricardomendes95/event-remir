@@ -296,6 +296,22 @@ export default function EventModal({
           >
             <Input placeholder="Local do evento" />
           </Form.Item>
+          <Form.Item shouldUpdate={(prev, curr) => prev.location !== curr.location} noStyle>
+            {({ getFieldValue }) => {
+              const loc: string = getFieldValue("location");
+              return loc && loc.length >= 5 ? (
+                <a
+                  href={`https://maps.google.com/?q=${encodeURIComponent(loc)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-500 hover:underline"
+                  style={{ display: "block", marginTop: -16, marginBottom: 16 }}
+                >
+                  Ver no mapa ↗
+                </a>
+              ) : null;
+            }}
+          </Form.Item>
 
           <div className="grid grid-cols-2 gap-4">
             <Form.Item

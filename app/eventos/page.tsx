@@ -65,10 +65,16 @@ function EventCard({
             <span className="capitalize">{formatDate(event.eventDate)}</span>
           </div>
           {event.location && (
-            <div className="flex items-center gap-2">
-              <MapPin size={15} className="text-blue-500 shrink-0" />
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(event.location)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-2 text-blue-500 hover:text-blue-600"
+            >
+              <MapPin size={15} className="shrink-0" />
               <span>{event.location}</span>
-            </div>
+            </a>
           )}
           <div className="flex items-center gap-2">
             <Users size={15} className="text-blue-500 shrink-0" />

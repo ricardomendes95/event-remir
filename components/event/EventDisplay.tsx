@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays, Clock, MapPin, Users } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Users, ExternalLink } from "lucide-react";
 import { Button } from "antd";
 import EventRegistrationModal from "./EventRegistrationModal";
 import { Event } from "@/types/event";
@@ -154,12 +154,26 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
                 </div>
 
                 {event.location && (
-                  <div className="flex items-center space-x-3">
-                    <MapPin className=" text-blue-600" size={20} />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">Local</p>
-                      <p className="text-sm text-gray-600">{event.location}</p>
-                    </div>
+                  <div className="space-y-2">
+                    <iframe
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(event.location)}&output=embed`}
+                      width="100%"
+                      height="200"
+                      style={{ border: 0, borderRadius: 8 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Localização do evento"
+                    />
+                    <a
+                      href={`https://maps.google.com/?q=${encodeURIComponent(event.location)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-blue-600 hover:text-blue-700"
+                    >
+                      <MapPin size={16} className="shrink-0" />
+                      <span className="text-sm">{event.location}</span>
+                      <ExternalLink size={13} className="shrink-0" />
+                    </a>
                   </div>
                 )}
 
