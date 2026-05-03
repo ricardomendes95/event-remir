@@ -24,10 +24,12 @@ export async function middleware(request: NextRequest) {
     "/admin/login",
     "/admin/access-denied",
     "/api/events/active",
+    "/api/events/list-active",
     "/api/payments/webhook",
     "/api/payments/create-preference",
     "/api/registrations/search-by-cpf",
     "/api/registrations/get-by-id",
+    "/api/registrations/create-free",
     "/payment/success",
     "/payment/failure",
     "/payment/pending",
@@ -38,9 +40,10 @@ export async function middleware(request: NextRequest) {
   const isPaymentMethodRoute = pathname.match(
     /^\/api\/events\/[^\/]+\/payment-methods$/
   );
+  const isBySlugRoute = pathname.match(/^\/api\/events\/by-slug\/[^\/]+$/);
 
   // Se for rota pública, deixar passar
-  if (isPublicRoute || isPaymentMethodRoute) {
+  if (isPublicRoute || isPaymentMethodRoute || isBySlugRoute) {
     return NextResponse.next();
   }
 

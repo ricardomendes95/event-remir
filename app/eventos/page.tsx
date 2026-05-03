@@ -1,180 +1,156 @@
 "use client";
-import { Suspense, useState, JSX, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { EventDisplay } from "@/components/event/EventDisplay";
-import { SearchComprovante } from "@/components/SearchComprovante";
-import { AutoShowProofModal } from "@/components/AutoShowProofModal";
-import { useSectionRefs } from "@/contexts/SectionRefsContext";
-import { Button } from "antd";
-import { UserCheck, CreditCard, ArrowUp } from "lucide-react";
+import { useEffect, useState, JSX } from "react";
+import Link from "next/link";
+import { CalendarDays, MapPin, Users, ArrowRight } from "lucide-react";
+import { Event } from "@/types/event";
 
-const EventsPageContent = (): JSX.Element => {
-  const searchParams = useSearchParams();
-  const { refs, scrollToSection } = useSectionRefs();
-  const { eventoRef, comprovanteRef } = refs;
-  const [showFloatingButton, setShowFloatingButton] = useState(false);
-  const [urlCpf, setUrlCpf] = useState<string>("");
+function EventCard({ event }: { event: Event & { slug: string } }): JSX.Element {
+  const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString("pt-BR", {
+      weekday: "short",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+
+  const isRegistrationOpen = () => {
+    if (!event.registrationEndDate) return true;
+    return new Date() < new Date(event.registrationEndDate);
+  };
+
+  const spotsLeft = event.capacity - event.currentRegistrations;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+      {event.bannerUrl && (
+        <div className="aspect-video w-full overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={event.bannerUrl}
+            alt={`Banner ${event.name}`}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      <div className="p-6">
+        <div className="flex items-start justify-between gap-2 mb-3">
+          <h2 className="text-xl font-bold text-gray-900 leading-tight">
+            {event.name}
+          </h2>
+          {event.isFree ? (
+            <span className="shrink-0 bg-green-100 text-green-700 text-xs font-semibold px-2 py-1 rounded-full">
+              Gratuito
+            </span>
+          ) : (
+            <span className="shrink-0 bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">
+              {event.price.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </span>
+          )}
+        </div>
+
+        <div className="space-y-2 mb-4 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <CalendarDays size={15} className="text-blue-500 shrink-0" />
+            <span className="capitalize">{formatDate(event.eventDate)}</span>
+          </div>
+          {event.location && (
+            <div className="flex items-center gap-2">
+              <MapPin size={15} className="text-blue-500 shrink-0" />
+              <span>{event.location}</span>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Users size={15} className="text-blue-500 shrink-0" />
+            <span>
+              {spotsLeft > 0
+                ? `${spotsLeft} vagas disponíveis`
+                : "Esgotado"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          {!isRegistrationOpen() ? (
+            <span className="text-xs text-gray-400">Inscrições encerradas</span>
+          ) : spotsLeft <= 0 ? (
+            <span className="text-xs text-red-500 font-medium">Esgotado</span>
+          ) : (
+            <span className="text-xs text-green-600 font-medium">Inscrições abertas</span>
+          )}
+
+          <Link
+            href={`/eventos/${event.slug}`}
+            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            Ver detalhes
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function EventsListPage(): JSX.Element {
+  const [events, setEvents] = useState<(Event & { slug: string })[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const cpfParam = searchParams?.get("cpf");
-    if (cpfParam) {
-      setUrlCpf(cpfParam);
-      // Scroll para a seção do evento
-      setTimeout(() => {
-        scrollToSection(eventoRef);
-      }, 100);
-    }
-  }, [searchParams, scrollToSection, eventoRef]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset;
-      // Mostra o botão flutuante após rolar 300px
-      setShowFloatingButton(scrollTop > 300);
-    };
-
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    fetch("/api/events/list-active")
+      .then((r) => r.json())
+      .then((data) => setEvents(Array.isArray(data) ? data : []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
   }, []);
-
-  const handleInscricaoClick = () => {
-    // Feedback visual suave
-    if (navigator.vibrate) {
-      navigator.vibrate(50); // Vibração sutil de 50ms
-    }
-
-    // Scroll para a seção do evento
-    scrollToSection(eventoRef);
-
-    // Aguarda o scroll terminar e então clica no botão de inscrição
-    setTimeout(() => {
-      const inscricaoButton = document.querySelector(
-        '[data-testid="inscricao-button"]'
-      ) as HTMLButtonElement;
-      if (inscricaoButton && !inscricaoButton.disabled) {
-        inscricaoButton.click();
-      }
-    }, 800);
-  };
-
-  const handleComprovanteClick = () => {
-    if (navigator.vibrate) {
-      navigator.vibrate(30); // Vibração mais suave para ação secundária
-    }
-    scrollToSection(comprovanteRef);
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        {/* Header */}
-
-        {/* Main Content */}
-        <main>
-          {/* Hero Section - Event Display */}
-          <section ref={eventoRef} id="evento" className="py-5">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <Suspense
-                fallback={
-                  <div className="flex justify-center items-center py-20">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                  </div>
-                }
-              >
-                <EventDisplay initialCpf={urlCpf} />
-              </Suspense>
-            </div>
-          </section>
-
-          {/* Search Comprovante Section */}
-          <section
-            ref={comprovanteRef}
-            id="comprovante"
-            className="py-16 bg-gray-50"
-          >
-            <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  Consultar Comprovante
-                </h2>
-                <p className="text-lg text-gray-600">
-                  Digite seu CPF ou email para consultar sua inscrição
-                </p>
-              </div>
-              <div className="flex justify-center">
-                <SearchComprovante />
-              </div>
-            </div>
-          </section>
-        </main>
-
-        {/* Floating Action Button - Mobile Only */}
-        {showFloatingButton && (
-          <div className="fixed bottom-24 right-4 z-40 md:hidden">
-            <div className="flex flex-col space-y-3">
-              <Button
-                shape="circle"
-                size="large"
-                icon={<CreditCard size={18} />}
-                onClick={handleComprovanteClick}
-                className="shadow-xl bg-white hover:bg-gray-50 w-14 h-14 flex items-center justify-center border-2 border-gray-100"
-                title="Meu Comprovante"
-              />
-              <Button
-                type="primary"
-                shape="circle"
-                size="large"
-                icon={<UserCheck size={18} />}
-                onClick={handleInscricaoClick}
-                className="shadow-xl w-14 h-14 flex items-center justify-center animate-pulse"
-                title="Inscreva-se"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Back to top button */}
-        {showFloatingButton && (
-          <div className="fixed bottom-6 right-4 z-30">
-            <Button
-              shape="circle"
-              size="middle"
-              icon={<ArrowUp size={16} />}
-              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-              className="shadow-lg bg-gray-800 hover:bg-gray-700 text-white border-gray-800 hover:border-gray-700 w-10 h-10 flex items-center justify-center opacity-70 hover:opacity-100 transition-opacity"
-              title="Voltar ao topo"
-            />
-          </div>
-        )}
-
-        {/* Footer */}
-        <footer className="bg-gray-900 text-white py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <p className="text-gray-400">
-                © 2025 Igreja Remir. Todos os direitos reservados.
-              </p>
-            </div>
-          </div>
-        </footer>
-
-        {/* Auto Show Proof Modal */}
-        <AutoShowProofModal />
-      </div>
-  );
-};
-
-const EventsPage = (): JSX.Element => {
-  return (
-    <Suspense
-      fallback={
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">Eventos</h1>
+          <p className="text-lg text-gray-600">
+            Confira os eventos disponíveis e faça sua inscrição
+          </p>
         </div>
-      }
-    >
-      <EventsPageContent />
-    </Suspense>
-  );
-};
 
-export default EventsPage;
+        {loading && (
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+          </div>
+        )}
+
+        {!loading && events.length === 0 && (
+          <div className="text-center py-20">
+            <CalendarDays className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-600 mb-2">
+              Nenhum evento disponível
+            </h2>
+            <p className="text-gray-500">
+              Fique atento às nossas redes sociais para novidades!
+            </p>
+          </div>
+        )}
+
+        {!loading && events.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {events.map((event) => (
+              <EventCard key={event.id} event={event} />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <footer className="bg-gray-900 text-white py-8 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-gray-400">
+            © 2025 Igreja Remir. Todos os direitos reservados.
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Modal, Form, message, Steps } from "antd";
-import { CreditCard } from "lucide-react";
+import { CreditCard, CheckCircle } from "lucide-react";
 import { Event } from "@/types/event";
 import { z } from "zod";
 
@@ -11,11 +11,14 @@ import {
   EventSummary,
   ExistingRegistrationAlert,
   RegistrationForm,
+  DynamicFormRenderer,
   registrationSchema,
+  freeRegistrationSchema,
   type RegistrationFormData,
 } from "../registration";
 import { RegistrationProofModal } from "../RegistrationProofModal";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
+import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
 // Hook customizado
 import { useCpfVerification } from "@/hooks/useCpfVerification";
@@ -48,6 +51,13 @@ export default function EventRegistrationModal({
   onClose,
   initialCpf,
 }: EventRegistrationModalProps) {
+  // Flags do evento
+  const isFreeEvent = !!event.isFree;
+  const formMode = event.formMode ?? "FIXED_ONLY";
+  const dynamicFields = (event.dynamicFormFields as DynamicField[] | null) ?? [];
+  const showFixed = true;
+  const showDynamic = formMode !== "FIXED_ONLY";
+
   // Estados principais
   const [loading, setLoading] = useState(false);
   // Fallback manual para checkout
@@ -67,6 +77,9 @@ export default function EventRegistrationModal({
   // Estados para controle de etapas
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<RegistrationFormData | null>(null);
+  const [dynamicFormData, setDynamicFormData] = useState<Record<string, unknown> | null>(null);
+  const [freeRegistrationId, setFreeRegistrationId] = useState<string | null>(null);
+  const [freeProofData, setFreeProofData] = useState<Parameters<typeof RegistrationProofModal>[0]["preloadedData"]>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState<PaymentMethodSelection | null>(null);
 
@@ -149,12 +162,9 @@ export default function EventRegistrationModal({
 
   // Função para validar se podemos avançar para a etapa de confirmação
   const canShowConfirmationStep = (): boolean => {
-    const hasFormData =
-      formData &&
-      formData.name &&
-      formData.email &&
-      formData.cpf &&
-      formData.phone;
+    const hasFormData = isFreeEvent
+      ? formData && formData.name && formData.cpf
+      : formData && formData.name && formData.email && formData.cpf && formData.phone;
 
     const hasPaymentMethod =
       selectedPaymentMethod &&
@@ -196,31 +206,21 @@ export default function EventRegistrationModal({
     return !!(hasFormData && hasPaymentMethod);
   };
 
-  // Etapas do processo - com lógica dinâmica para atualização
+  // Etapas do processo - com lógica dinâmica para atualização e eventos gratuitos
   const steps = isUpdatingPayment
     ? [
-        {
-          title: "Método de pagamento",
-          description: "Escolher novo método",
-        },
-        {
-          title: "Confirmar pagamento",
-          description: "",
-        },
+        { title: "Método de pagamento", description: "Escolher novo método" },
+        { title: "Confirmar pagamento", description: "" },
+      ]
+    : isFreeEvent
+    ? [
+        { title: "Dados", description: "Preencha o formulário" },
+        { title: "Confirmar inscrição", description: "" },
       ]
     : [
-        {
-          title: "Dados",
-          description: "Informações pessoais",
-        },
-        {
-          title: "Método de pagamento",
-          description: "",
-        },
-        {
-          title: "Finalizar inscrição",
-          description: "",
-        },
+        { title: "Dados", description: "Informações pessoais" },
+        { title: "Método de pagamento", description: "" },
+        { title: "Finalizar inscrição", description: "" },
       ];
 
   // Função original simplificada (manter compatibilidade)
@@ -235,7 +235,7 @@ export default function EventRegistrationModal({
   const handleContinuePayment = () => {
     if (!existingRegistration) return;
 
-    // Pré-carregar dados da inscrição existente
+    // Pré-carregar dados da inscrição existente (campos fixos podem ser null em DYNAMIC_ONLY)
     const existingFormData: RegistrationFormData = {
       name: existingRegistration.name,
       email: existingRegistration.email,
@@ -301,16 +301,111 @@ export default function EventRegistrationModal({
 
   const handleFormSubmit = async (values: RegistrationFormData) => {
     try {
-      // Validar dados
-      const validatedData = registrationSchema.parse(values);
-      setFormData(validatedData);
+      const schema = isFreeEvent ? freeRegistrationSchema : registrationSchema;
+      const validatedData = schema.parse(values);
+      setFormData(validatedData as RegistrationFormData);
 
-      // Avançar para seleção de método de pagamento
-      handleNextStep();
+      if (isFreeEvent) {
+        // Para evento gratuito, avançar para confirmação diretamente
+        handleNextStep();
+      } else {
+        // Para evento pago, avançar para seleção de método de pagamento
+        handleNextStep();
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         message.error("Por favor, verifique os dados informados");
       }
+    }
+  };
+
+  // Submit gratuito com formulário BOTH (ou DYNAMIC_ONLY, que agora também exibe o form fixo)
+  const handleBothFormsFreeSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      const fixedValues = values as RegistrationFormData & {
+        dynamicFormData?: Record<string, unknown>;
+      };
+      const fixed: RegistrationFormData = {
+        name: fixedValues.name,
+        email: fixedValues.email,
+        cpf: fixedValues.cpf,
+        phone: fixedValues.phone,
+      };
+      setFormData(freeRegistrationSchema.parse(fixed) as RegistrationFormData);
+      setDynamicFormData(fixedValues.dynamicFormData ?? null);
+      handleNextStep();
+    } catch {
+      message.error("Por favor, verifique os dados informados");
+    }
+  };
+
+  // Submit final para eventos gratuitos
+  const handleFreeSubmit = async () => {
+    setLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        eventId: event.id,
+        fixedData: {
+          name: formData!.name,
+          email: formData!.email,
+          cpf: formData!.cpf,
+          phone: formData!.phone,
+        },
+      };
+
+      if (showDynamic && dynamicFormData) {
+        body.dynamicFormData = dynamicFormData;
+      }
+
+      const response = await fetch("/api/registrations/create-free", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Erro ao processar inscrição");
+      }
+
+      // Buscar comprovante completo para exibir no modal
+      const regId: string = data.registration?.id;
+      if (regId) {
+        setFreeRegistrationId(regId);
+        const proofRes = await fetch("/api/registrations/get-by-id", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ registrationId: regId }),
+        });
+        if (proofRes.ok) {
+          const proof = await proofRes.json();
+          setFreeProofData({
+            id: proof.id,
+            name: proof.name,
+            email: proof.email ?? "",
+            cpf: proof.cpf,
+            phone: proof.phone ?? "",
+            status: proof.status,
+            paymentId: proof.paymentId ?? "",
+            registrationDate: proof.registrationDate,
+            event: {
+              title: proof.event.title,
+              price: proof.event.price,
+              date: proof.event.date,
+              location: proof.event.location ?? "",
+            },
+          });
+        }
+      }
+      setProofModalOpen(true);
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "Erro ao processar inscrição"
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -338,13 +433,14 @@ export default function EventRegistrationModal({
     try {
       const apiEndpoint = "/api/payments/create-preference";
 
-      const requestBody = {
+      const requestBody: Record<string, unknown> = {
         eventId: event.id,
         participantData: formData,
         paymentData: {
           method: selectedPaymentMethod.method,
           installments: selectedPaymentMethod.installments,
         },
+        ...(dynamicFormData ? { dynamicFormData } : {}),
       };
 
       // 🆕 NOVO - Fetch com timeout para Instagram iOS
@@ -418,9 +514,12 @@ export default function EventRegistrationModal({
     setProofModalOpen(false);
     setCurrentStep(0);
     setFormData(null);
+    setDynamicFormData(null);
+    setFreeRegistrationId(null);
+    setFreeProofData(null);
     setSelectedPaymentMethod(null);
 
-    // NOVO: Reset estados de atualização
+    // Reset estados de atualização
     setIsUpdatingPayment(false);
     setExistingRegistrationId(null);
 
@@ -459,30 +558,130 @@ export default function EventRegistrationModal({
           <div>
             <EventSummary event={event} />
 
-            {showExistingOptions && existingRegistration && (
-              <ExistingRegistrationAlert
-                registration={existingRegistration}
-                onCheckReceipt={handleCheckReceipt}
-                onContinuePayment={handleContinuePayment}
-              />
-            )}
+            {/* Formulário fixo (sempre obrigatório) + dinâmico quando aplicável */}
+            {showFixed && (
+              <>
+                {showExistingOptions && existingRegistration && (
+                  <ExistingRegistrationAlert
+                    registration={existingRegistration}
+                    onCheckReceipt={handleCheckReceipt}
+                    onContinuePayment={handleContinuePayment}
+                  />
+                )}
 
-            <RegistrationForm
-              form={form}
-              loading={loading}
-              disabled={showExistingOptions}
-              isValidatingCpf={isValidatingCpf}
-              cpfValidationError={cpfValidationError}
-              onSubmit={handleFormSubmit}
-              onCancel={handleCancel}
-              onCpfChange={handleCpfChange}
-            />
+                <RegistrationForm
+                  form={form}
+                  loading={loading}
+                  disabled={showExistingOptions}
+                  isValidatingCpf={isValidatingCpf}
+                  cpfValidationError={cpfValidationError}
+                  isFree={isFreeEvent}
+                  onSubmit={handleFormSubmit}
+                  onCancel={isFreeEvent && showDynamic ? undefined! : handleCancel}
+                  onCpfChange={handleCpfChange}
+                  hideButtons={isFreeEvent && showDynamic}
+                  submitLabel={isFreeEvent ? "Continuar" : undefined}
+                />
+
+                {/* BOTH gratuito: mostrar também o formulário dinâmico junto */}
+                {isFreeEvent && showDynamic && dynamicFields.length > 0 && (
+                  <div className="mt-6">
+                    <DynamicFormRenderer
+                      fields={dynamicFields}
+                      form={form}
+                      loading={loading}
+                      hideButtons
+                    />
+                    <div className="mt-6 pt-4 border-t flex flex-col sm:flex-row gap-3">
+                      <button
+                        type="button"
+                        onClick={handleBothFormsFreeSubmit}
+                        disabled={loading || showExistingOptions}
+                        className="flex-1 sm:order-2 px-4 py-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
+                      >
+                        {loading ? "Processando..." : "Continuar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCancel}
+                        className="flex-1 sm:order-1 px-4 py-4 border border-gray-300 rounded hover:bg-gray-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
-        {/* Etapa 0 (updating) ou 1 (normal): Seleção de método de pagamento */}
+        {/* Etapa 1 (gratuito): Confirmação e submit */}
+        {currentStep === 1 && isFreeEvent && !isUpdatingPayment && (
+          <div>
+            <div className="mb-6">
+              <h3 className="text-lg font-medium mb-4">Confirmar Inscrição</h3>
+
+              {showFixed && formData && (
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-medium mb-2">Dados Pessoais:</h4>
+                  <p><strong>Nome:</strong> {formData.name}</p>
+                  {formData.email && <p><strong>Email:</strong> {formData.email}</p>}
+                  <p><strong>CPF:</strong> {formData.cpf}</p>
+                  {formData.phone && <p><strong>Telefone:</strong> {formData.phone}</p>}
+                </div>
+              )}
+
+              {showDynamic && dynamicFormData && (
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <h4 className="font-medium mb-2">Respostas do formulário:</h4>
+                  {dynamicFields.map((f) => (
+                    <p key={f.id}>
+                      <strong>{f.label}:</strong>{" "}
+                      {Array.isArray(dynamicFormData[f.id])
+                        ? (dynamicFormData[f.id] as string[]).join(", ")
+                        : String(dynamicFormData[f.id] ?? "—")}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-green-50 border border-green-200 p-3 rounded-lg mb-4">
+                <p className="text-green-800 font-medium text-sm">
+                  Inscrição gratuita — nenhum pagamento necessário.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-between gap-3">
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                disabled={loading}
+                className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 w-full sm:w-auto"
+                style={{ minHeight: "48px" }}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleFreeSubmit}
+                disabled={loading}
+                className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                style={{ minHeight: "48px" }}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  {loading ? "Processando..." : "Finalizar Inscrição"}
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Etapa 0 (updating) ou 1 (pago): Seleção de método de pagamento */}
         {((currentStep === 0 && isUpdatingPayment) ||
-          (currentStep === 1 && !isUpdatingPayment)) &&
+          (currentStep === 1 && !isUpdatingPayment && !isFreeEvent)) &&
           formData && (
             <div>
               {isUpdatingPayment && (
@@ -549,8 +748,9 @@ export default function EventRegistrationModal({
           )}
 
         {/* Etapa 1 (updating) ou 2 (normal): Confirmação */}
+        {/* Etapa 1 (updating) ou 2 (pago normal): Confirmação + checkout */}
         {((currentStep === 1 && isUpdatingPayment) ||
-          (currentStep === 2 && !isUpdatingPayment)) && (
+          (currentStep === 2 && !isUpdatingPayment && !isFreeEvent)) && (
           <div>
             {/* Debug info - remover em produção se necessário */}
             {process.env.NODE_ENV === "development" && (
@@ -759,8 +959,11 @@ export default function EventRegistrationModal({
       {/* Modal de Comprovante */}
       <RegistrationProofModal
         open={proofModalOpen}
-        onClose={() => setProofModalOpen(false)}
-        preloadedData={getProofModalData()}
+        onClose={() => {
+          setProofModalOpen(false);
+          if (freeRegistrationId) handleCancel();
+        }}
+        preloadedData={freeProofData ?? getProofModalData()}
       />
     </>
   );

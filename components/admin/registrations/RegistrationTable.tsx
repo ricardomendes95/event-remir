@@ -33,9 +33,9 @@ const { Option } = Select;
 interface Registration {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   cpf: string;
-  phone: string;
+  phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
   createdAt: string;
@@ -101,7 +101,7 @@ export default function RegistrationTable({
       render: (text, record) => (
         <div>
           <div className="font-medium">{text}</div>
-          <div className="text-sm text-gray-500">{record.email}</div>
+          <div className="text-sm text-gray-500">{record.email ?? "—"}</div>
         </div>
       ),
     },
@@ -115,7 +115,7 @@ export default function RegistrationTable({
       title: "Telefone",
       dataIndex: "phone",
       key: "phone",
-      render: (text) => formatPhone(text),
+      render: (text) => (text ? formatPhone(text) : "—"),
     },
     {
       title: "Evento",

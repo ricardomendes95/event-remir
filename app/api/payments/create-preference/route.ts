@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { Preference } from "mercadopago";
 import {
   mercadoPagoClient,
@@ -8,6 +9,11 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { PaymentFeeCalculator } from "@/backend/utils/paymentFeeCalculator";
 import { PaymentConfig } from "@/backend/schemas/eventSchemas";
+import { validateDynamicFormData } from "@/backend/utils/dynamicFormValidator";
+import type {
+  DynamicField,
+  DynamicFormFields,
+} from "@/backend/schemas/dynamicFormSchemas";
 
 // Helper function para mapear métodos de pagamento para exclusões do MercadoPago
 function getExcludedPaymentTypes(selectedMethod: string) {
@@ -89,6 +95,7 @@ const createPreferenceSchema = z.object({
     installments: z.number().min(1).max(12).optional(),
   }),
   registrationId: z.string().optional(), // ID da inscrição existente para atualizar
+  dynamicFormData: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -98,8 +105,13 @@ export async function POST(request: NextRequest) {
 
     // Validar dados da requisição
     const body = await request.json();
-    const { eventId, participantData, paymentData, registrationId } =
-      createPreferenceSchema.parse(body);
+    const {
+      eventId,
+      participantData,
+      paymentData,
+      registrationId,
+      dynamicFormData,
+    } = createPreferenceSchema.parse(body);
 
     // Buscar evento
     const event = await prisma.event.findUnique({
@@ -125,6 +137,49 @@ export async function POST(request: NextRequest) {
         { error: "Evento não está ativo" },
         { status: 400 }
       );
+    }
+
+    // Eventos gratuitos devem usar /api/registrations/create-free
+    if (event.isFree) {
+      return NextResponse.json(
+        {
+          error:
+            "Este evento é gratuito. Use /api/registrations/create-free para criar a inscrição.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // DYNAMIC_ONLY não é permitido em evento pago (defesa em profundidade)
+    if (event.formMode === "DYNAMIC_ONLY") {
+      return NextResponse.json(
+        {
+          error:
+            "Configuração inválida: DYNAMIC_ONLY só é permitido em eventos gratuitos",
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validar payload do formulário dinâmico quando o evento exige (BOTH)
+    let sanitizedDynamic: Record<string, unknown> | null = null;
+    if (event.formMode === "BOTH") {
+      const fields =
+        (event.dynamicFormFields as DynamicFormFields | null) ?? [];
+      const result = validateDynamicFormData(
+        fields as DynamicField[],
+        dynamicFormData ?? {}
+      );
+      if (!result.valid) {
+        return NextResponse.json(
+          {
+            error: "Dados do formulário dinâmico inválidos",
+            errors: result.errors,
+          },
+          { status: 422 }
+        );
+      }
+      sanitizedDynamic = result.sanitized;
     }
 
     // Verificar se ainda há vagas
@@ -393,6 +448,11 @@ export async function POST(request: NextRequest) {
           phone: participantData.phone.replace(/\D/g, ""),
           status: "PENDING",
           paymentId: response.id,
+          // Atualiza dynamicFormData só quando o evento usa BOTH e veio no payload.
+          // Caso contrário, preserva o valor antigo.
+          ...(sanitizedDynamic
+            ? { dynamicFormData: sanitizedDynamic as Prisma.InputJsonValue }
+            : {}),
         },
       });
     } else {
@@ -405,6 +465,9 @@ export async function POST(request: NextRequest) {
           phone: participantData.phone.replace(/\D/g, ""),
           status: "PENDING",
           paymentId: response.id,
+          dynamicFormData: sanitizedDynamic
+            ? (sanitizedDynamic as Prisma.InputJsonValue)
+            : undefined,
         },
       });
     }

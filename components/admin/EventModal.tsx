@@ -10,6 +10,8 @@ import {
   Button,
   message,
   ConfigProvider,
+  Radio,
+  Alert,
 } from "antd";
 import dayjs from "dayjs";
 import locale from "antd/locale/pt_BR";
@@ -18,12 +20,14 @@ import { ImageUpload } from "../ImageUpload";
 import { MoneyInput } from "../MoneyInput";
 import RichTextEditor from "../RichTextEditor";
 import { PaymentConfigForm } from "./PaymentConfigForm";
+import { DynamicFormBuilder } from "./DynamicFormBuilder";
 import {
   useEventValidation,
   EventFormData,
 } from "../../hooks/useEventValidation";
 import { generateSlug } from "../../utils/slugUtils";
 import { PaymentConfig } from "@/backend/schemas/eventSchemas";
+import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
 interface Event {
   id: string;
@@ -39,7 +43,11 @@ interface Event {
   price: number;
   bannerUrl?: string;
   isActive: boolean;
+  isFree?: boolean;
+  formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
+  dynamicFormFields?: DynamicField[];
   paymentConfig?: PaymentConfig;
+  _count?: { registrations: number };
 }
 
 interface EventModalProps {
@@ -60,6 +68,16 @@ export default function EventModal({
   const { validateFormData, setApiErrors, clearErrors, getFieldError } =
     useEventValidation();
 
+  const isFree = Form.useWatch("isFree", form) as boolean | undefined;
+  const formMode = Form.useWatch("formMode", form) as
+    | "FIXED_ONLY"
+    | "DYNAMIC_ONLY"
+    | "BOTH"
+    | undefined;
+  const watchedPrice = Form.useWatch("price", form) as number | undefined;
+
+  const hasRegistrations = (editingEvent?._count?.registrations ?? 0) > 0;
+
   // Configurar locale brasileiro para dayjs
   React.useEffect(() => {
     dayjs.locale("pt-br");
@@ -74,10 +92,14 @@ export default function EventModal({
         endDate: dayjs(editingEvent.endDate),
         registrationStartDate: dayjs(editingEvent.registrationStartDate),
         registrationEndDate: dayjs(editingEvent.registrationEndDate),
+        isFree: editingEvent.isFree ?? false,
+        formMode: editingEvent.formMode ?? "FIXED_ONLY",
+        dynamicFormFields: editingEvent.dynamicFormFields ?? [],
       });
       clearErrors();
     } else if (visible && !editingEvent) {
       form.resetFields();
+      form.setFieldsValue({ isFree: false, formMode: "FIXED_ONLY" });
       clearErrors();
     }
   }, [visible, editingEvent, form, clearErrors]);
@@ -97,6 +119,8 @@ export default function EventModal({
       }
 
       // Preparar dados para envio
+      const isFreeVal = values.isFree ?? false;
+      const formModeVal = values.formMode ?? "FIXED_ONLY";
       const eventData = {
         ...values,
         startDate: dayjs(values.startDate).toISOString(),
@@ -106,9 +130,15 @@ export default function EventModal({
         ).toISOString(),
         registrationEndDate: dayjs(values.registrationEndDate).toISOString(),
         maxParticipants: parseInt(values.maxParticipants.toString()),
-        price: parseFloat(values.price.toString()),
+        price: isFreeVal ? 0 : parseFloat(values.price.toString()),
         bannerUrl: values.bannerUrl || undefined,
-        paymentConfig: values.paymentConfig || undefined,
+        paymentConfig: isFreeVal ? undefined : (values.paymentConfig || undefined),
+        isFree: isFreeVal,
+        formMode: formModeVal,
+        dynamicFormFields:
+          formModeVal === "FIXED_ONLY"
+            ? undefined
+            : (values.dynamicFormFields ?? []),
       };
 
       let response;
@@ -167,9 +197,12 @@ export default function EventModal({
   // Gerar slug automaticamente quando o título mudar
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
-    // Só gera slug automaticamente se estamos criando um novo evento e o slug está vazio
+    // Só gera slug automaticamente se estamos criando um novo evento e o slug está vazio.
+    // setTimeout evita re-entrant call dentro do processamento interno do Form.Item.
     if (!editingEvent && !form.getFieldValue("slug")) {
-      form.setFieldValue("slug", generateSlug(title));
+      setTimeout(() => {
+        form.setFieldValue("slug", generateSlug(title));
+      }, 0);
     }
   };
 
@@ -412,21 +445,69 @@ export default function EventModal({
             validateStatus={getFieldError("bannerUrl") ? "error" : ""}
             help={getFieldError("bannerUrl")}
           >
-            <ImageUpload
-              value={form.getFieldValue("bannerUrl")}
-              onChange={(url) => form.setFieldsValue({ bannerUrl: url })}
+            <ImageUpload />
+          </Form.Item>
+
+          {/* Inscrição Gratuita */}
+          <Form.Item
+            name="isFree"
+            label="Tipo de inscrição"
+            valuePropName="checked"
+          >
+            <Switch
+              checkedChildren="Gratuita"
+              unCheckedChildren="Paga"
+              onChange={(checked) => {
+                if (checked) {
+                  form.setFieldsValue({ price: 0 });
+                }
+              }}
             />
           </Form.Item>
 
-          <Form.Item name="paymentConfig" label="Configuração de Pagamento">
-            <PaymentConfigForm
-              value={form.getFieldValue("paymentConfig")}
-              onChange={(config: PaymentConfig) =>
-                form.setFieldsValue({ paymentConfig: config })
-              }
-              eventPrice={form.getFieldValue("price") || 100}
-            />
+          {/* Modo do formulário */}
+          <Form.Item
+            name="formMode"
+            label="Modo do formulário de inscrição"
+            validateStatus={getFieldError("formMode") ? "error" : ""}
+            help={getFieldError("formMode")}
+          >
+            <Radio.Group>
+              <Radio value="FIXED_ONLY">Somente fixo (nome, e-mail, CPF, telefone)</Radio>
+              <Radio value="BOTH">Fixo + dinâmico</Radio>
+            </Radio.Group>
           </Form.Item>
+
+          {/* Formulário Dinâmico */}
+          {formMode && formMode !== "FIXED_ONLY" && (
+            <Form.Item
+              name="dynamicFormFields"
+              label="Campos dinâmicos"
+              validateStatus={getFieldError("dynamicFormFields") ? "error" : ""}
+              help={getFieldError("dynamicFormFields")}
+            >
+              <DynamicFormBuilder disabled={hasRegistrations} />
+            </Form.Item>
+          )}
+
+          {/* Configuração de Pagamento (oculta em gratuito) */}
+          {!isFree && (
+            <>
+              {hasRegistrations && (
+                <Alert
+                  type="info"
+                  message="Este evento já possui inscrições — campos de formulário dinâmico estão bloqueados."
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                />
+              )}
+              <Form.Item name="paymentConfig" label="Configuração de Pagamento">
+                <PaymentConfigForm
+                  eventPrice={watchedPrice || 100}
+                />
+              </Form.Item>
+            </>
+          )}
 
           <Form.Item name="isActive" label="Status" valuePropName="checked">
             <Switch checkedChildren="Ativo" unCheckedChildren="Inativo" />

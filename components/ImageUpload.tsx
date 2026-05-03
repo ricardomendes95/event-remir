@@ -6,7 +6,7 @@ import { useImageUpload } from "../hooks/useImageUpload";
 
 interface ImageUploadProps {
   value?: string;
-  onChange: (url: string | null) => void;
+  onChange?: (url: string | null) => void;
   className?: string;
   accept?: string;
   maxSize?: number; // em MB
@@ -28,7 +28,7 @@ export function ImageUpload({
   const handleFileSelect = async (file: File) => {
     const url = await uploadImage(file);
     if (url) {
-      onChange(url);
+      onChange?.(url);
     }
   };
 
@@ -60,7 +60,7 @@ export function ImageUpload({
   };
 
   const removeImage = () => {
-    onChange(null);
+    onChange?.(null);
     reset();
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

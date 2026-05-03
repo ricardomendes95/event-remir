@@ -17,9 +17,9 @@ const { Title, Text } = Typography;
 interface Registration {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   cpf: string;
-  phone: string;
+  phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
   createdAt: string;
@@ -227,7 +227,7 @@ export default function RegistrationsPage() {
     form.setFieldsValue({
       ...registration,
       cpf: formatCPF(registration.cpf),
-      phone: formatPhone(registration.phone),
+      phone: registration.phone ? formatPhone(registration.phone) : "",
     });
   };
 

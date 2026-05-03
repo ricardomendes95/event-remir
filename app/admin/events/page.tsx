@@ -97,11 +97,10 @@ export default function EventsPage() {
   const toggleActiveStatus = async (eventId: string, isActive: boolean) => {
     try {
       const response = await fetch(`/api/events/${eventId}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ isActive }),
       });
 
       const result = await response.json();

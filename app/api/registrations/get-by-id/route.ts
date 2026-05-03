@@ -26,6 +26,9 @@ export async function POST(request: NextRequest) {
             price: true,
             startDate: true,
             location: true,
+            isFree: true,
+            formMode: true,
+            dynamicFormFields: true,
           },
         },
       },
@@ -47,12 +50,17 @@ export async function POST(request: NextRequest) {
       phone: registration.phone,
       status: registration.status,
       paymentId: registration.paymentId,
+      paymentMethod: registration.paymentMethod,
+      dynamicFormData: registration.dynamicFormData,
       registrationDate: registration.createdAt.toISOString(),
       event: {
         title: registration.event.title,
         price: Number(registration.event.price),
         date: registration.event.startDate.toISOString(),
         location: registration.event.location,
+        isFree: registration.event.isFree,
+        formMode: registration.event.formMode,
+        dynamicFormFields: registration.event.dynamicFormFields,
       },
     };
 

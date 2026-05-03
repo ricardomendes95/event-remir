@@ -29,7 +29,7 @@ export const Header = () => {
   }, []);
 
   useEffect(() => {
-    setViewButtonsEvent(pathname.includes("/eventos"));
+    setViewButtonsEvent(pathname.startsWith("/eventos/"));
   }, [pathname]);
 
   const menuItems = [

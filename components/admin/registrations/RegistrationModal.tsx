@@ -48,9 +48,9 @@ interface Event {
 interface Registration {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   cpf: string;
-  phone: string;
+  phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
   createdAt: string;

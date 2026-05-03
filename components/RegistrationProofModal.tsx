@@ -14,9 +14,9 @@ interface ProofModalProps {
 interface RegistrationProof {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   cpf: string;
-  phone: string;
+  phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId: string;
   registrationDate: string;
@@ -253,18 +253,10 @@ export function RegistrationProofModal({
 
             <div class="section">
               <div class="section-title">Dados do Participante</div>
-              <div class="info-row"><span class="label">Nome:</span> <span class="value">${
-                registration.name
-              }</span></div>
-              <div class="info-row"><span class="label">E-mail:</span> <span class="value">${
-                registration.email
-              }</span></div>
-              <div class="info-row"><span class="label">CPF:</span> <span class="value">${formatCPF(
-                registration.cpf
-              )}</span></div>
-              <div class="info-row"><span class="label">Telefone:</span> <span class="value">${
-                registration.phone
-              }</span></div>
+              <div class="info-row"><span class="label">Nome:</span> <span class="value">${registration.name}</span></div>
+              ${registration.email ? `<div class="info-row"><span class="label">E-mail:</span> <span class="value">${registration.email}</span></div>` : ""}
+              <div class="info-row"><span class="label">CPF:</span> <span class="value">${formatCPF(registration.cpf)}</span></div>
+              ${registration.phone ? `<div class="info-row"><span class="label">Telefone:</span> <span class="value">${registration.phone}</span></div>` : ""}
             </div>
 
             <div class="section">
@@ -456,18 +448,14 @@ export function RegistrationProofModal({
               column={1}
               className="mb-4"
             >
-              <Descriptions.Item label="Nome">
-                {registration.name}
-              </Descriptions.Item>
-              <Descriptions.Item label="E-mail">
-                {registration.email}
-              </Descriptions.Item>
-              <Descriptions.Item label="CPF">
-                {formatCPF(registration.cpf)}
-              </Descriptions.Item>
-              <Descriptions.Item label="Telefone">
-                {registration.phone}
-              </Descriptions.Item>
+              <Descriptions.Item label="Nome">{registration.name}</Descriptions.Item>
+              {registration.email && (
+                <Descriptions.Item label="E-mail">{registration.email}</Descriptions.Item>
+              )}
+              <Descriptions.Item label="CPF">{formatCPF(registration.cpf)}</Descriptions.Item>
+              {registration.phone && (
+                <Descriptions.Item label="Telefone">{registration.phone}</Descriptions.Item>
+              )}
             </Descriptions>
 
             <Descriptions

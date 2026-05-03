@@ -24,6 +24,9 @@ model Event {
   maxParticipants        Int
   price                  Float
   isActive               Boolean  @default(true)
+  isFree                 Boolean  @default(false)
+  formMode               EventFormMode @default(FIXED_ONLY)
+  dynamicFormFields      Json?
   bannerUrl              String?
   paymentConfig          Json?    @default("{}")
   createdAt              DateTime @default(now())
@@ -34,21 +37,22 @@ model Event {
 }
 
 model Registration {
-  id             String            @id @default(cuid())
-  eventId        String
-  event          Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name           String
-  email          String
-  cpf            String
-  phone          String
-  status         RegistrationStatus @default(PENDING)
-  paymentMethod  PaymentMethod     @default(MERCADO_PAGO)
-  paymentId      String?
-  paymentError   String?           // Mensagem de erro do pagamento
-  paymentDetails Json?             // Detalhes completos do pagamento (sucesso ou erro)
-  checkedInAt    DateTime?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  id              String            @id @default(cuid())
+  eventId         String
+  event           Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name            String
+  email           String?
+  cpf             String
+  phone           String?
+  status          RegistrationStatus @default(PENDING)
+  paymentMethod   PaymentMethod     @default(MERCADO_PAGO)
+  paymentId       String?
+  paymentError    String?
+  paymentDetails  Json?
+  dynamicFormData Json?
+  checkedInAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   @@map("registrations")
 }
@@ -95,6 +99,13 @@ enum RegistrationStatus {
 enum PaymentMethod {
   MERCADO_PAGO
   MANUAL
+  FREE
+}
+
+enum EventFormMode {
+  FIXED_ONLY
+  DYNAMIC_ONLY
+  BOTH
 }
 
 enum AdminRole {

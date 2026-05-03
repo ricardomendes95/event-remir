@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { BaseController } from "./BaseController";
-import { eventRepository, type EventWithStats } from "../repositories";
+import {
+  eventRepository,
+  registrationRepository,
+  type EventWithStats,
+} from "../repositories";
 import { EventCreateSchema, EventUpdateSchema } from "../schemas/eventSchemas";
 
 export class EventController extends BaseController {
@@ -139,6 +143,15 @@ export class EventController extends BaseController {
         registrationStartDate: new Date(validatedData.registrationStartDate),
         registrationEndDate: new Date(validatedData.registrationEndDate),
         bannerUrl: validatedData.bannerUrl || null,
+        // Eventos gratuitos não usam paymentConfig
+        paymentConfig: validatedData.isFree
+          ? null
+          : validatedData.paymentConfig ?? null,
+        // Sanear dynamicFormFields conforme formMode
+        dynamicFormFields:
+          validatedData.formMode === "FIXED_ONLY"
+            ? null
+            : validatedData.dynamicFormFields ?? null,
       };
 
       const event = await eventRepository.create(eventData);
@@ -176,6 +189,68 @@ export class EventController extends BaseController {
         }
       }
 
+      // Reaplicar refines críticos manualmente (perdidos pelo .partial()),
+      // mesclando o payload com o estado atual do evento.
+      const finalIsFree =
+        validatedData.isFree !== undefined
+          ? validatedData.isFree
+          : existingEvent.isFree;
+      const finalFormMode =
+        validatedData.formMode !== undefined
+          ? validatedData.formMode
+          : existingEvent.formMode;
+      const finalPrice =
+        validatedData.price !== undefined
+          ? validatedData.price
+          : existingEvent.price;
+      const finalDynamicFields =
+        validatedData.dynamicFormFields !== undefined
+          ? validatedData.dynamicFormFields
+          : (existingEvent.dynamicFormFields as unknown[] | null);
+
+      if (finalIsFree && finalPrice !== 0) {
+        return this.unprocessableEntity(
+          "Eventos gratuitos devem ter preço igual a zero",
+          [{ field: "price", message: "Preço deve ser zero" }]
+        );
+      }
+      if (finalFormMode === "DYNAMIC_ONLY" && !finalIsFree) {
+        return this.unprocessableEntity(
+          "Formulário totalmente dinâmico só é permitido em eventos gratuitos",
+          [{ field: "formMode", message: "Modo inválido para evento pago" }]
+        );
+      }
+      if (
+        finalFormMode !== "FIXED_ONLY" &&
+        (!Array.isArray(finalDynamicFields) || finalDynamicFields.length === 0)
+      ) {
+        return this.unprocessableEntity(
+          "É necessário definir ao menos um campo dinâmico para este modo de formulário",
+          [
+            {
+              field: "dynamicFormFields",
+              message: "Defina ao menos um campo",
+            },
+          ]
+        );
+      }
+
+      // Bloquear mudanças em formMode/dynamicFormFields quando já há inscrições.
+      // Compatibilidade de respostas previamente coletadas não é garantida.
+      const wantsFormStructureChange =
+        validatedData.formMode !== undefined ||
+        validatedData.dynamicFormFields !== undefined;
+      if (wantsFormStructureChange) {
+        const registrationCount = await registrationRepository.count({
+          eventId: id,
+        });
+        if (registrationCount > 0) {
+          return this.conflict(
+            `Não é possível alterar a estrutura do formulário (modo ou campos) pois já existem ${registrationCount} inscrição(ões). Duplique o evento para usar um novo formulário.`
+          );
+        }
+      }
+
       // Converter strings de data para objetos Date quando presentes
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateData: any = { ...validatedData };
@@ -190,6 +265,14 @@ export class EventController extends BaseController {
         updateData.registrationEndDate = new Date(
           updateData.registrationEndDate
         );
+
+      // Saneamentos derivados
+      if (finalIsFree) {
+        updateData.paymentConfig = null;
+      }
+      if (finalFormMode === "FIXED_ONLY") {
+        updateData.dynamicFormFields = null;
+      }
 
       const updatedEvent = await eventRepository.update(id, updateData);
 

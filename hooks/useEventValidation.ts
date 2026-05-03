@@ -2,6 +2,8 @@ import { useState, useCallback } from "react";
 import { z } from "zod";
 import dayjs, { Dayjs } from "dayjs";
 import { PaymentConfig } from "@/backend/schemas/eventSchemas";
+import { DynamicFormFieldsSchema } from "@/backend/schemas/dynamicFormSchemas";
+import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
 // Schema igual ao do backend
 export const EventCreateSchema = z
@@ -40,7 +42,12 @@ export const EventCreateSchema = z
     price: z.number().min(0, "Preço deve ser maior ou igual a zero"),
     bannerUrl: z.string().url("URL inválida").optional().or(z.literal("")),
     isActive: z.boolean().default(true),
-    paymentConfig: z.any().optional(), // Permite qualquer configuração de pagamento
+    paymentConfig: z.any().optional(),
+    isFree: z.boolean().default(false),
+    formMode: z
+      .enum(["FIXED_ONLY", "DYNAMIC_ONLY", "BOTH"])
+      .default("FIXED_ONLY"),
+    dynamicFormFields: DynamicFormFieldsSchema.optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
     message: "Data de início deve ser anterior à data de fim",
@@ -60,6 +67,29 @@ export const EventCreateSchema = z
       message: "Inscrições devem encerrar antes ou no início do evento",
       path: ["registrationEndDate"],
     }
+  )
+  .refine((data) => !data.isFree || data.price === 0, {
+    message: "Evento gratuito deve ter preço igual a zero",
+    path: ["price"],
+  })
+  .refine(
+    (data) =>
+      data.formMode === "FIXED_ONLY" ||
+      (Array.isArray(data.dynamicFormFields) &&
+        data.dynamicFormFields.length >= 1),
+    {
+      message:
+        "Formulário dinâmico ou misto exige pelo menos um campo dinâmico",
+      path: ["dynamicFormFields"],
+    }
+  )
+  .refine(
+    (data) => data.formMode !== "DYNAMIC_ONLY" || data.isFree === true,
+    {
+      message:
+        "Modo apenas dinâmico só é permitido em eventos gratuitos",
+      path: ["formMode"],
+    }
   );
 
 // Tipo para os dados do formulário (com Dayjs para datas)
@@ -77,6 +107,9 @@ export interface EventFormData {
   bannerUrl?: string;
   isActive: boolean;
   paymentConfig?: PaymentConfig;
+  isFree?: boolean;
+  formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
+  dynamicFormFields?: DynamicField[];
 }
 
 interface FieldError {

@@ -21,6 +21,15 @@ export async function PUT(
   return await eventController.updateEvent(request, { params });
 }
 
+// PATCH /api/events/[id] - Alternar status ativo/inativo
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const params = await context.params;
+  return await eventController.toggleEventStatus(request, { params });
+}
+
 // DELETE /api/events/[id] - Deletar evento
 export async function DELETE(
   request: NextRequest,

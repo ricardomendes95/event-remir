@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DynamicFormFieldsSchema } from "./dynamicFormSchemas";
 
 // Schema para configuração de métodos de pagamento
 export const PaymentMethodConfigSchema = z.object({
@@ -57,6 +58,11 @@ export const EventCreateSchema = z
     price: z.number().min(0, "Preço deve ser maior ou igual a zero"),
     bannerUrl: z.string().url("URL inválida").optional(),
     isActive: z.boolean().default(true),
+    isFree: z.boolean().default(false),
+    formMode: z
+      .enum(["FIXED_ONLY", "DYNAMIC_ONLY", "BOTH"])
+      .default("FIXED_ONLY"),
+    dynamicFormFields: DynamicFormFieldsSchema.optional(),
     paymentConfig: PaymentConfigSchema.optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
@@ -77,7 +83,27 @@ export const EventCreateSchema = z
       message: "Inscrições devem encerrar antes ou no início do evento",
       path: ["registrationEndDate"],
     }
-  );
+  )
+  .refine((data) => !data.isFree || data.price === 0, {
+    message: "Eventos gratuitos devem ter preço igual a zero",
+    path: ["price"],
+  })
+  .refine(
+    (data) =>
+      data.formMode === "FIXED_ONLY" ||
+      (Array.isArray(data.dynamicFormFields) &&
+        data.dynamicFormFields.length > 0),
+    {
+      message:
+        "É necessário definir ao menos um campo dinâmico para este modo de formulário",
+      path: ["dynamicFormFields"],
+    }
+  )
+  .refine((data) => data.formMode !== "DYNAMIC_ONLY" || data.isFree, {
+    message:
+      "Formulário totalmente dinâmico só é permitido em eventos gratuitos",
+    path: ["formMode"],
+  });
 
 export const EventUpdateSchema = EventCreateSchema.partial();
 

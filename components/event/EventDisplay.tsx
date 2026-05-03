@@ -10,9 +10,10 @@ import { CountdownTimer } from "../CountdownTimer";
 
 interface EventDisplayProps {
   initialCpf?: string;
+  slug?: string;
 }
 
-export function EventDisplay({ initialCpf }: EventDisplayProps) {
+export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -25,9 +26,12 @@ export function EventDisplay({ initialCpf }: EventDisplayProps) {
   }, [initialCpf, event]);
 
   useEffect(() => {
-    const fetchActiveEvent = async () => {
+    const fetchEvent = async () => {
       try {
-        const response = await fetch("/api/events/active");
+        const url = slug
+          ? `/api/events/by-slug/${slug}`
+          : "/api/events/active";
+        const response = await fetch(url);
         if (response.ok) {
           const eventData = await response.json();
           setEvent(eventData);
@@ -39,8 +43,8 @@ export function EventDisplay({ initialCpf }: EventDisplayProps) {
       }
     };
 
-    fetchActiveEvent();
-  }, []);
+    fetchEvent();
+  }, [slug]);
 
   if (loading) {
     return (
@@ -187,14 +191,22 @@ export function EventDisplay({ initialCpf }: EventDisplayProps) {
 
                 <div className="text-center mb-6">
                   <div className="flex items-center justify-center space-x-2 mb-2">
-                    <span className="text-3xl font-bold text-gray-900">
-                      {event.price.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
+                    {event.isFree ? (
+                      <span className="text-3xl font-bold text-green-600">
+                        Gratuito
+                      </span>
+                    ) : (
+                      <span className="text-3xl font-bold text-gray-900">
+                        {event.price.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-600">por pessoa</p>
+                  {!event.isFree && (
+                    <p className="text-sm text-gray-600">por pessoa</p>
+                  )}
                 </div>
 
                 <Button

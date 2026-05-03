@@ -16,7 +16,11 @@ export interface Event {
   maxParticipants: number;
   price: number;
   isActive: boolean;
+  isFree: boolean;
+  formMode: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
+  dynamicFormFields: unknown | null;
   bannerUrl: string | null;
+  paymentConfig: unknown | null;
   createdAt: Date;
   updatedAt: Date;
 }

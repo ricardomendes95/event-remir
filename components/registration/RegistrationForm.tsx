@@ -3,30 +3,37 @@ import { User, Mail, FileText } from "lucide-react";
 import { z } from "zod";
 import { isValidCpf } from "@/utils/cpfValidator";
 
+const cpfRefinement = (cpf: string) => {
+  const cleanCpf = cpf.replace(/\D/g, "");
+  if (cleanCpf.length < 11) return true;
+  return isValidCpf(cleanCpf).isValid;
+};
+
 const registrationSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("Email inválido"),
-  cpf: z.string().refine((cpf) => {
-    const cleanCpf = cpf.replace(/\D/g, "");
-    // Se CPF estiver incompleto (menos de 11 dígitos), não validar ainda
-    if (cleanCpf.length < 11) {
-      return true;
-    }
-    // Se CPF estiver completo, validar matematicamente
-    return isValidCpf(cleanCpf).isValid;
-  }, "CPF inválido"),
+  cpf: z.string().refine(cpfRefinement, "CPF inválido"),
   phone: z.string().refine((phone) => {
     const cleanPhone = phone.replace(/\D/g, "");
-    // Se telefone estiver incompleto (menos de 10 dígitos), não validar ainda
-    if (cleanPhone.length < 10) {
-      return true;
-    }
-    // Telefone válido deve ter 10 ou 11 dígitos
+    if (cleanPhone.length < 10) return true;
     return cleanPhone.length >= 10 && cleanPhone.length <= 11;
   }, "Telefone inválido"),
 });
 
-export type RegistrationFormData = z.infer<typeof registrationSchema>;
+export const freeRegistrationSchema = z.object({
+  name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  cpf: z.string().refine(cpfRefinement, "CPF inválido"),
+  phone: z.string().optional().or(z.literal("")),
+});
+
+export interface RegistrationFormData {
+  name: string;
+  email?: string;
+  cpf: string;
+  phone?: string;
+}
+
 export { registrationSchema };
 
 interface RegistrationFormProps {
@@ -35,6 +42,9 @@ interface RegistrationFormProps {
   disabled: boolean;
   isValidatingCpf?: boolean;
   cpfValidationError?: string | null;
+  hideButtons?: boolean;
+  submitLabel?: string;
+  isFree?: boolean;
   onSubmit: (values: RegistrationFormData) => Promise<void>;
   onCancel: () => void;
   onCpfChange: (cpf: string) => void;
@@ -46,6 +56,9 @@ export function RegistrationForm({
   disabled,
   isValidatingCpf = false,
   cpfValidationError = null,
+  hideButtons = false,
+  submitLabel,
+  isFree = false,
   onSubmit,
   onCancel,
   onCpfChange,
@@ -130,11 +143,11 @@ export function RegistrationForm({
           label={
             <div className="flex items-center space-x-2">
               <Mail className="h-4 w-4" />
-              <span>Email</span>
+              <span>Email{isFree && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>
             </div>
           }
           rules={[
-            { required: true, message: "Email é obrigatório" },
+            ...(!isFree ? [{ required: true, message: "Email é obrigatório" }] : []),
             { type: "email", message: "Email inválido" },
           ]}
         >
@@ -206,21 +219,19 @@ export function RegistrationForm({
 
         <Form.Item
           name="phone"
-          label="Telefone"
+          label={<span>Telefone{isFree && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>}
           rules={[
-            { required: true, message: "Telefone é obrigatório" },
+            ...(!isFree ? [{ required: true, message: "Telefone é obrigatório" }] : []),
             {
               validator: (_, value) => {
                 if (!value) return Promise.resolve();
 
                 const cleanPhone = value.replace(/\D/g, "");
 
-                // Se telefone ainda estiver sendo digitado (menos de 10 dígitos), não validar
                 if (cleanPhone.length < 10) {
                   return Promise.resolve();
                 }
 
-                // Telefone válido deve ter 10 ou 11 dígitos
                 if (cleanPhone.length < 10 || cleanPhone.length > 11) {
                   return Promise.reject(
                     new Error("Telefone deve ter 10 ou 11 dígitos")
@@ -246,6 +257,7 @@ export function RegistrationForm({
         </Form.Item>
       </div>
 
+      {!hideButtons && (
       <div className="mt-6 pt-4 border-t">
         <div className="flex flex-col sm:flex-row gap-3 registration-buttons">
           <Button
@@ -255,7 +267,7 @@ export function RegistrationForm({
             disabled={disabled}
             className="flex-1 sm:order-2 text-base font-medium primary-button"
           >
-            {loading ? "Processando..." : "Continuar para Pagamento"}
+            {loading ? "Processando..." : (submitLabel ?? "Continuar para Pagamento")}
           </Button>
           <Button
             onClick={onCancel}
@@ -296,6 +308,7 @@ export function RegistrationForm({
           Você será redirecionado para o Mercado Pago para finalizar o pagamento
         </p>
       </div>
+      )}
     </Form>
   );
 }

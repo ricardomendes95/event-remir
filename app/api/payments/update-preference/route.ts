@@ -169,6 +169,14 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Inscrição de evento pago sempre tem CPF/phone — validar defensivamente
+    if (!registration.cpf || !registration.phone) {
+      return NextResponse.json(
+        { error: "Dados do participante incompletos para atualização de pagamento" },
+        { status: 400 }
+      );
+    }
+
     // Extrair telefone de forma mais robusta
     const phoneData = parsePhoneNumber(registration.phone);
 
@@ -193,8 +201,8 @@ export async function PUT(request: NextRequest) {
         },
       ],
       payer: {
-        name: registration.name,
-        email: registration.email,
+        name: registration.name ?? undefined,
+        email: registration.email ?? undefined,
         identification: {
           type: "CPF",
           number: registration.cpf.replace(/\D/g, ""),
@@ -210,7 +218,7 @@ export async function PUT(request: NextRequest) {
       // External reference mais único incluindo timestamp
       external_reference: `event_${
         registration.eventId
-      }_cpf_${registration.cpf.replace(/\D/g, "")}_${Date.now()}`,
+      }_cpf_${registration.cpf!.replace(/\D/g, "")}_${Date.now()}`,
       // Statement descriptor para aparecer na fatura (máximo 13 caracteres)
       statement_descriptor: registration?.event?.title
         .substring(0, 13)
