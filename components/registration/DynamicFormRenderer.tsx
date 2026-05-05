@@ -138,6 +138,7 @@ export function DynamicFormRenderer({
       form={form}
       layout="vertical"
       onFinish={hideButtons ? undefined : handleFinish}
+      component={hideButtons ? false : undefined}
       requiredMark={false}
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

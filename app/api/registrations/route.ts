@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       eventId,
       status = "CONFIRMED",
       paymentMethod = "MANUAL",
+      dynamicFormData,
     } = body;
 
     // Validar se o evento existe
@@ -131,15 +132,14 @@ export async function POST(request: NextRequest) {
     const registration = await prisma.registration.create({
       data: {
         name,
-        email,
+        email: email || null,
         cpf: cpf.replace(/\D/g, ""),
-        phone: phone.replace(/\D/g, ""),
+        phone: phone ? phone.replace(/\D/g, "") : null,
         eventId,
         status,
-        paymentId: `manual_${Date.now()}_${Math.random()
-          .toString(36)
-          .substr(2, 9)}`,
+        paymentId: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
         paymentMethod: paymentMethod,
+        ...(dynamicFormData ? { dynamicFormData } : {}),
       },
       include: {
         event: {

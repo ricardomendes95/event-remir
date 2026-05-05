@@ -3,17 +3,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Form, message, Modal, Button, Typography } from "antd";
 import { UserAddOutlined, PrinterOutlined } from "@ant-design/icons";
-import { z } from "zod";
 import dayjs from "dayjs";
 import {
   RegistrationStats,
   RegistrationFilters,
   RegistrationTable,
   RegistrationModal,
-  registrationSchema,
 } from "../../../components/admin/registrations";
 import RegistrationsPrintReport from "../../../components/admin/RegistrationsPrintReport";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
+import type { EventFormMode } from "@/types/event";
 
 const { Title, Text } = Typography;
 
@@ -27,6 +26,7 @@ interface Registration {
   paymentId?: string;
   createdAt: string;
   updatedAt: string;
+  dynamicFormData?: Record<string, unknown>;
   event: {
     id: string;
     title: string;
@@ -41,15 +41,20 @@ interface Event {
   price: number;
   startDate: string;
   isActive: boolean;
+  isFree?: boolean;
+  formMode?: EventFormMode;
+  dynamicFormFields?: unknown;
+  fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
 }
 
 interface RegistrationFormData {
   name: string;
-  email: string;
+  email?: string;
   cpf: string;
-  phone: string;
+  phone?: string;
   eventId: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
+  dynamicFormData?: Record<string, unknown>;
 }
 
 interface PrintData {
@@ -266,8 +271,10 @@ export default function RegistrationsPage() {
     setIsModalVisible(true);
     form.setFieldsValue({
       ...registration,
+      eventId: registration.event.id,
       cpf: formatCPF(registration.cpf),
       phone: registration.phone ? formatPhone(registration.phone) : "",
+      dynamicFormData: registration.dynamicFormData ?? undefined,
     });
   };
 
@@ -281,14 +288,17 @@ export default function RegistrationsPage() {
   // Salvar inscrição (criar ou editar)
   const handleSaveRegistration = async (values: RegistrationFormData) => {
     try {
-      const cleanValues = {
-        ...values,
-        cpf: values.cpf.replace(/\D/g, ""),
-        phone: values.phone.replace(/\D/g, ""),
+      const formValues = values as RegistrationFormData & { paymentMethod?: string };
+      const payload = {
+        name: formValues.name,
+        email: formValues.email || null,
+        cpf: formValues.cpf.replace(/\D/g, ""),
+        phone: formValues.phone ? formValues.phone.replace(/\D/g, "") : null,
+        eventId: formValues.eventId,
+        status: formValues.status,
+        paymentMethod: formValues.paymentMethod ?? "MANUAL",
+        ...(formValues.dynamicFormData ? { dynamicFormData: formValues.dynamicFormData } : {}),
       };
-
-      // Validar com Zod
-      registrationSchema.parse(cleanValues);
 
       const url = editingRegistration
         ? `/api/registrations/${editingRegistration.id}`
@@ -296,14 +306,10 @@ export default function RegistrationsPage() {
 
       const method = editingRegistration ? "PUT" : "POST";
 
-      console.log({ cleanValues });
-
       const response = await fetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(cleanValues),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -314,18 +320,12 @@ export default function RegistrationsPage() {
         );
         setIsModalVisible(false);
         fetchRegistrations(pagination.current, pagination.pageSize);
-        fetchStats(); // atualizar estatísticas
+        fetchStats();
       } else {
         message.error(data.error || "Erro ao salvar inscrição");
       }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        error.issues.forEach((issue) => {
-          message.error(issue.message);
-        });
-      } else {
-        message.error("Erro ao salvar inscrição");
-      }
+    } catch {
+      message.error("Erro ao salvar inscrição");
     }
   };
 
