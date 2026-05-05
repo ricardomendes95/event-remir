@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import EmbeddedBrowserWarningModal from "@/components/EmbeddedBrowserWarningModal";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
@@ -111,7 +110,6 @@ export default function RootLayout({
         <AntdProvider>
           <SectionRefsProvider>
             <Header />
-            <EmbeddedBrowserWarningModal />
             <div className="mt-16 lg:mt-20 flex-1">{children}</div>
             <Footer />
           </SectionRefsProvider>

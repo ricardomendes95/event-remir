@@ -7,6 +7,7 @@ import EventRegistrationModal from "./EventRegistrationModal";
 import { Event } from "@/types/event";
 // formatTextToHtml removido - agora usamos HTML direto do TipTap
 import { CountdownTimer } from "../CountdownTimer";
+import EmbeddedBrowserWarningModal from "@/components/EmbeddedBrowserWarningModal";
 
 interface EventDisplayProps {
   initialCpf?: string;
@@ -97,6 +98,7 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
 
   return (
     <>
+      {!event.isFree && <EmbeddedBrowserWarningModal />}
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
         {/* Banner da Imagem */}
         {event.bannerUrl && (
