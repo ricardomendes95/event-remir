@@ -15,6 +15,7 @@ export interface Event {
   formMode: EventFormMode;
   dynamicFormFields?: unknown;
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
+  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
   registrationEndDate?: string;
   createdAt: string;
   updatedAt: string;

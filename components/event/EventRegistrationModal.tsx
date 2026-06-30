@@ -17,16 +17,14 @@ import {
   type RegistrationFormData,
 } from "../registration";
 import { RegistrationProofModal } from "../RegistrationProofModal";
-import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
 // Hook customizado
 import { useCpfVerification } from "@/hooks/useCpfVerification";
 import { useDeviceDetection } from "@/hooks/useDeviceDetection";
 
-// Utilitário para tradução dos métodos de pagamento
-import { getPaymentMethodName } from "@/utils/paymentMethods";
 import { redirectToPayment } from "@/utils/paymentRedirect";
+import { INFINITEPAY_PAYMENT_HINT } from "@/backend/utils/paymentFees";
 
 const { Step } = Steps;
 
@@ -35,14 +33,6 @@ interface EventRegistrationModalProps {
   open: boolean;
   onClose: () => void;
   initialCpf?: string;
-}
-
-// Tipos para os dados de pagamento
-interface PaymentMethodSelection {
-  method: string;
-  installments?: number;
-  totalAmount: number;
-  description: string;
 }
 
 export default function EventRegistrationModal({
@@ -61,6 +51,10 @@ export default function EventRegistrationModal({
   const cfg = event.fixedFieldsConfig;
   const emailRequired = isFreeEvent ? !!(cfg?.email?.required) : true;
   const phoneRequired = isFreeEvent ? !!(cfg?.phone?.required) : true;
+
+  // Configuração de camisa (apenas evento pago com a opção habilitada)
+  const shirtConfig =
+    !isFreeEvent && event.shirtConfig?.enabled ? event.shirtConfig : null;
 
   // Estados principais
   const [loading, setLoading] = useState(false);
@@ -84,8 +78,10 @@ export default function EventRegistrationModal({
   const [dynamicFormData, setDynamicFormData] = useState<Record<string, unknown> | null>(null);
   const [freeRegistrationId, setFreeRegistrationId] = useState<string | null>(null);
   const [freeProofData, setFreeProofData] = useState<Parameters<typeof RegistrationProofModal>[0]["preloadedData"]>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] =
-    useState<PaymentMethodSelection | null>(null);
+  // Estados da camisa (evento pago)
+  const [wantsShirt, setWantsShirt] = useState(false);
+  const [shirtSize, setShirtSize] = useState<string | null>(null);
+  const [shirtError, setShirtError] = useState<string | null>(null);
 
   // Estados para fluxo de atualização - NOVO
   const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
@@ -164,58 +160,11 @@ export default function EventRegistrationModal({
     }
   };
 
-  // Função para validar se podemos avançar para a etapa de confirmação
-  const canShowConfirmationStep = (): boolean => {
-    const hasFormData = isFreeEvent
-      ? formData && formData.name && formData.cpf
-      : formData && formData.name && formData.email && formData.cpf && formData.phone;
-
-    const hasPaymentMethod =
-      selectedPaymentMethod &&
-      selectedPaymentMethod.method &&
-      typeof selectedPaymentMethod.totalAmount === "number";
-
-    if (
-      process.env.NODE_ENV === "development" &&
-      !navigator.userAgent.includes("Instagram")
-    ) {
-      console.log("Debug - Validation:", {
-        step: currentStep,
-        hasFormData,
-        hasPaymentMethod,
-        formData: formData ? Object.keys(formData) : null,
-        paymentMethod: selectedPaymentMethod
-          ? Object.keys(selectedPaymentMethod)
-          : null,
-        device: deviceInfo,
-      });
-    }
-
-    // Log especial para dispositivos iOS com problemas (não Instagram)
-    if (
-      deviceInfo.isIOS &&
-      currentStep === 2 &&
-      !navigator.userAgent.includes("Instagram")
-    ) {
-      console.log("iOS Debug - Confirmation Step:", {
-        isOldIOS: deviceInfo.isOldIOS,
-        browser: deviceInfo.browser,
-        formDataValid: !!hasFormData,
-        paymentMethodValid: !!hasPaymentMethod,
-        formDataContent: formData,
-        paymentMethodContent: selectedPaymentMethod,
-      });
-    }
-
-    return !!(hasFormData && hasPaymentMethod);
-  };
-
-  // Etapas do processo - com lógica dinâmica para atualização e eventos gratuitos
+  // Etapas do processo - com lógica dinâmica para atualização e eventos gratuitos.
+  // No fluxo pago (InfinitePay) o método/parcelas são escolhidos no checkout do
+  // gateway, então aqui basta: Dados → Pagamento (valor + ir para o checkout).
   const steps = isUpdatingPayment
-    ? [
-        { title: "Método de pagamento", description: "Escolher novo método" },
-        { title: "Confirmar pagamento", description: "" },
-      ]
+    ? [{ title: "Pagamento", description: "Ir para o checkout" }]
     : isFreeEvent
     ? [
         { title: "Dados", description: "Preencha o formulário" },
@@ -223,8 +172,7 @@ export default function EventRegistrationModal({
       ]
     : [
         { title: "Dados", description: "Informações pessoais" },
-        { title: "Método de pagamento", description: "" },
-        { title: "Finalizar inscrição", description: "" },
+        { title: "Pagamento", description: "" },
       ];
 
   // Função original simplificada (manter compatibilidade)
@@ -323,8 +271,9 @@ export default function EventRegistrationModal({
     }
   };
 
-  // Submit gratuito com formulário BOTH (ou DYNAMIC_ONLY, que agora também exibe o form fixo)
-  const handleBothFormsFreeSubmit = async () => {
+  // Submit do formulário BOTH (fixo + dinâmico) — vale para gratuito E pago.
+  // Valida o form inteiro (fixos + dinâmicos), separa os dados e avança.
+  const handleBothFormsSubmit = async () => {
     try {
       const values = await form.validateFields();
       const fixedValues = values as RegistrationFormData & {
@@ -336,11 +285,16 @@ export default function EventRegistrationModal({
         cpf: fixedValues.cpf,
         phone: fixedValues.phone,
       };
-      setFormData(freeRegistrationSchema.parse(fixed) as RegistrationFormData);
+      const schema = isFreeEvent ? freeRegistrationSchema : registrationSchema;
+      setFormData(schema.parse(fixed) as RegistrationFormData);
       setDynamicFormData(fixedValues.dynamicFormData ?? null);
       handleNextStep();
-    } catch {
-      message.error("Por favor, verifique os dados informados");
+    } catch (e) {
+      if (e instanceof z.ZodError) {
+        message.error("Por favor, verifique os dados informados");
+      } else {
+        message.error("Por favor, verifique os dados obrigatórios");
+      }
     }
   };
 
@@ -413,22 +367,19 @@ export default function EventRegistrationModal({
     }
   };
 
-  const handlePaymentMethodSelect = (paymentMethod: PaymentMethodSelection) => {
-    setSelectedPaymentMethod(paymentMethod);
-
-    // Log especial para dispositivos iOS (exceto Instagram)
-    if (deviceInfo.isIOS && !navigator.userAgent.includes("Instagram")) {
-      console.log("iOS - Payment method selected:", paymentMethod);
-    }
-
-    handleNextStep();
-  };
-
   const handleFinalSubmit = async () => {
-    if (!formData || !selectedPaymentMethod) {
+    if (!formData) {
       message.error("Dados incompletos");
       return;
     }
+
+    // Se optou pela camisa, o tamanho é obrigatório
+    if (shirtConfig && wantsShirt && !shirtSize) {
+      setShirtError("Escolha o tamanho da camisa para continuar");
+      message.warning("Escolha o tamanho da camisa para continuar");
+      return;
+    }
+    setShirtError(null);
 
     setLoading(true);
     let redirectAttempted = false;
@@ -437,14 +388,15 @@ export default function EventRegistrationModal({
     try {
       const apiEndpoint = "/api/payments/create-preference";
 
+      // InfinitePay: o método/parcelas são escolhidos no checkout do gateway,
+      // então não enviamos paymentData. O valor é recalculado no servidor.
       const requestBody: Record<string, unknown> = {
         eventId: event.id,
         participantData: formData,
-        paymentData: {
-          method: selectedPaymentMethod.method,
-          installments: selectedPaymentMethod.installments,
-        },
         ...(dynamicFormData ? { dynamicFormData } : {}),
+        ...(shirtConfig
+          ? { wantsShirt, shirtSize: wantsShirt ? shirtSize : null }
+          : {}),
       };
 
       // 🆕 NOVO - Fetch com timeout para Instagram iOS
@@ -521,7 +473,9 @@ export default function EventRegistrationModal({
     setDynamicFormData(null);
     setFreeRegistrationId(null);
     setFreeProofData(null);
-    setSelectedPaymentMethod(null);
+    setWantsShirt(false);
+    setShirtSize(null);
+    setShirtError(null);
 
     // Reset estados de atualização
     setIsUpdatingPayment(false);
@@ -583,14 +537,14 @@ export default function EventRegistrationModal({
                   emailRequired={emailRequired}
                   phoneRequired={phoneRequired}
                   onSubmit={handleFormSubmit}
-                  onCancel={isFreeEvent && showDynamic ? undefined! : handleCancel}
+                  onCancel={showDynamic ? undefined! : handleCancel}
                   onCpfChange={handleCpfChange}
-                  hideButtons={isFreeEvent && showDynamic}
+                  hideButtons={showDynamic}
                   submitLabel={isFreeEvent ? "Continuar" : undefined}
                 />
 
-                {/* BOTH gratuito: mostrar também o formulário dinâmico junto */}
-                {isFreeEvent && showDynamic && dynamicFields.length > 0 && (
+                {/* BOTH (gratuito ou pago): mostrar também o formulário dinâmico junto */}
+                {showDynamic && dynamicFields.length > 0 && (
                   <div className="mt-6">
                     <DynamicFormRenderer
                       fields={dynamicFields}
@@ -601,7 +555,7 @@ export default function EventRegistrationModal({
                     <div className="mt-6 pt-4 border-t flex flex-col sm:flex-row gap-3">
                       <button
                         type="button"
-                        onClick={handleBothFormsFreeSubmit}
+                        onClick={handleBothFormsSubmit}
                         disabled={loading || showExistingOptions}
                         className="flex-1 sm:order-2 px-4 py-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
                       >
@@ -707,259 +661,187 @@ export default function EventRegistrationModal({
                 </div>
               )}
 
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-2">
-                  {isUpdatingPayment
-                    ? "Novo Método de Pagamento"
-                    : "Método de Pagamento"}
-                </h3>
-                <p className="text-gray-600">
-                  Escolha como deseja pagar sua inscrição
-                </p>
-              </div>
+              {/* Seleção de camisa (evento pago com a opção habilitada) */}
+              {shirtConfig && !isUpdatingPayment && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-medium mb-1">Camisa do evento</h3>
+                  <p className="text-gray-600 mb-3 text-sm">
+                    Escolha sua inscrição. Você vê o valor antes de pagar.
+                  </p>
 
-              <PaymentMethodSelector
-                eventId={event.id}
-                onSelectionChange={(selection) => {
-                  handlePaymentMethodSelect({
-                    method: selection.method,
-                    installments: selection.installments,
-                    totalAmount: selection.finalValue,
-                    description: selection.description,
-                  });
-                }}
-              />
-
-              <div className="flex justify-between mt-4">
-                {!isUpdatingPayment && (
-                  <button
-                    type="button"
-                    onClick={handlePreviousStep}
-                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    Voltar
-                  </button>
-                )}
-                {isUpdatingPayment && (
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-                  >
-                    Cancelar
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-        {/* Etapa 1 (updating) ou 2 (normal): Confirmação */}
-        {/* Etapa 1 (updating) ou 2 (pago normal): Confirmação + checkout */}
-        {((currentStep === 1 && isUpdatingPayment) ||
-          (currentStep === 2 && !isUpdatingPayment && !isFreeEvent)) && (
-          <div>
-            {/* Debug info - remover em produção se necessário */}
-            {process.env.NODE_ENV === "development" && (
-              <div className="mb-2 p-2 bg-yellow-100 text-xs space-y-1">
-                <div>
-                  Debug: Step={currentStep}, FormData={!!formData},
-                  PaymentMethod={!!selectedPaymentMethod}, IsUpdating=
-                  {isUpdatingPayment}
-                </div>
-                {deviceInfo.isIOS && (
-                  <div className="text-blue-600">
-                    iOS Device - Old: {deviceInfo.isOldIOS ? "Yes" : "No"},
-                    Browser: {deviceInfo.browser}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Verificação de dados com fallback */}
-            {!canShowConfirmationStep() ? (
-              <div className="text-center py-8">
-                <p className="text-red-600 mb-4">
-                  Dados incompletos detectados. Por favor, volte e preencha
-                  novamente.
-                </p>
-                <div className="mb-4 text-sm text-gray-600">
-                  <p className="font-medium mb-2">Status dos dados:</p>
-                  <div className="space-y-1">
-                    <div>
-                      Dados pessoais:{" "}
-                      {formData ? "✅ Completo" : "❌ Incompleto"}
-                    </div>
-                    <div>
-                      Método de pagamento:{" "}
-                      {selectedPaymentMethod ? "✅ Completo" : "❌ Incompleto"}
-                    </div>
-                    {deviceInfo.isIOS && (
-                      <div className="text-blue-600 mt-2">
-                        Dispositivo iOS detectado - Versão antiga:{" "}
-                        {deviceInfo.isOldIOS ? "Sim" : "Não"}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Botões de ação */}
-                <div className="flex flex-col gap-3 justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentStep(0)}
-                    style={{ minHeight: "48px" }}
-                    className="px-4 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 w-full"
-                  >
-                    Voltar ao Início
-                  </button>
-
-                  {formData && !selectedPaymentMethod && (
-                    <button
-                      type="button"
-                      onClick={() => setCurrentStep(1)}
-                      style={{ minHeight: "48px" }}
-                      className="px-4 py-3 bg-green-600 text-white rounded hover:bg-green-700 w-full"
-                    >
-                      Selecionar Pagamento
-                    </button>
-                  )}
-
-                  {/* Botão de força refresh para iOS problemáticos */}
-                  {deviceInfo.isIOS && (
+                  <div className="flex flex-col gap-3">
+                    {/* Sem camisa */}
                     <button
                       type="button"
                       onClick={() => {
-                        // Force re-render
-                        setCurrentStep(2);
-                        setTimeout(() => {
-                          setCurrentStep(2);
-                        }, 100);
+                        setWantsShirt(false);
+                        setShirtSize(null);
+                        setShirtError(null);
                       }}
-                      style={{ minHeight: "44px" }}
-                      className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 text-sm w-full"
+                      style={{ minHeight: "56px" }}
+                      className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
+                        !wantsShirt
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-gray-200 bg-white"
+                      }`}
                     >
-                      Recarregar Dados
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Inscrição sem camisa</span>
+                        <span className="font-bold text-blue-700">
+                          {formatCurrency(event.price)}
+                        </span>
+                      </div>
                     </button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-4">
-                    {isUpdatingPayment
-                      ? "Confirmar Novo Pagamento"
-                      : "Confirmação da Inscrição"}
-                  </h3>
 
-                  {/* Resumo dos dados */}
-                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                    <h4 className="font-medium mb-2">Dados Pessoais:</h4>
-                    <p>
-                      <strong>Nome:</strong> {formData?.name || "Não informado"}
-                    </p>
-                    <p>
-                      <strong>Email:</strong>{" "}
-                      {formData?.email || "Não informado"}
-                    </p>
-                    <p>
-                      <strong>CPF:</strong> {formData?.cpf || "Não informado"}
-                    </p>
-                    <p>
-                      <strong>Telefone:</strong>{" "}
-                      {formData?.phone || "Não informado"}
-                    </p>
+                    {/* Com camisa */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWantsShirt(true);
+                        setShirtError(null);
+                      }}
+                      style={{ minHeight: "56px" }}
+                      className={`w-full text-left px-4 py-3 rounded-lg border-2 transition ${
+                        wantsShirt
+                          ? "border-blue-600 bg-blue-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">
+                          Inscrição com camisa
+                        </span>
+                        <span className="font-bold text-blue-700">
+                          {formatCurrency(shirtConfig.priceWithShirt)}
+                        </span>
+                      </div>
+                    </button>
                   </div>
 
-                  {/* Resumo do pagamento */}
-                  <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                    <h4 className="font-medium mb-2">Método de Pagamento:</h4>
-                    <p>
-                      <strong>Método:</strong>{" "}
-                      {selectedPaymentMethod?.method
-                        ? getPaymentMethodName(selectedPaymentMethod.method)
-                        : "Não selecionado"}
-                    </p>
-                    {selectedPaymentMethod?.installments && (
-                      <p>
-                        <strong>Parcelas:</strong>{" "}
-                        {selectedPaymentMethod.installments}x
+                  {/* Tamanhos (obrigatório quando com camisa) */}
+                  {wantsShirt && (
+                    <div className="mt-4">
+                      <p className="font-medium mb-2 text-sm">
+                        Escolha o tamanho da camisa
                       </p>
+                      <div className="flex flex-wrap gap-2">
+                        {shirtConfig.sizes.map((size) => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => {
+                              setShirtSize(size);
+                              setShirtError(null);
+                            }}
+                            style={{ minWidth: "56px", minHeight: "48px" }}
+                            className={`px-4 py-2 rounded-lg border-2 font-semibold transition ${
+                              shirtSize === size
+                                ? "border-blue-600 bg-blue-600 text-white"
+                                : "border-gray-300 bg-white text-gray-700"
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                      {shirtError && (
+                        <p className="text-red-600 text-sm mt-2">{shirtError}</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="border-t mt-5" />
+                </div>
+              )}
+
+              {/* Resumo do valor da inscrição */}
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-800">
+                    Você vai pagar
+                  </span>
+                  <span className="text-2xl font-extrabold text-blue-700">
+                    {formatCurrency(
+                      shirtConfig && wantsShirt
+                        ? shirtConfig.priceWithShirt
+                        : event.price
                     )}
-                    <p>
-                      <strong>Valor Total:</strong>{" "}
-                      {formatCurrency(selectedPaymentMethod?.totalAmount || 0)}
-                    </p>
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  {INFINITEPAY_PAYMENT_HINT}
+                </p>
+              </div>
+
+              {shirtError && (
+                <p className="text-red-600 text-sm mb-3">{shirtError}</p>
+              )}
+
+              <div className="flex flex-col sm:flex-row justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={isUpdatingPayment ? handleCancel : handlePreviousStep}
+                  disabled={loading}
+                  style={{ minHeight: "48px" }}
+                  className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 w-full sm:w-auto"
+                >
+                  {isUpdatingPayment ? "Cancelar" : "Voltar"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFinalSubmit}
+                  disabled={loading}
+                  style={{
+                    minHeight: "48px",
+                    WebkitTapHighlightColor: "rgba(0,0,0,0.1)",
+                  }}
+                  className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    {loading ? "Processando..." : "Ir para o pagamento"}
+                  </div>
+                </button>
+              </div>
+
+              {/* Fallback manual para iOS/Instagram: exibe botão se redirect falhar */}
+              {manualCheckoutUrl && (
+                <div
+                  ref={fallbackRef}
+                  className="mt-6 p-4 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-lg text-center shadow-lg animate-fade-in"
+                >
+                  <p className="mb-3 text-white font-bold text-base drop-shadow">
+                    ⚠️ Não foi possível abrir o pagamento automaticamente.
+                    <br />
+                    Toque no botão abaixo para abrir manualmente.
+                    <br />
+                    Se não funcionar, copie o link e abra no navegador externo
+                    (Safari).
+                  </p>
+                  <div className="bg-[#015C91] hover:bg-[#2C82B5] rounded-xl px-8 py-4 shadow-2xl border-4 border-white ">
+                    <a
+                      href={manualCheckoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block text-white rounded-xl font-extrabold text-xl  "
+                      style={{
+                        minWidth: 240,
+                        letterSpacing: 1,
+                        textDecoration: "none",
+                        color: "white",
+                      }}
+                    >
+                      🚀 Abrir Pagamento Manualmente
+                    </a>
+                  </div>
+                  <div className="mt-3 text-xs break-all text-white/80 select-all">
+                    {manualCheckoutUrl}
                   </div>
                 </div>
+              )}
+            </div>
+          )}
 
-                <div className="flex flex-col sm:flex-row justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={handlePreviousStep}
-                    style={{ minHeight: "48px" }}
-                    className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 w-full sm:w-auto"
-                    disabled={loading}
-                  >
-                    Voltar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleFinalSubmit}
-                    disabled={loading || !canShowConfirmationStep()}
-                    style={{
-                      minHeight: "48px",
-                      WebkitTapHighlightColor: "rgba(0,0,0,0.1)",
-                    }}
-                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    <div className="flex items-center justify-center gap-2">
-                      <CreditCard className="h-5 w-5" />
-                      {loading ? "Processando..." : "Finalizar Inscrição"}
-                    </div>
-                  </button>
-                </div>
-
-                {/* Fallback manual para iOS/Instagram: exibe botão se redirect falhar */}
-                {manualCheckoutUrl && (
-                  <div
-                    ref={fallbackRef}
-                    className="mt-6 p-4 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-lg text-center shadow-lg animate-fade-in"
-                  >
-                    <p className="mb-3 text-white font-bold text-base drop-shadow">
-                      ⚠️ Não foi possível abrir o pagamento automaticamente.
-                      <br />
-                      Toque no botão abaixo para abrir manualmente.
-                      <br />
-                      Se não funcionar, copie o link e abra no navegador externo
-                      (Safari).
-                    </p>
-                    <div className="bg-[#015C91] hover:bg-[#2C82B5] rounded-xl px-8 py-4 shadow-2xl border-4 border-white ">
-                      <a
-                        href={manualCheckoutUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block text-white rounded-xl font-extrabold text-xl  "
-                        style={{
-                          minWidth: 240,
-                          letterSpacing: 1,
-                          textDecoration: "none", // Remove o sublinhado padrão
-                          color: "white", // Respeita a cor definida
-                        }}
-                      >
-                        🚀 Abrir Pagamento Manualmente
-                      </a>
-                    </div>
-                    <div className="mt-3 text-xs break-all text-white/80 select-all">
-                      {manualCheckoutUrl}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
       </Modal>
 
       {/* Modal de Comprovante */}

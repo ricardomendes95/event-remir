@@ -40,6 +40,8 @@ interface PaymentCalculation {
 interface PaymentMethodSelectorProps {
   eventId: string;
   eventTitle?: string;
+  /** Quando true, calcula os valores considerando o preço com camisa. */
+  wantsShirt?: boolean;
   onSelectionChange?: (selection: {
     method: string;
     installments?: number;
@@ -52,6 +54,7 @@ interface PaymentMethodSelectorProps {
 export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
   eventId,
   eventTitle = "Evento",
+  wantsShirt = false,
   onSelectionChange,
   disabled = false,
 }) => {
@@ -75,7 +78,11 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       setLoading(true);
       setError("");
 
-      const response = await fetch(`/api/events/${eventId}/payment-methods`);
+      const response = await fetch(
+        `/api/events/${eventId}/payment-methods${
+          wantsShirt ? "?wantsShirt=true" : ""
+        }`
+      );
       const data = await response.json();
 
       if (!response.ok) {
@@ -110,7 +117,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [eventId, onSelectionChange]); // useCallback dependency
+  }, [eventId, wantsShirt, onSelectionChange]); // useCallback dependency
 
   useEffect(() => {
     if (eventId) {

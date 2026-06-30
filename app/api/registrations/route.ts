@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { validateShirtSelection } from "@/backend/utils/shirtPricing";
 
 export async function GET(request: NextRequest) {
   try {
@@ -96,6 +97,8 @@ export async function POST(request: NextRequest) {
       status = "CONFIRMED",
       paymentMethod = "MANUAL",
       dynamicFormData,
+      wantsShirt,
+      shirtSize,
     } = body;
 
     // Validar se o evento existe
@@ -107,6 +110,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Evento não encontrado" },
         { status: 404 }
+      );
+    }
+
+    // Validar seleção de camisa (quando o evento oferece)
+    const shirtSelection = validateShirtSelection(event, {
+      wantsShirt,
+      shirtSize,
+    });
+    if (!shirtSelection.ok) {
+      return NextResponse.json(
+        { success: false, error: shirtSelection.error || "Seleção de camisa inválida" },
+        { status: 422 }
       );
     }
 
@@ -139,6 +154,8 @@ export async function POST(request: NextRequest) {
         status,
         paymentId: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
         paymentMethod: paymentMethod,
+        wantsShirt: shirtSelection.wantsShirt,
+        shirtSize: shirtSelection.shirtSize,
         ...(dynamicFormData ? { dynamicFormData } : {}),
       },
       include: {

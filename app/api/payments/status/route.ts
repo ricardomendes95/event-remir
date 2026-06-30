@@ -5,18 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    // Verificar se Mercado Pago está configurado
-    if (!mercadoPagoClient) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Sistema de pagamento não configurado - funcionando em modo mock",
-        },
-        { status: 500 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get("paymentId");
     const registrationId = searchParams.get("registrationId");
@@ -61,6 +49,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         status: "approved",
+        registration: {
+          id: registration.id,
+          name: registration.name,
+          email: registration.email,
+          event: registration.event.title,
+          status: registration.status,
+        },
+      });
+    }
+
+    // InfinitePay: a confirmação vem exclusivamente pelo webhook.
+    // Não consultamos gateway externo aqui — retornamos o status persistido.
+    if (registration.paymentMethod === "INFINITE_PAY") {
+      return NextResponse.json({
+        success: true,
+        status: registration.status.toLowerCase(),
         registration: {
           id: registration.id,
           name: registration.name,

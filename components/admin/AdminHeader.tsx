@@ -83,7 +83,7 @@ export default function AdminHeader({ adminName }: AdminHeaderProps) {
       key: "settings",
       icon: <SettingOutlined />,
       label: "Configurações",
-      onClick: () => console.log("Abrir configurações"),
+      onClick: () => router.push("/admin/settings"),
     },
     {
       type: "divider",

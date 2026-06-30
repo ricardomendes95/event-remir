@@ -30,56 +30,89 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
   const router = useRouter();
 
   useEffect(() => {
+    // Mercado Pago retorna payment_id/preference_id; InfinitePay retorna
+    // order_nsu (= id da inscrição). Aceitamos também registration_id.
+    const paymentId = searchParams.get("payment_id");
+    const preferenceId = searchParams.get("preference_id");
+    const registrationId =
+      searchParams.get("registration_id") || searchParams.get("order_nsu");
+
+    let query: string;
+    if (registrationId) {
+      query = `registrationId=${encodeURIComponent(registrationId)}`;
+    } else if (paymentId || preferenceId) {
+      query = `paymentId=${encodeURIComponent(
+        (paymentId || preferenceId) as string
+      )}`;
+    } else {
+      setError("Informações de pagamento não encontradas");
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    const MAX_RETRIES = 5; // ~15s no total
+
     const checkPaymentStatus = async () => {
       try {
-        const paymentId = searchParams.get("payment_id");
-        const preferenceId = searchParams.get("preference_id");
-
-        if (!paymentId && !preferenceId) {
-          setError("Informações de pagamento não encontradas");
-          return;
-        }
-
-        const response = await fetch(
-          `/api/payments/status?paymentId=${paymentId || preferenceId}`
-        );
+        const response = await fetch(`/api/payments/status?${query}`);
         const data = await response.json();
+        if (cancelled) return;
 
         if (data.success) {
           setRegistration(data.registration);
           setError(null);
+
+          // Na tela de sucesso, a confirmação vem do webhook e pode demorar
+          // alguns segundos. Enquanto estiver PENDING, tentamos de novo
+          // automaticamente para atualizar a tela sem ação do usuário.
+          if (
+            type === "success" &&
+            data.registration?.status === "PENDING" &&
+            attempts < MAX_RETRIES
+          ) {
+            attempts++;
+            timer = setTimeout(checkPaymentStatus, 3000);
+          }
         } else {
           setError(data.error || "Erro ao verificar status do pagamento");
         }
       } catch (err) {
+        if (cancelled) return;
         console.error("Payment verification error:", err);
         setError("Erro de conexão ao verificar pagamento");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     checkPaymentStatus();
-  }, [searchParams]);
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [searchParams, type]);
 
   const handleGoHome = () => {
     router.push("/");
   };
 
   const handleViewComprovante = () => {
-    const registrationId = searchParams.get("registration_id");
+    const registrationId =
+      searchParams.get("registration_id") || searchParams.get("order_nsu");
     const paymentId = searchParams.get("payment_id");
+    const slug = searchParams.get("slug");
 
-    if (registrationId || paymentId) {
-      const params = new URLSearchParams();
-      if (registrationId) params.set("registration_id", registrationId);
-      if (paymentId) params.set("payment_id", paymentId);
-      params.set("comprovante", "true");
+    const params = new URLSearchParams();
+    if (registrationId) params.set("registration_id", registrationId);
+    if (paymentId) params.set("payment_id", paymentId);
+    params.set("comprovante", "true");
 
-      router.push(`/?${params.toString()}`);
-    } else {
-      router.push("/?comprovante=true");
-    }
+    const base = slug ? `/eventos/${slug}` : "/";
+    router.push(`${base}?${params.toString()}`);
   };
 
   if (loading) {

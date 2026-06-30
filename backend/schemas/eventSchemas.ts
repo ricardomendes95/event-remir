@@ -29,6 +29,22 @@ export const PaymentConfigSchema = z.object({
   default_method: z.enum(["pix", "credit_card", "debit_card"]).optional(),
 });
 
+// Configuração do item opcional "camisa" do evento.
+// priceWithoutShirt = price base do evento; priceWithShirt é o valor total da
+// inscrição quando o participante escolhe levar a camisa. `sizes` é a lista de
+// tamanhos definida pelo admin (ex.: ["P", "M", "G", "GG"]).
+export const ShirtConfigSchema = z.object({
+  enabled: z.boolean(),
+  priceWithShirt: z.number().min(0, "Valor com camisa inválido"),
+  sizes: z
+    .array(z.string().min(1, "Tamanho inválido").max(20))
+    .max(20, "Máximo de 20 tamanhos")
+    .refine(
+      (sizes) => new Set(sizes).size === sizes.length,
+      "Tamanhos devem ser únicos"
+    ),
+});
+
 export const EventCreateSchema = z
   .object({
     title: z
@@ -72,6 +88,7 @@ export const EventCreateSchema = z
     dynamicFormFields: DynamicFormFieldsSchema.optional(),
     fixedFieldsConfig: FixedFieldsConfigSchema,
     paymentConfig: PaymentConfigSchema.optional(),
+    shirtConfig: ShirtConfigSchema.optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
     message: "Data de início deve ser anterior à data de fim",
@@ -111,7 +128,29 @@ export const EventCreateSchema = z
     message:
       "Formulário totalmente dinâmico só é permitido em eventos gratuitos",
     path: ["formMode"],
-  });
+  })
+  // Camisa só é permitida em evento pago
+  .refine((data) => !data.shirtConfig?.enabled || !data.isFree, {
+    message: "A opção de camisa só é permitida em eventos pagos",
+    path: ["shirtConfig"],
+  })
+  // Com camisa habilitada, o valor com camisa deve ser maior que o valor base
+  .refine(
+    (data) =>
+      !data.shirtConfig?.enabled || data.shirtConfig.priceWithShirt > data.price,
+    {
+      message: "O valor com camisa deve ser maior que o valor da inscrição",
+      path: ["shirtConfig", "priceWithShirt"],
+    }
+  )
+  // Com camisa habilitada, é preciso ao menos um tamanho
+  .refine(
+    (data) => !data.shirtConfig?.enabled || data.shirtConfig.sizes.length >= 1,
+    {
+      message: "Informe ao menos um tamanho de camisa",
+      path: ["shirtConfig", "sizes"],
+    }
+  );
 
 export const EventUpdateSchema = EventCreateSchema.partial();
 
@@ -141,6 +180,7 @@ export type EventData = z.infer<typeof EventCreateSchema>;
 export type EventUpdateData = z.infer<typeof EventUpdateSchema>;
 export type EventSearchData = z.infer<typeof EventSearchSchema>;
 export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
+export type ShirtConfig = z.infer<typeof ShirtConfigSchema>;
 export type PaymentMethodConfig = z.infer<typeof PaymentMethodConfigSchema>;
 export type CreditCardConfig = z.infer<typeof CreditCardConfigSchema>;
 export type UpdatePreferenceData = z.infer<typeof updatePreferenceSchema>;

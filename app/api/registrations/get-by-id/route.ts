@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 
 const searchSchema = z
   .object({
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
             isFree: true,
             formMode: true,
             dynamicFormFields: true,
+            shirtConfig: true,
           },
         },
       },
@@ -40,6 +42,15 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    // Valor efetivamente pago pela inscrição (com camisa, se escolhida)
+    const amountPaid = resolveBaseValue(
+      {
+        price: Number(registration.event.price),
+        shirtConfig: registration.event.shirtConfig,
+      },
+      registration.wantsShirt ?? false
+    );
 
     // Formatear resposta
     const response = {
@@ -53,6 +64,12 @@ export async function POST(request: NextRequest) {
       paymentMethod: registration.paymentMethod,
       dynamicFormData: registration.dynamicFormData,
       registrationDate: registration.createdAt.toISOString(),
+      wantsShirt: registration.wantsShirt ?? false,
+      shirtSize: registration.shirtSize ?? null,
+      eventHasShirt: !!(
+        registration.event.shirtConfig as { enabled?: boolean } | null
+      )?.enabled,
+      amountPaid,
       event: {
         title: registration.event.title,
         price: Number(registration.event.price),

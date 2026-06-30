@@ -43,6 +43,7 @@ export const EventCreateSchema = z
     bannerUrl: z.string().url("URL inválida").optional().or(z.literal("")),
     isActive: z.boolean().default(true),
     paymentConfig: z.any().optional(),
+    shirtConfig: z.any().optional(),
     isFree: z.boolean().default(false),
     formMode: z
       .enum(["FIXED_ONLY", "DYNAMIC_ONLY", "BOTH"])
@@ -107,6 +108,7 @@ export interface EventFormData {
   bannerUrl?: string;
   isActive: boolean;
   paymentConfig?: PaymentConfig;
+  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
   isFree?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];

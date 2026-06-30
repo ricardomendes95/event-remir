@@ -17,6 +17,7 @@ import {
 } from "@ant-design/icons";
 import { PaymentConfig } from "@/backend/schemas/eventSchemas";
 import { getPaymentMethodName } from "@/utils/paymentMethods";
+import { MERCADO_PAGO_FEES } from "@/backend/utils/paymentFees";
 
 const { Title, Text } = Typography;
 
@@ -26,18 +27,8 @@ interface PaymentConfigFormProps {
   eventPrice?: number;
 }
 
-// Taxas padrão para simulação
-const DEFAULT_FEES = {
-  pix: 0.0099, // 0,99%
-  debit_card: 0.0299, // 2,99%
-  credit_card: {
-    1: 0.0499, // 4,99%
-    2: 0.0599, // 5,99%
-    3: 0.0699, // 6,99%
-    6: 0.0999, // 9,99%
-    12: 0.1599, // 15,99%
-  },
-} as const;
+// LEGADO (Mercado Pago, fora do fluxo ativo). Taxas centralizadas em paymentFees.ts.
+const DEFAULT_FEES = MERCADO_PAGO_FEES;
 
 export const PaymentConfigForm: React.FC<PaymentConfigFormProps> = ({
   value,

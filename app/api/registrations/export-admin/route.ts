@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
           location: true,
           isFree: true,
           dynamicFormFields: true,
+          shirtConfig: true,
         },
       })
     );
@@ -60,6 +61,8 @@ export async function GET(request: NextRequest) {
           createdAt: true,
           checkedInAt: true,
           dynamicFormData: true,
+          wantsShirt: true,
+          shirtSize: true,
         },
         orderBy: { name: "asc" },
       })
@@ -74,7 +77,31 @@ export async function GET(request: NextRequest) {
     );
 
     const confirmed = byStatus["CONFIRMED"] ?? 0;
-    const totalRevenue = confirmed * Number(event.price);
+
+    // Configuração de camisa do evento
+    const shirtCfg = event.shirtConfig as
+      | { enabled: boolean; priceWithShirt: number; sizes: string[] }
+      | null;
+    const priceWithShirt = shirtCfg?.enabled
+      ? Number(shirtCfg.priceWithShirt)
+      : Number(event.price);
+
+    // Receita estimada: soma por inscrição confirmada (com/sem camisa)
+    const totalRevenue = registrations
+      .filter((r) => r.status === "CONFIRMED")
+      .reduce(
+        (sum, r) => sum + (r.wantsShirt ? priceWithShirt : Number(event.price)),
+        0
+      );
+
+    // Estatísticas de camisa (entre todas as inscrições retornadas)
+    const withShirt = registrations.filter((r) => r.wantsShirt).length;
+    const sizeBreakdown: Record<string, number> = {};
+    for (const r of registrations) {
+      if (r.wantsShirt && r.shirtSize) {
+        sizeBreakdown[r.shirtSize] = (sizeBreakdown[r.shirtSize] ?? 0) + 1;
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -89,6 +116,7 @@ export async function GET(request: NextRequest) {
           endDate: event.endDate?.toISOString(),
           location: event.location,
           dynamicFormFields: (event.dynamicFormFields as DynamicField[]) ?? [],
+          shirtConfig: shirtCfg,
         },
         registrations: registrations.map((r) => ({
           id: r.id,
@@ -101,6 +129,8 @@ export async function GET(request: NextRequest) {
           createdAt: r.createdAt.toISOString(),
           checkedInAt: r.checkedInAt?.toISOString() ?? null,
           dynamicFormData: (r.dynamicFormData as Record<string, unknown>) ?? {},
+          wantsShirt: r.wantsShirt ?? false,
+          shirtSize: r.shirtSize ?? null,
         })),
         stats: {
           total: registrations.length,
@@ -109,6 +139,9 @@ export async function GET(request: NextRequest) {
           cancelled: byStatus["CANCELLED"] ?? 0,
           paymentFailed: byStatus["PAYMENT_FAILED"] ?? 0,
           totalRevenue,
+          withShirt,
+          withoutShirt: registrations.length - withShirt,
+          sizeBreakdown,
         },
         exportedAt: new Date().toISOString(),
       },

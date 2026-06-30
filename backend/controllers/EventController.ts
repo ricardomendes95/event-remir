@@ -147,6 +147,10 @@ export class EventController extends BaseController {
         paymentConfig: validatedData.isFree
           ? null
           : validatedData.paymentConfig ?? null,
+        // Camisa só vale para evento pago
+        shirtConfig: validatedData.isFree
+          ? null
+          : validatedData.shirtConfig ?? null,
         // Sanear dynamicFormFields conforme formMode
         dynamicFormFields:
           validatedData.formMode === "FIXED_ONLY"
@@ -254,6 +258,7 @@ export class EventController extends BaseController {
       // Saneamentos derivados
       if (finalIsFree) {
         updateData.paymentConfig = null;
+        updateData.shirtConfig = null;
       }
       if (finalFormMode === "FIXED_ONLY") {
         updateData.dynamicFormFields = null;

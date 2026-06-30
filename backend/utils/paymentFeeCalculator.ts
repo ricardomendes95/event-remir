@@ -3,28 +3,12 @@ import {
   PaymentMethodConfig,
   CreditCardConfig,
 } from "../schemas/eventSchemas";
+import { MERCADO_PAGO_FEES } from "./paymentFees";
 
 export type { PaymentConfig };
 
-// Taxas padrão do MercadoPago (baseadas na pesquisa)
-const DEFAULT_FEES = {
-  pix: 0.0099, // 0,99%
-  debit_card: 0.0299, // 2,99%
-  credit_card: {
-    1: 0.0499, // 4,99%
-    2: 0.0599, // 5,99%
-    3: 0.0699, // 6,99%
-    4: 0.0799, // 7,99%
-    5: 0.0899, // 8,99%
-    6: 0.0999, // 9,99%
-    7: 0.1099, // 10,99%
-    8: 0.1199, // 11,99%
-    9: 0.1299, // 12,99%
-    10: 0.1399, // 13,99%
-    11: 0.1499, // 14,99%
-    12: 0.1599, // 15,99%
-  },
-} as const;
+// LEGADO (Mercado Pago, fora do fluxo ativo). Taxas centralizadas em paymentFees.ts.
+const DEFAULT_FEES = MERCADO_PAGO_FEES;
 
 export interface PaymentOption {
   method: "pix" | "credit_card" | "debit_card";

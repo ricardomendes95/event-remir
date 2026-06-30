@@ -26,6 +26,7 @@ export async function middleware(request: NextRequest) {
     "/api/events/active",
     "/api/events/list-active",
     "/api/payments/webhook",
+    "/api/payments/webhook/infinitepay",
     "/api/payments/create-preference",
     "/api/registrations/search-by-cpf",
     "/api/registrations/get-by-id",

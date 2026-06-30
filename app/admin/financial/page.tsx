@@ -43,9 +43,9 @@ interface FinancialData {
   pendingRegistrations: number;
   cancelledRegistrations: number;
   // Por método de pagamento
-  mercadoPagoTotalRevenue: number;
-  mercadoPagoConfirmedRevenue: number;
-  mercadoPagoRegistrations: number;
+  infinitePayTotalRevenue: number;
+  infinitePayConfirmedRevenue: number;
+  infinitePayRegistrations: number;
   manualTotalRevenue: number;
   manualConfirmedRevenue: number;
   manualRegistrations: number;
@@ -66,13 +66,13 @@ interface EventFinancialData {
   confirmedRevenue: number;
   pendingRevenue: number;
   // Por método de pagamento
-  mercadoPagoRegistrations: number;
+  infinitePayRegistrations: number;
   manualRegistrations: number;
-  mercadoPagoConfirmedRegistrations: number;
+  infinitePayConfirmedRegistrations: number;
   manualConfirmedRegistrations: number;
-  mercadoPagoRevenue: number;
+  infinitePayRevenue: number;
   manualRevenue: number;
-  mercadoPagoConfirmedRevenue: number;
+  infinitePayConfirmedRevenue: number;
   manualConfirmedRevenue: number;
 }
 
@@ -80,7 +80,7 @@ interface DailyRevenueData {
   date: string;
   revenue: number;
   registrations: number;
-  mercadoPagoRevenue: number;
+  infinitePayRevenue: number;
   manualRevenue: number;
 }
 
@@ -89,8 +89,9 @@ export default function FinancialPage() {
     null
   );
   const [loading, setLoading] = useState(true);
+  // Padrão: último mês (reduz a carga — evita trazer todas as inscrições).
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(
-    null
+    [dayjs().subtract(1, "month").startOf("day"), dayjs().endOf("day")]
   );
   const [selectedEvent, setSelectedEvent] = useState<string>("ALL");
   const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
@@ -128,6 +129,9 @@ export default function FinancialPage() {
             status: string;
             paymentMethod: string;
             eventPrice: number;
+            amountPaid?: number;
+            wantsShirt?: boolean;
+            shirtSize?: string | null;
             registrationDate: string;
             eventDate: string;
           }) => ({
@@ -139,8 +143,17 @@ export default function FinancialPage() {
             Telefone: reg.participantPhone,
             Status: reg.status,
             "Método de Pagamento":
-              reg.paymentMethod === "MERCADO_PAGO" ? "Mercado Pago" : "Manual",
-            "Valor do Evento": `R$ ${Number(reg.eventPrice).toFixed(2)}`,
+              reg.paymentMethod === "MANUAL"
+                ? "Manual"
+                : reg.paymentMethod === "FREE"
+                ? "Gratuito"
+                : "InfinitePay",
+            "Valor Pago": `R$ ${Number(
+              reg.amountPaid ?? reg.eventPrice
+            ).toFixed(2)}`,
+            Camisa: reg.wantsShirt
+              ? `Sim (${reg.shirtSize ?? "—"})`
+              : "Não",
             "Data da Inscrição": new Date(
               reg.registrationDate
             ).toLocaleDateString("pt-BR"),
@@ -302,7 +315,7 @@ export default function FinancialPage() {
             <div className="flex justify-center items-center space-x-2">
               <CreditCardOutlined style={{ color: "#1890ff" }} />
               <span className="text-sm">
-                MP: {record.mercadoPagoRegistrations}
+                InfinitePay: {record.infinitePayRegistrations}
               </span>
             </div>
             <div className="flex justify-center items-center space-x-2">
@@ -325,7 +338,7 @@ export default function FinancialPage() {
             R$ {value.toFixed(2)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            <div>MP: R$ {record.mercadoPagoRevenue.toFixed(2)}</div>
+            <div>InfinitePay: R$ {record.infinitePayRevenue.toFixed(2)}</div>
             <div>Manual: R$ {record.manualRevenue.toFixed(2)}</div>
           </div>
         </div>
@@ -342,7 +355,9 @@ export default function FinancialPage() {
             R$ {value.toFixed(2)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            <div>MP: R$ {record.mercadoPagoConfirmedRevenue.toFixed(2)}</div>
+            <div>
+              InfinitePay: R$ {record.infinitePayConfirmedRevenue.toFixed(2)}
+            </div>
             <div>Manual: R$ {record.manualConfirmedRevenue.toFixed(2)}</div>
           </div>
         </div>
@@ -416,7 +431,13 @@ export default function FinancialPage() {
                   }}
                   format="DD/MM/YYYY"
                   placeholder={["Data início", "Data fim"]}
+                  allowClear={false}
                 />
+                <div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Mostrando o último mês por padrão — ajuste o período acima.
+                  </Text>
+                </div>
               </Col>
               <Col>
                 <Select
@@ -506,7 +527,7 @@ export default function FinancialPage() {
                   className="mr-2"
                   style={{ color: "#1890ff" }}
                 />
-                Mercado Pago
+                InfinitePay
               </div>
             }
             className="h-full"
@@ -515,7 +536,7 @@ export default function FinancialPage() {
               <Col span={12}>
                 <Statistic
                   title="Receita Total"
-                  value={financialData.mercadoPagoTotalRevenue}
+                  value={financialData.infinitePayTotalRevenue}
                   precision={2}
                   suffix="R$"
                   valueStyle={{ color: "#1890ff", fontSize: "18px" }}
@@ -524,7 +545,7 @@ export default function FinancialPage() {
               <Col span={12}>
                 <Statistic
                   title="Receita Confirmada"
-                  value={financialData.mercadoPagoConfirmedRevenue}
+                  value={financialData.infinitePayConfirmedRevenue}
                   precision={2}
                   suffix="R$"
                   valueStyle={{ color: "#52c41a", fontSize: "18px" }}
@@ -534,7 +555,7 @@ export default function FinancialPage() {
             <Divider />
             <div className="text-center">
               <span className="text-lg font-semibold text-gray-700">
-                {financialData.mercadoPagoRegistrations} inscrições
+                {financialData.infinitePayRegistrations} inscrições
               </span>
             </div>
           </Card>
