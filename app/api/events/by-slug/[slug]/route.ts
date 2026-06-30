@@ -43,6 +43,7 @@ export async function GET(
       formMode: event.formMode,
       dynamicFormFields: event.dynamicFormFields,
       fixedFieldsConfig: event.fixedFieldsConfig,
+      shirtConfig: event.shirtConfig,
       registrationEndDate: event.registrationEndDate.toISOString(),
       createdAt: event.createdAt.toISOString(),
       updatedAt: event.updatedAt.toISOString(),

@@ -28,6 +28,7 @@ model Event {
   formMode               EventFormMode @default(FIXED_ONLY)
   dynamicFormFields      Json?
   fixedFieldsConfig      Json?
+  shirtConfig            Json?
   bannerUrl              String?
   paymentConfig          Json?    @default("{}")
   createdAt              DateTime @default(now())
@@ -51,11 +52,21 @@ model Registration {
   paymentError    String?
   paymentDetails  Json?
   dynamicFormData Json?
+  wantsShirt      Boolean?          @default(false)
+  shirtSize       String?
   checkedInAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@map("registrations")
+}
+
+model AppSettings {
+  id                   String         @id @default("singleton")
+  activePaymentGateway PaymentGateway @default(INFINITE_PAY)
+  updatedAt            DateTime       @updatedAt
+
+  @@map("app_settings")
 }
 
 model Admin {
@@ -99,8 +110,14 @@ enum RegistrationStatus {
 
 enum PaymentMethod {
   MERCADO_PAGO
+  INFINITE_PAY
   MANUAL
   FREE
+}
+
+enum PaymentGateway {
+  MERCADO_PAGO
+  INFINITE_PAY
 }
 
 enum EventFormMode {

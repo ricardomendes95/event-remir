@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { validateShirtSelection } from "@/backend/utils/shirtPricing";
 
 interface Params {
   id: string;
@@ -52,17 +53,46 @@ export async function PUT(
   try {
     const params = await context.params;
     const body = await request.json();
-    const { name, email, cpf, phone, status, paymentMethod, dynamicFormData } = body;
+    const {
+      name,
+      email,
+      cpf,
+      phone,
+      status,
+      paymentMethod,
+      dynamicFormData,
+      wantsShirt,
+      shirtSize,
+    } = body;
 
-    // Verificar se a inscrição existe
+    // Verificar se a inscrição existe (com o shirtConfig do evento p/ validação)
     const existingRegistration = await prisma.registration.findUnique({
       where: { id: params.id },
+      include: { event: { select: { shirtConfig: true } } },
     });
 
     if (!existingRegistration) {
       return NextResponse.json(
         { success: false, error: "Inscrição não encontrada" },
         { status: 404 }
+      );
+    }
+
+    // Validar seleção de camisa quando enviada
+    const shirtProvided = wantsShirt !== undefined;
+    const shirtSelection = shirtProvided
+      ? validateShirtSelection(existingRegistration.event, {
+          wantsShirt,
+          shirtSize,
+        })
+      : null;
+    if (shirtSelection && !shirtSelection.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: shirtSelection.error || "Seleção de camisa inválida",
+        },
+        { status: 422 }
       );
     }
 
@@ -77,6 +107,12 @@ export async function PUT(
         ...(status && { status }),
         ...(paymentMethod && { paymentMethod }),
         ...(dynamicFormData !== undefined && { dynamicFormData }),
+        ...(shirtSelection
+          ? {
+              wantsShirt: shirtSelection.wantsShirt,
+              shirtSize: shirtSelection.shirtSize,
+            }
+          : {}),
       },
       include: {
         event: {

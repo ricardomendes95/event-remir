@@ -7,6 +7,7 @@ import type {
   DynamicField,
   DynamicFormFields,
 } from "@/backend/schemas/dynamicFormSchemas";
+import { validateShirtSelection } from "@/backend/utils/shirtPricing";
 
 // Schema de validação para inscrição manual
 const manualRegistrationSchema = z.object({
@@ -18,6 +19,8 @@ const manualRegistrationSchema = z.object({
     phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
   }),
   dynamicFormData: z.record(z.string(), z.unknown()).optional(),
+  wantsShirt: z.boolean().optional(),
+  shirtSize: z.string().optional(),
   status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).default("CONFIRMED"),
 });
 
@@ -25,8 +28,14 @@ export async function POST(request: NextRequest) {
   try {
     // Validar dados da requisição
     const body = await request.json();
-    const { eventId, participantData, dynamicFormData, status } =
-      manualRegistrationSchema.parse(body);
+    const {
+      eventId,
+      participantData,
+      dynamicFormData,
+      wantsShirt,
+      shirtSize,
+      status,
+    } = manualRegistrationSchema.parse(body);
 
     // Buscar evento
     const event = await prisma.event.findUnique({
@@ -102,6 +111,18 @@ export async function POST(request: NextRequest) {
       sanitizedDynamic = result.sanitized;
     }
 
+    // Validar seleção de camisa (quando o evento oferece)
+    const shirtSelection = validateShirtSelection(event, {
+      wantsShirt,
+      shirtSize,
+    });
+    if (!shirtSelection.ok) {
+      return NextResponse.json(
+        { error: shirtSelection.error || "Seleção de camisa inválida" },
+        { status: 422 }
+      );
+    }
+
     // Criar inscrição manual
     const registration = await prisma.registration.create({
       data: {
@@ -115,6 +136,8 @@ export async function POST(request: NextRequest) {
         paymentId: `manual_${Date.now()}_${Math.random()
           .toString(36)
           .substr(2, 9)}`,
+        wantsShirt: shirtSelection.wantsShirt,
+        shirtSize: shirtSelection.shirtSize,
         dynamicFormData: sanitizedDynamic
           ? (sanitizedDynamic as Prisma.InputJsonValue)
           : undefined,

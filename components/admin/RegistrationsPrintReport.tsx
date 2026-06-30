@@ -31,6 +31,8 @@ interface PrintRegistration {
   status: string;
   createdAt: string;
   dynamicFormData: Record<string, unknown>;
+  wantsShirt?: boolean;
+  shirtSize?: string | null;
 }
 
 interface PrintData {
@@ -43,6 +45,11 @@ interface PrintData {
     price: number;
     isFree: boolean;
     dynamicFormFields: DynamicField[];
+    shirtConfig?: {
+      enabled: boolean;
+      priceWithShirt: number;
+      sizes: string[];
+    } | null;
   };
   registrations: PrintRegistration[];
   stats: {
@@ -75,6 +82,7 @@ const headerCell: React.CSSProperties = {
 
 export default function RegistrationsPrintReport({ data }: RegistrationsPrintReportProps) {
   const dynamicFields = data.event.dynamicFormFields ?? [];
+  const hasShirt = !!data.event.shirtConfig?.enabled;
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial, sans-serif" }}>
@@ -153,6 +161,7 @@ export default function RegistrationsPrintReport({ data }: RegistrationsPrintRep
             <th style={headerCell}>Telefone</th>
             <th style={headerCell}>Status</th>
             <th style={headerCell}>Data Inscrição</th>
+            {hasShirt && <th style={headerCell}>Camisa</th>}
             {dynamicFields.map((f) => (
               <th key={f.id} style={headerCell}>
                 {f.label}
@@ -174,6 +183,11 @@ export default function RegistrationsPrintReport({ data }: RegistrationsPrintRep
                 {STATUS_LABEL[reg.status] ?? reg.status}
               </td>
               <td style={cell}>{dayjs(reg.createdAt).format("DD/MM/YYYY HH:mm")}</td>
+              {hasShirt && (
+                <td style={cell}>
+                  {reg.wantsShirt ? `Sim (${reg.shirtSize ?? "—"})` : "Não"}
+                </td>
+              )}
               {dynamicFields.map((f) => (
                 <td key={f.id} style={cell}>
                   {formatDynamicValue(reg.dynamicFormData?.[f.id])}

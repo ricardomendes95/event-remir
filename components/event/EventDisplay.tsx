@@ -245,7 +245,7 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
 
                 <div className="mt-4 text-center">
                   <p className="text-xs text-gray-500">
-                    Pagamento 100% seguro via Mercado Pago
+                    Pagamento 100% seguro
                   </p>
                 </div>
               </div>

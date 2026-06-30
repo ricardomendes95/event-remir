@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Form, message, Modal, Button, Typography } from "antd";
+import {
+  Form,
+  message,
+  Modal,
+  Button,
+  Typography,
+  Radio,
+  Checkbox,
+  Space,
+} from "antd";
 import { UserAddOutlined, PrinterOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
@@ -55,6 +64,8 @@ interface RegistrationFormData {
   eventId: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   dynamicFormData?: Record<string, unknown>;
+  wantsShirt?: boolean;
+  shirtSize?: string;
 }
 
 interface PrintData {
@@ -67,6 +78,11 @@ interface PrintData {
     price: number;
     isFree: boolean;
     dynamicFormFields: DynamicField[];
+    shirtConfig?: {
+      enabled: boolean;
+      priceWithShirt: number;
+      sizes: string[];
+    } | null;
   };
   registrations: Array<{
     id: string;
@@ -77,6 +93,8 @@ interface PrintData {
     status: string;
     createdAt: string;
     dynamicFormData: Record<string, unknown>;
+    wantsShirt?: boolean;
+    shirtSize?: string | null;
   }>;
   stats: {
     total: number;
@@ -85,6 +103,9 @@ interface PrintData {
     cancelled: number;
     paymentFailed: number;
     totalRevenue: number;
+    withShirt?: number;
+    withoutShirt?: number;
+    sizeBreakdown?: Record<string, number>;
   };
   exportedAt: string;
 }
@@ -123,6 +144,11 @@ export default function RegistrationsPage() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [printData, setPrintData] = useState<PrintData | null>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  // Opções de impressão da camisa
+  const [shirtFilter, setShirtFilter] = useState<"ALL" | "WITH" | "WITHOUT">(
+    "ALL"
+  );
+  const [separateByShirt, setSeparateByShirt] = useState(false);
 
   // Buscar estatísticas
   const fetchStats = useCallback(async () => {
@@ -298,6 +324,8 @@ export default function RegistrationsPage() {
         status: formValues.status,
         paymentMethod: formValues.paymentMethod ?? "MANUAL",
         ...(formValues.dynamicFormData ? { dynamicFormData: formValues.dynamicFormData } : {}),
+        wantsShirt: formValues.wantsShirt ?? false,
+        shirtSize: formValues.wantsShirt ? formValues.shirtSize ?? null : null,
       };
 
       const url = editingRegistration
@@ -412,38 +440,52 @@ export default function RegistrationsPage() {
     if (!printData) return;
 
     const dynamicFields = printData.event.dynamicFormFields ?? [];
+    const hasShirt = !!printData.event.shirtConfig?.enabled;
+
+    const statusLabel: Record<string, string> = {
+      CONFIRMED: "Confirmado",
+      PENDING: "Pendente",
+      CANCELLED: "Cancelado",
+      PAYMENT_FAILED: "Falha no Pagamento",
+    };
+    const statusColor: Record<string, string> = {
+      CONFIRMED: "#52c41a",
+      PENDING: "#faad14",
+      CANCELLED: "#ff4d4f",
+      PAYMENT_FAILED: "#ff4d4f",
+    };
+
+    // Aplicar filtro de camisa
+    const filtered = printData.registrations.filter((r) => {
+      if (shirtFilter === "WITH") return !!r.wantsShirt;
+      if (shirtFilter === "WITHOUT") return !r.wantsShirt;
+      return true;
+    });
 
     const dynamicHeaders = dynamicFields
       .map((f) => `<th>${f.label}</th>`)
       .join("");
+    const shirtHeader = hasShirt ? `<th>Camisa</th>` : "";
 
-    const rows = printData.registrations
-      .map((reg, i) => {
-        const statusLabel: Record<string, string> = {
-          CONFIRMED: "Confirmado",
-          PENDING: "Pendente",
-          CANCELLED: "Cancelado",
-          PAYMENT_FAILED: "Falha no Pagamento",
-        };
-        const statusColor: Record<string, string> = {
-          CONFIRMED: "#52c41a",
-          PENDING: "#faad14",
-          CANCELLED: "#ff4d4f",
-          PAYMENT_FAILED: "#ff4d4f",
-        };
-        const dynamicCells = dynamicFields
-          .map((f) => {
-            const val = reg.dynamicFormData?.[f.id];
-            const display = Array.isArray(val)
-              ? val.join(", ") || "—"
-              : val != null
-              ? String(val)
-              : "—";
-            return `<td>${display}</td>`;
-          })
-          .join("");
-
-        return `
+    const renderRow = (
+      reg: PrintData["registrations"][number],
+      i: number
+    ) => {
+      const dynamicCells = dynamicFields
+        .map((f) => {
+          const val = reg.dynamicFormData?.[f.id];
+          const display = Array.isArray(val)
+            ? val.join(", ") || "—"
+            : val != null
+            ? String(val)
+            : "—";
+          return `<td>${display}</td>`;
+        })
+        .join("");
+      const shirtCell = hasShirt
+        ? `<td>${reg.wantsShirt ? `Sim (${reg.shirtSize ?? "—"})` : "Não"}</td>`
+        : "";
+      return `
           <tr>
             <td style="text-align:center">${i + 1}</td>
             <td style="font-weight:500">${reg.name}</td>
@@ -454,10 +496,83 @@ export default function RegistrationsPage() {
               ${statusLabel[reg.status] ?? reg.status}
             </td>
             <td>${dayjs(reg.createdAt).format("DD/MM/YYYY HH:mm")}</td>
+            ${shirtCell}
             ${dynamicCells}
           </tr>`;
-      })
-      .join("");
+    };
+
+    const renderTable = (
+      list: PrintData["registrations"]
+    ) => `
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Nome</th><th>Email</th><th>CPF</th><th>Telefone</th><th>Status</th><th>Data Inscrição</th>${shirtHeader}${dynamicHeaders}
+      </tr>
+    </thead>
+    <tbody>${list.map((r, i) => renderRow(r, i)).join("")}</tbody>
+  </table>`;
+
+    // Corpo: listas separadas (por tamanho) ou lista única
+    let body = "";
+    if (separateByShirt && hasShirt) {
+      const sizes = printData.event.shirtConfig?.sizes ?? [];
+      const withShirt = filtered.filter((r) => r.wantsShirt);
+      const withoutShirt = filtered.filter((r) => !r.wantsShirt);
+
+      // Com camisa, agrupado por tamanho
+      const groups = sizes
+        .map((size) => {
+          const list = withShirt.filter((r) => r.shirtSize === size);
+          if (list.length === 0) return "";
+          return `
+  <h3 style="margin:18px 0 8px">Com camisa — Tamanho ${size} (${list.length})</h3>
+  ${renderTable(list)}`;
+        })
+        .join("");
+
+      // Com camisa sem tamanho informado (defensivo)
+      const noSize = withShirt.filter(
+        (r) => !r.shirtSize || !sizes.includes(r.shirtSize)
+      );
+      const noSizeBlock =
+        noSize.length > 0
+          ? `
+  <h3 style="margin:18px 0 8px">Com camisa — Sem tamanho (${noSize.length})</h3>
+  ${renderTable(noSize)}`
+          : "";
+
+      const withoutBlock =
+        shirtFilter !== "WITH" && withoutShirt.length > 0
+          ? `
+  <h3 style="margin:18px 0 8px">Sem camisa (${withoutShirt.length})</h3>
+  ${renderTable(withoutShirt)}`
+          : "";
+
+      body = `${groups}${noSizeBlock}${
+        shirtFilter !== "WITH" ? withoutBlock : ""
+      }`;
+    } else {
+      body = `
+  <h3 style="margin-bottom:8px">Participantes (${filtered.length})</h3>
+  ${renderTable(filtered)}`;
+    }
+
+    // Resumo de contagem por tamanho
+    const sizeSummary =
+      hasShirt && printData.stats.sizeBreakdown
+        ? `<div class="stat"><p>Com camisa</p><p style="font-size:20px;font-weight:bold;color:#722ed1">${
+            printData.stats.withShirt ?? 0
+          }</p></div>`
+        : "";
+    const sizeBreakdownLine =
+      hasShirt && printData.stats.sizeBreakdown
+        ? `<p style="margin-top:8px;font-size:11px;color:#666">Camisas por tamanho: ${
+            Object.entries(printData.stats.sizeBreakdown)
+              .map(([s, n]) => `${s}: ${n}`)
+              .join(" | ") || "—"
+          }</p>`
+        : "";
 
     const html = `<!DOCTYPE html>
 <html>
@@ -474,6 +589,7 @@ export default function RegistrationsPage() {
     table { width:100%; border-collapse:collapse; margin-top:10px; font-size:10px; }
     th, td { border:1px solid #ddd; padding:6px 8px; text-align:left; }
     th { background:#f5f5f5; font-weight:bold; }
+    h3 { page-break-after: avoid; }
     @media print { body { margin:0; } thead { display:table-header-group; } tr { page-break-inside:avoid; } }
   </style>
 </head>
@@ -490,16 +606,10 @@ export default function RegistrationsPage() {
     <div class="stat"><p>Confirmados</p><p style="font-size:20px;font-weight:bold;color:#52c41a">${printData.stats.confirmed}</p></div>
     <div class="stat"><p>Pendentes</p><p style="font-size:20px;font-weight:bold;color:#faad14">${printData.stats.pending}</p></div>
     ${printData.stats.cancelled > 0 ? `<div class="stat"><p>Cancelados</p><p style="font-size:20px;font-weight:bold;color:#ff4d4f">${printData.stats.cancelled}</p></div>` : ""}
+    ${sizeSummary}
   </div>
-  <h3 style="margin-bottom:8px">Participantes (${printData.registrations.length})</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th><th>Nome</th><th>Email</th><th>CPF</th><th>Telefone</th><th>Status</th><th>Data Inscrição</th>${dynamicHeaders}
-      </tr>
-    </thead>
-    <tbody>${rows}</tbody>
-  </table>
+  ${sizeBreakdownLine}
+  ${body}
   ${!printData.event.isFree ? `<p style="margin-top:16px;font-size:11px;color:#666">Receita estimada (confirmados): ${printData.stats.totalRevenue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>` : ""}
 </body>
 </html>`;
@@ -586,6 +696,43 @@ export default function RegistrationsPage() {
           </Button>,
         ]}
       >
+        {/* Opções de impressão da camisa */}
+        {printData?.event.shirtConfig?.enabled && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              background: "#fafafa",
+              border: "1px solid #eee",
+              borderRadius: 8,
+            }}
+          >
+            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <div>
+                <Text strong style={{ marginRight: 12 }}>
+                  Camisa:
+                </Text>
+                <Radio.Group
+                  value={shirtFilter}
+                  onChange={(e) => setShirtFilter(e.target.value)}
+                  optionType="button"
+                  buttonStyle="solid"
+                >
+                  <Radio.Button value="ALL">Todos</Radio.Button>
+                  <Radio.Button value="WITH">Com camisa</Radio.Button>
+                  <Radio.Button value="WITHOUT">Sem camisa</Radio.Button>
+                </Radio.Group>
+              </div>
+              <Checkbox
+                checked={separateByShirt}
+                onChange={(e) => setSeparateByShirt(e.target.checked)}
+              >
+                Imprimir listas separadas por tamanho (com camisa) e sem camisa
+              </Checkbox>
+            </Space>
+          </div>
+        )}
+
         {printData && <RegistrationsPrintReport data={printData} />}
       </Modal>
     </div>

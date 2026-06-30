@@ -11,7 +11,10 @@ import {
   PaymentConfig,
   updatePreferenceSchema,
 } from "@/backend/schemas/eventSchemas";
-import { parsePhoneNumber } from "../create-preference/route";
+import { parsePhoneNumber } from "@/backend/utils/phone";
+import { getActivePaymentGateway } from "@/backend/services/payment/getActiveGateway";
+import { createInfinitePayCheckoutForRegistration } from "@/backend/services/payment/infinitePayService";
+import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 
 // Helper functions para mapear métodos de pagamento para exclusões do MercadoPago
 function getExcludedPaymentTypes(selectedMethod: string) {
@@ -36,7 +39,6 @@ function getExcludedPaymentMethods() {
 export async function PUT(request: NextRequest) {
   try {
     // 1. Validações iniciais
-    validateMercadoPagoConfig();
     const body = await request.json();
     const { registrationId, paymentData } = updatePreferenceSchema.parse(body);
 
@@ -71,6 +73,63 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 3b. InfinitePay: "continuar pagamento" gera um novo link reutilizando a
+    // inscrição PENDING (não há atualização de preferência como no Mercado Pago).
+    const activeGateway = await getActivePaymentGateway();
+    if (
+      registration.paymentMethod === "INFINITE_PAY" ||
+      activeGateway === "INFINITE_PAY"
+    ) {
+      const baseValue = resolveBaseValue(
+        registration.event,
+        registration.wantsShirt ?? false
+      );
+      try {
+        const checkout = await createInfinitePayCheckoutForRegistration({
+          registrationId: registration.id,
+          eventTitle: registration.event.title,
+          baseValue,
+          participant: {
+            name: registration.name,
+            email: registration.email,
+            phone: registration.phone,
+          },
+        });
+
+        await prisma.registration.update({
+          where: { id: registration.id },
+          data: {
+            paymentMethod: "INFINITE_PAY",
+            paymentId: checkout.providerRef,
+          },
+        });
+
+        return NextResponse.json({
+          success: true,
+          gateway: "INFINITE_PAY",
+          checkoutUrl: checkout.checkoutUrl,
+          updated: true,
+          paymentDetails: {
+            method: paymentData.method,
+            installments: paymentData.installments || 1,
+            finalValue: baseValue,
+          },
+        });
+      } catch (err) {
+        console.error("Erro ao gerar novo checkout InfinitePay:", err);
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível iniciar o pagamento agora. Tente novamente em instantes.",
+          },
+          { status: 502 }
+        );
+      }
+    }
+
+    // 3c. Mercado Pago: validar configuração
+    validateMercadoPagoConfig();
 
     if (!registration.paymentId) {
       return NextResponse.json(
@@ -108,9 +167,13 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // 6. Calcular novo valor com taxas
+    // 6. Calcular novo valor com taxas (sobre o valor base já com camisa, se houver)
+    const mpBaseValue = resolveBaseValue(
+      registration.event,
+      registration.wantsShirt ?? false
+    );
     const paymentOptions = PaymentFeeCalculator.calculatePaymentOptions(
-      registration.event.price,
+      mpBaseValue,
       eventPaymentConfig || undefined
     );
 

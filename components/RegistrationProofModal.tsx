@@ -20,6 +20,12 @@ interface RegistrationProof {
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId: string;
   registrationDate: string;
+  /** Valor efetivamente pago pela inscrição (com camisa, se escolhida). */
+  amountPaid?: number;
+  wantsShirt?: boolean;
+  shirtSize?: string | null;
+  /** Indica se o evento oferece camisa (para exibir a linha no comprovante). */
+  eventHasShirt?: boolean;
   event: {
     title: string;
     price: number;
@@ -48,9 +54,27 @@ export function RegistrationProofModal({
 
   // Atualizar registration quando preloadedData mudar
   useEffect(() => {
-    if (preloadedData) {
-      setRegistration(preloadedData);
-      setSearched(true);
+    if (!preloadedData) return;
+    setRegistration(preloadedData);
+    setSearched(true);
+
+    // Se o preloadedData veio sem o valor pago / dados da camisa (ex.: aberto a
+    // partir de uma inscrição existente), completar via get-by-id.
+    if (preloadedData.amountPaid === undefined && preloadedData.id) {
+      fetch("/api/registrations/get-by-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId: preloadedData.id }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((full) => {
+          if (full && full.id) {
+            setRegistration(
+              (prev) => ({ ...(prev as RegistrationProof), ...full })
+            );
+          }
+        })
+        .catch(() => {});
     }
   }, [preloadedData]);
 
@@ -81,6 +105,15 @@ export function RegistrationProofModal({
     const cpf = value.replace(/\D/g, "");
     return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
+
+  // Valor efetivamente pago (com camisa, se escolhida). Cai para o preço do
+  // evento caso a inscrição seja antiga e não tenha o valor calculado.
+  const getAmountPaid = (r: RegistrationProof) =>
+    typeof r.amountPaid === "number" ? r.amountPaid : r.event.price;
+
+  // Texto da camisa para o comprovante.
+  const getShirtText = (r: RegistrationProof) =>
+    r.wantsShirt ? `Sim — Tamanho ${r.shirtSize ?? "—"}` : "Não";
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -246,9 +279,16 @@ export function RegistrationProofModal({
               <div class="info-row"><span class="label">Local:</span> <span class="value">${
                 registration.event.location
               }</span></div>
-              <div class="info-row"><span class="label">Valor:</span> <span class="value">R$ ${registration.event.price.toFixed(
-                2
-              )}</span></div>
+              <div class="info-row"><span class="label">Valor pago:</span> <span class="value">R$ ${getAmountPaid(
+                registration
+              ).toFixed(2)}</span></div>
+              ${
+                registration.eventHasShirt
+                  ? `<div class="info-row"><span class="label">Camisa:</span> <span class="value">${getShirtText(
+                      registration
+                    )}</span></div>`
+                  : ""
+              }
             </div>
 
             <div class="section">
@@ -436,9 +476,14 @@ export function RegistrationProofModal({
               <Descriptions.Item label="Local">
                 {registration.event.location}
               </Descriptions.Item>
-              <Descriptions.Item label="Valor">
-                R$ {registration.event.price.toFixed(2)}
+              <Descriptions.Item label="Valor pago">
+                R$ {getAmountPaid(registration).toFixed(2)}
               </Descriptions.Item>
+              {registration.eventHasShirt && (
+                <Descriptions.Item label="Camisa">
+                  {getShirtText(registration)}
+                </Descriptions.Item>
+              )}
             </Descriptions>
 
             <Descriptions

@@ -13,14 +13,15 @@ import {
   Radio,
   Alert,
   Checkbox,
+  Space,
 } from "antd";
+import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import locale from "antd/locale/pt_BR";
 import "dayjs/locale/pt-br";
 import { ImageUpload } from "../ImageUpload";
 import { MoneyInput } from "../MoneyInput";
 import RichTextEditor from "../RichTextEditor";
-import { PaymentConfigForm } from "./PaymentConfigForm";
 import { DynamicFormBuilder } from "./DynamicFormBuilder";
 import {
   useEventValidation,
@@ -49,6 +50,7 @@ interface Event {
   dynamicFormFields?: DynamicField[];
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
   paymentConfig?: PaymentConfig;
+  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
   _count?: { registrations: number };
 }
 
@@ -67,6 +69,7 @@ export default function EventModal({
 }: EventModalProps) {
   const [form] = Form.useForm();
   const [loading, setLoading] = React.useState(false);
+  const slugManuallyEdited = React.useRef(false);
   const { validateFormData, setApiErrors, clearErrors, getFieldError } =
     useEventValidation();
 
@@ -77,6 +80,10 @@ export default function EventModal({
     | "BOTH"
     | undefined;
   const watchedPrice = Form.useWatch("price", form) as number | undefined;
+  const shirtEnabled = Form.useWatch(
+    ["shirtConfig", "enabled"],
+    form
+  ) as boolean | undefined;
 
   const hasRegistrations = (editingEvent?._count?.registrations ?? 0) > 0;
 
@@ -97,11 +104,17 @@ export default function EventModal({
         isFree: editingEvent.isFree ?? false,
         formMode: editingEvent.formMode ?? "FIXED_ONLY",
         dynamicFormFields: editingEvent.dynamicFormFields ?? [],
+        shirtConfig: editingEvent.shirtConfig ?? {
+          enabled: false,
+          priceWithShirt: 0,
+          sizes: [],
+        },
       });
       clearErrors();
     } else if (visible && !editingEvent) {
       form.resetFields();
       form.setFieldsValue({ isFree: false, formMode: "FIXED_ONLY" });
+      slugManuallyEdited.current = false;
       clearErrors();
     }
   }, [visible, editingEvent, form, clearErrors]);
@@ -135,6 +148,19 @@ export default function EventModal({
         price: isFreeVal ? 0 : parseFloat(values.price.toString()),
         bannerUrl: values.bannerUrl || undefined,
         paymentConfig: isFreeVal ? undefined : (values.paymentConfig || undefined),
+        // Camisa só vale para evento pago e quando habilitada
+        shirtConfig:
+          !isFreeVal && values.shirtConfig?.enabled
+            ? {
+                enabled: true,
+                priceWithShirt: parseFloat(
+                  values.shirtConfig.priceWithShirt?.toString() || "0"
+                ),
+                sizes: (values.shirtConfig.sizes ?? [])
+                  .map((s) => (s ?? "").toString().trim())
+                  .filter(Boolean),
+              }
+            : undefined,
         isFree: isFreeVal,
         formMode: formModeVal,
         dynamicFormFields:
@@ -205,13 +231,13 @@ export default function EventModal({
   // Gerar slug automaticamente quando o título mudar
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const title = e.target.value;
-    // Só gera slug automaticamente se estamos criando um novo evento e o slug está vazio.
-    // setTimeout evita re-entrant call dentro do processamento interno do Form.Item.
-    if (!editingEvent && !form.getFieldValue("slug")) {
-      setTimeout(() => {
-        form.setFieldValue("slug", generateSlug(title));
-      }, 0);
+    if (!editingEvent && !slugManuallyEdited.current) {
+      form.setFieldValue("slug", generateSlug(title));
     }
+  };
+
+  const handleSlugChange = () => {
+    slugManuallyEdited.current = true;
   };
 
   return (
@@ -264,7 +290,7 @@ export default function EventModal({
             validateStatus={getFieldError("slug") ? "error" : ""}
             help={getFieldError("slug")}
           >
-            <Input placeholder="evento-exemplo" />
+            <Input placeholder="evento-exemplo" onChange={handleSlugChange} />
           </Form.Item>
 
           <Form.Item
@@ -537,13 +563,142 @@ export default function EventModal({
             </Form.Item>
           )}
 
-          {/* Configuração de Pagamento (oculta em gratuito) */}
+          {/* Pagamento via InfinitePay: o participante paga com Pix ou cartão de
+              crédito (até 12x) no checkout do InfinitePay. As taxas/parcelamento
+              são definidas na conta InfinitePay — não há configuração por evento. */}
           {!isFree && (
-            <Form.Item name="paymentConfig" label="Configuração de Pagamento">
-              <PaymentConfigForm
-                eventPrice={watchedPrice || 100}
-              />
-            </Form.Item>
+            <Alert
+              type="info"
+              showIcon
+              className="mb-4"
+              message="Pagamento via InfinitePay"
+              description="O participante paga com Pix (na hora) ou cartão de crédito em até 12x no checkout do InfinitePay. Defina apenas o valor da inscrição acima."
+            />
+          )}
+
+          {/* Camisa do evento (apenas evento pago) */}
+          {!isFree && (
+            <div className="border rounded p-4 mb-4 bg-gray-50">
+              <p className="text-sm font-medium mb-1">Camisa do evento</p>
+              <p className="text-xs text-gray-500 mb-3">
+                O participante poderá escolher se inscrever com ou sem camisa. Se
+                escolher com camisa, será obrigatório informar o tamanho.
+              </p>
+
+              <Form.Item
+                name={["shirtConfig", "enabled"]}
+                valuePropName="checked"
+                className="mb-2"
+              >
+                <Switch
+                  checkedChildren="Oferece camisa"
+                  unCheckedChildren="Sem camisa"
+                  disabled={hasRegistrations}
+                />
+              </Form.Item>
+
+              {hasRegistrations && (
+                <Alert
+                  type="info"
+                  showIcon
+                  className="mb-3"
+                  message="Este evento já possui inscrições. A configuração de camisa não pode ser alterada para não afetar os relatórios."
+                />
+              )}
+
+              {shirtEnabled && (
+                <>
+                  <Form.Item
+                    name={["shirtConfig", "priceWithShirt"]}
+                    label="Valor da inscrição COM camisa"
+                    tooltip="Deve ser maior que o valor da inscrição sem camisa."
+                    rules={[
+                      {
+                        required: true,
+                        message: "Informe o valor com camisa",
+                      },
+                      {
+                        validator: (_, value) => {
+                          const num =
+                            typeof value === "number"
+                              ? value
+                              : parseFloat(value);
+                          const base =
+                            typeof watchedPrice === "number"
+                              ? watchedPrice
+                              : parseFloat(String(watchedPrice ?? 0));
+                          if (isNaN(num) || num <= 0) {
+                            return Promise.reject("Valor inválido");
+                          }
+                          if (num <= base) {
+                            return Promise.reject(
+                              `Deve ser maior que o valor sem camisa (R$ ${(
+                                base || 0
+                              ).toFixed(2)})`
+                            );
+                          }
+                          return Promise.resolve();
+                        },
+                      },
+                    ]}
+                  >
+                    <MoneyInput placeholder="R$ 0,00" />
+                  </Form.Item>
+
+                  <label className="text-sm font-medium block mb-2">
+                    Tamanhos disponíveis
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Ex.: P, M, G, GG. O participante escolherá um destes.
+                  </p>
+                  <Form.List name={["shirtConfig", "sizes"]}>
+                    {(fields, { add, remove }) => (
+                      <div>
+                        {fields.map((field) => (
+                          <Space
+                            key={field.key}
+                            style={{ display: "flex", marginBottom: 8 }}
+                            align="baseline"
+                          >
+                            <Form.Item
+                              {...field}
+                              className="mb-0"
+                              rules={[
+                                {
+                                  required: true,
+                                  message: "Informe o tamanho",
+                                },
+                              ]}
+                            >
+                              <Input
+                                placeholder="Ex: P"
+                                style={{ width: 160 }}
+                                disabled={hasRegistrations}
+                              />
+                            </Form.Item>
+                            {!hasRegistrations && (
+                              <MinusCircleOutlined
+                                onClick={() => remove(field.name)}
+                              />
+                            )}
+                          </Space>
+                        ))}
+                        {!hasRegistrations && (
+                          <Button
+                            type="dashed"
+                            onClick={() => add("")}
+                            block
+                            icon={<PlusOutlined />}
+                          >
+                            Adicionar tamanho
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </Form.List>
+                </>
+              )}
+            </div>
           )}
 
           <Form.Item name="isActive" label="Status" valuePropName="checked">

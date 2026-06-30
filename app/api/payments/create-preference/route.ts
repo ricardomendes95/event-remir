@@ -14,6 +14,13 @@ import type {
   DynamicField,
   DynamicFormFields,
 } from "@/backend/schemas/dynamicFormSchemas";
+import { getActivePaymentGateway } from "@/backend/services/payment/getActiveGateway";
+import { createInfinitePayCheckoutForRegistration } from "@/backend/services/payment/infinitePayService";
+import {
+  resolveBaseValue,
+  validateShirtSelection,
+} from "@/backend/utils/shirtPricing";
+import { parsePhoneNumber } from "@/backend/utils/phone";
 
 // Helper function para mapear métodos de pagamento para exclusões do MercadoPago
 function getExcludedPaymentTypes(selectedMethod: string) {
@@ -54,33 +61,6 @@ function getExcludedPaymentMethods(selectedMethod: string) {
   }
 }
 
-// Helper para extrair DDD e telefone de forma mais robusta
-export function parsePhoneNumber(phone: string) {
-  const cleanPhone = phone.replace(/\D/g, "");
-
-  // Se tem 11 dígitos (9 + DDD), extrair normalmente
-  if (cleanPhone.length === 11) {
-    return {
-      area_code: cleanPhone.substring(0, 2),
-      number: cleanPhone.substring(2),
-    };
-  }
-
-  // Se tem 10 dígitos (8 + DDD), extrair normalmente
-  if (cleanPhone.length === 10) {
-    return {
-      area_code: cleanPhone.substring(0, 2),
-      number: cleanPhone.substring(2),
-    };
-  }
-
-  // Fallback: assumir que os 2 primeiros são DDD
-  return {
-    area_code: cleanPhone.substring(0, 2) || "11",
-    number: cleanPhone.substring(2) || cleanPhone,
-  };
-}
-
 // Schema de validação
 const createPreferenceSchema = z.object({
   eventId: z.string().min(1, "ID do evento é obrigatório"),
@@ -90,19 +70,22 @@ const createPreferenceSchema = z.object({
     cpf: z.string().min(11, "CPF deve ter 11 dígitos"),
     phone: z.string().min(10, "Telefone deve ter pelo menos 10 dígitos"),
   }),
-  paymentData: z.object({
-    method: z.enum(["pix", "credit_card", "debit_card"]),
-    installments: z.number().min(1).max(12).optional(),
-  }),
+  // Opcional: no fluxo InfinitePay o método e as parcelas são escolhidos no
+  // checkout do gateway. Usado apenas no fluxo legado do Mercado Pago.
+  paymentData: z
+    .object({
+      method: z.enum(["pix", "credit_card", "debit_card"]),
+      installments: z.number().min(1).max(12).optional(),
+    })
+    .optional(),
   registrationId: z.string().optional(), // ID da inscrição existente para atualizar
   dynamicFormData: z.record(z.string(), z.unknown()).optional(),
+  wantsShirt: z.boolean().optional(),
+  shirtSize: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
-    // Validar configuração do Mercado Pago
-    validateMercadoPagoConfig();
-
     // Validar dados da requisição
     const body = await request.json();
     const {
@@ -111,6 +94,8 @@ export async function POST(request: NextRequest) {
       paymentData,
       registrationId,
       dynamicFormData,
+      wantsShirt,
+      shirtSize,
     } = createPreferenceSchema.parse(body);
 
     // Buscar evento
@@ -196,86 +181,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar método de pagamento disponível para este evento
-    const eventWithPaymentConfig = event as typeof event & {
-      paymentConfig?: PaymentConfig | null;
-    };
-    const eventPaymentConfig = eventWithPaymentConfig.paymentConfig;
-    const isPaymentMethodValid = PaymentFeeCalculator.validatePaymentOption(
-      paymentData.method,
-      paymentData.installments,
-      eventPaymentConfig || undefined
-    );
-
-    if (!isPaymentMethodValid) {
+    // Validar seleção de camisa e recalcular o valor base no servidor
+    // (nunca confiar no valor enviado pelo cliente)
+    const shirtSelection = validateShirtSelection(event, {
+      wantsShirt,
+      shirtSize,
+    });
+    if (!shirtSelection.ok) {
       return NextResponse.json(
-        {
-          error: "Método de pagamento não disponível para este evento",
-          method: paymentData.method,
-          installments: paymentData.installments,
-        },
-        { status: 400 }
+        { error: shirtSelection.error || "Seleção de camisa inválida" },
+        { status: 422 }
       );
     }
+    const baseValue = resolveBaseValue(event, shirtSelection.wantsShirt);
 
-    // Calcular valor final com taxas
-    const paymentOptions = PaymentFeeCalculator.calculatePaymentOptions(
-      event.price,
-      eventPaymentConfig || undefined
-    );
-
-    const selectedOption = paymentOptions.available_methods.find(
-      (option) =>
-        option.method === paymentData.method &&
-        (paymentData.method !== "credit_card" ||
-          option.installments === paymentData.installments)
-    );
-
-    if (!selectedOption) {
-      return NextResponse.json(
-        { error: "Opção de pagamento não encontrada" },
-        { status: 400 }
-      );
-    }
-
-    // Validar valor mínimo para parcelamento
-    if (
-      paymentData.method === "credit_card" &&
-      paymentData.installments &&
-      paymentData.installments > 1
-    ) {
-      if (selectedOption.final_value < 5) {
-        return NextResponse.json(
-          {
-            error: "Valor mínimo para parcelamento é R$ 5,00",
-            current_value: selectedOption.final_value,
-            minimum_value: 5,
-          },
-          { status: 400 }
-        );
-      }
-
-      const valuePerInstallment =
-        selectedOption.final_value / paymentData.installments;
-      if (valuePerInstallment < 5) {
-        return NextResponse.json(
-          {
-            error: `Valor mínimo por parcela é R$ 5,00. Com ${
-              paymentData.installments
-            }x ficaria R$ ${valuePerInstallment.toFixed(2)} por parcela`,
-            current_value_per_installment: valuePerInstallment,
-            minimum_value_per_installment: 5,
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Verificar se participante já está inscrito (apenas CPF é único)
+    // Verificar se participante já está inscrito.
+    // O CPF é gravado sem formatação, então a busca também precisa normalizar
+    // (senão um CPF formatado nunca casa e cria inscrição duplicada).
+    const cpfDigits = participantData.cpf.replace(/\D/g, "");
     const existingRegistration = await prisma.registration.findFirst({
       where: {
         eventId,
-        cpf: participantData.cpf,
+        cpf: cpfDigits,
       },
     });
 
@@ -326,12 +253,157 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Determinar gateway de pagamento ativo (configuração global)
+    const activeGateway = await getActivePaymentGateway();
+
+    // ===== Fluxo InfinitePay (gateway padrão) =====
+    if (activeGateway === "INFINITE_PAY") {
+      // Persistir a inscrição primeiro para obter o id (usado como order_nsu).
+      let regId: string;
+      if (registrationAction === "UPDATE" && targetRegistrationId) {
+        await prisma.registration.update({
+          where: { id: targetRegistrationId },
+          data: {
+            name: participantData.name,
+            email: participantData.email,
+            phone: participantData.phone.replace(/\D/g, ""),
+            status: "PENDING",
+            paymentMethod: "INFINITE_PAY",
+            paymentError: null,
+            wantsShirt: shirtSelection.wantsShirt,
+            shirtSize: shirtSelection.shirtSize,
+            ...(sanitizedDynamic
+              ? { dynamicFormData: sanitizedDynamic as Prisma.InputJsonValue }
+              : {}),
+          },
+        });
+        regId = targetRegistrationId;
+      } else {
+        const created = await prisma.registration.create({
+          data: {
+            eventId,
+            name: participantData.name,
+            email: participantData.email,
+            cpf: participantData.cpf.replace(/\D/g, ""),
+            phone: participantData.phone.replace(/\D/g, ""),
+            status: "PENDING",
+            paymentMethod: "INFINITE_PAY",
+            wantsShirt: shirtSelection.wantsShirt,
+            shirtSize: shirtSelection.shirtSize,
+            dynamicFormData: sanitizedDynamic
+              ? (sanitizedDynamic as Prisma.InputJsonValue)
+              : undefined,
+          },
+        });
+        regId = created.id;
+      }
+
+      try {
+        const checkout = await createInfinitePayCheckoutForRegistration({
+          registrationId: regId,
+          eventTitle: event.title,
+          baseValue,
+          participant: {
+            name: participantData.name,
+            email: participantData.email,
+            phone: participantData.phone,
+          },
+        });
+
+        await prisma.registration.update({
+          where: { id: regId },
+          data: { paymentId: checkout.providerRef },
+        });
+
+        return NextResponse.json({
+          success: true,
+          gateway: "INFINITE_PAY",
+          checkoutUrl: checkout.checkoutUrl,
+          registrationId: regId,
+          // No InfinitePay o método e as parcelas são escolhidos no checkout.
+          paymentInfo: {
+            finalValue: baseValue,
+          },
+        });
+      } catch (err) {
+        console.error("Erro ao criar checkout InfinitePay:", err);
+        return NextResponse.json(
+          {
+            error:
+              "Não foi possível iniciar o pagamento agora. Tente novamente em instantes.",
+          },
+          { status: 502 }
+        );
+      }
+    }
+
+    // ===== Fluxo Mercado Pago (LEGADO, fora do fluxo ativo) =====
+    // Validar configuração do Mercado Pago
+    validateMercadoPagoConfig();
+
     // Verificar se Mercado Pago está configurado
     if (!mercadoPagoClient) {
       return NextResponse.json(
         { error: "Sistema de pagamento não configurado" },
         { status: 500 }
       );
+    }
+
+    // O fluxo MP exige seleção de método/parcelas (vinda do cliente)
+    if (!paymentData) {
+      return NextResponse.json(
+        { error: "Método de pagamento é obrigatório para o Mercado Pago" },
+        { status: 400 }
+      );
+    }
+
+    // Validar método de pagamento e calcular o valor final com taxas
+    const eventPaymentConfig = (
+      event as typeof event & { paymentConfig?: PaymentConfig | null }
+    ).paymentConfig;
+    const isPaymentMethodValid = PaymentFeeCalculator.validatePaymentOption(
+      paymentData.method,
+      paymentData.installments,
+      eventPaymentConfig || undefined
+    );
+    if (!isPaymentMethodValid) {
+      return NextResponse.json(
+        { error: "Método de pagamento não disponível para este evento" },
+        { status: 400 }
+      );
+    }
+
+    const paymentOptions = PaymentFeeCalculator.calculatePaymentOptions(
+      baseValue,
+      eventPaymentConfig || undefined
+    );
+    const selectedOption = paymentOptions.available_methods.find(
+      (option) =>
+        option.method === paymentData.method &&
+        (paymentData.method !== "credit_card" ||
+          option.installments === paymentData.installments)
+    );
+    if (!selectedOption) {
+      return NextResponse.json(
+        { error: "Opção de pagamento não encontrada" },
+        { status: 400 }
+      );
+    }
+
+    // Validar valor mínimo para parcelamento
+    if (
+      paymentData.method === "credit_card" &&
+      paymentData.installments &&
+      paymentData.installments > 1
+    ) {
+      const valuePerInstallment =
+        selectedOption.final_value / paymentData.installments;
+      if (selectedOption.final_value < 5 || valuePerInstallment < 5) {
+        return NextResponse.json(
+          { error: "Valor mínimo por parcela é R$ 5,00" },
+          { status: 400 }
+        );
+      }
     }
 
     // Extrair telefone de forma mais robusta
@@ -447,7 +519,10 @@ export async function POST(request: NextRequest) {
           email: participantData.email,
           phone: participantData.phone.replace(/\D/g, ""),
           status: "PENDING",
+          paymentMethod: "MERCADO_PAGO",
           paymentId: response.id,
+          wantsShirt: shirtSelection.wantsShirt,
+          shirtSize: shirtSelection.shirtSize,
           // Atualiza dynamicFormData só quando o evento usa BOTH e veio no payload.
           // Caso contrário, preserva o valor antigo.
           ...(sanitizedDynamic
@@ -464,7 +539,10 @@ export async function POST(request: NextRequest) {
           cpf: participantData.cpf.replace(/\D/g, ""),
           phone: participantData.phone.replace(/\D/g, ""),
           status: "PENDING",
+          paymentMethod: "MERCADO_PAGO",
           paymentId: response.id,
+          wantsShirt: shirtSelection.wantsShirt,
+          shirtSize: shirtSelection.shirtSize,
           dynamicFormData: sanitizedDynamic
             ? (sanitizedDynamic as Prisma.InputJsonValue)
             : undefined,

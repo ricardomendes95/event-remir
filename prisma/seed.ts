@@ -35,6 +35,15 @@ async function main() {
     console.log(`🔑 Senha: ${adminPassword}`);
   }
 
+  // Configurações globais da aplicação (singleton)
+  // Gateway de pagamento padrão: InfinitePay
+  await prisma.appSettings.upsert({
+    where: { id: "singleton" },
+    update: {},
+    create: { id: "singleton", activePaymentGateway: "INFINITE_PAY" },
+  });
+  console.log("✅ AppSettings garantido (gateway padrão: INFINITE_PAY)");
+
   console.log("🎉 Seed concluído!");
 }
 

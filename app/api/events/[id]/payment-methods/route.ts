@@ -3,6 +3,7 @@ import { BaseController } from "@/backend/controllers/BaseController";
 import { eventRepository } from "@/backend/repositories";
 import { PaymentFeeCalculator } from "@/backend/utils/paymentFeeCalculator";
 import { PaymentConfig } from "@/backend/schemas/eventSchemas";
+import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 import { z } from "zod";
 
 // Schema para validação do body
@@ -35,9 +36,14 @@ class PaymentMethodsController extends BaseController {
         return this.badRequest("Este evento não está aceitando inscrições");
       }
 
+      // Considerar o preço com camisa quando solicitado (?wantsShirt=true)
+      const wantsShirt =
+        request.nextUrl.searchParams.get("wantsShirt") === "true";
+      const baseValue = resolveBaseValue(event, wantsShirt);
+
       // Calcular opções de pagamento disponíveis
       const paymentOptions = PaymentFeeCalculator.calculatePaymentOptions(
-        event.price,
+        baseValue,
         event.paymentConfig || undefined
       );
 

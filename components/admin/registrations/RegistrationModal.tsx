@@ -1,7 +1,18 @@
 "use client";
 
 import React from "react";
-import { Modal, Form, Input, Select, Button, Row, Col, Tag, message } from "antd";
+import {
+  Modal,
+  Form,
+  Input,
+  Select,
+  Button,
+  Row,
+  Col,
+  Tag,
+  Radio,
+  message,
+} from "antd";
 import type { FormInstance } from "antd";
 import { z } from "zod";
 import { DynamicFormRenderer } from "@/components/registration/DynamicFormRenderer";
@@ -39,6 +50,7 @@ interface Event {
   formMode?: EventFormMode;
   dynamicFormFields?: unknown;
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
+  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
 }
 
 interface Registration {
@@ -68,6 +80,8 @@ interface RegistrationFormData {
   eventId: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   dynamicFormData?: Record<string, unknown>;
+  wantsShirt?: boolean;
+  shirtSize?: string;
 }
 
 interface RegistrationModalProps {
@@ -101,6 +115,15 @@ export default function RegistrationModal({
   const showDynamic =
     (selectedEvent?.formMode ?? "FIXED_ONLY") !== "FIXED_ONLY" &&
     dynamicFields.length > 0;
+
+  // Camisa: só evento pago com a opção habilitada
+  const shirtConfig =
+    !isFreeEvent && selectedEvent?.shirtConfig?.enabled
+      ? selectedEvent.shirtConfig
+      : null;
+  const watchedWantsShirt = Form.useWatch("wantsShirt", form) as
+    | boolean
+    | undefined;
 
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
@@ -173,7 +196,11 @@ export default function RegistrationModal({
               <Select
                 placeholder="Selecione o evento"
                 size="large"
-                onChange={() => form.setFieldValue("dynamicFormData", undefined)}
+                onChange={() => {
+                  form.setFieldValue("dynamicFormData", undefined);
+                  form.setFieldValue("wantsShirt", false);
+                  form.setFieldValue("shirtSize", undefined);
+                }}
               >
                 {events
                   .filter((event) => event.isActive)
@@ -309,6 +336,53 @@ export default function RegistrationModal({
             </Form.Item>
           </Col>
         </Row>
+
+        {/* Camisa do evento */}
+        {shirtConfig && (
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                name="wantsShirt"
+                label="Camisa"
+                initialValue={false}
+              >
+                <Radio.Group
+                  onChange={(e) => {
+                    if (!e.target.value) {
+                      form.setFieldValue("shirtSize", undefined);
+                    }
+                  }}
+                >
+                  <Radio value={false}>
+                    Sem camisa (R$ {selectedEvent?.price.toFixed(2)})
+                  </Radio>
+                  <Radio value={true}>
+                    Com camisa (R$ {shirtConfig.priceWithShirt.toFixed(2)})
+                  </Radio>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+            {watchedWantsShirt && (
+              <Col span={24}>
+                <Form.Item
+                  name="shirtSize"
+                  label="Tamanho da camisa"
+                  rules={[
+                    { required: true, message: "Escolha o tamanho da camisa" },
+                  ]}
+                >
+                  <Select placeholder="Selecione o tamanho" size="large">
+                    {shirtConfig.sizes.map((size) => (
+                      <Option key={size} value={size}>
+                        {size}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            )}
+          </Row>
+        )}
 
         {/* Campos dinâmicos do evento */}
         {showDynamic && (

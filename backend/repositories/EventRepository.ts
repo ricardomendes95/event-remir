@@ -21,6 +21,7 @@ export interface Event {
   dynamicFormFields: unknown | null;
   bannerUrl: string | null;
   paymentConfig: unknown | null;
+  shirtConfig: unknown | null;
   createdAt: Date;
   updatedAt: Date;
 }
