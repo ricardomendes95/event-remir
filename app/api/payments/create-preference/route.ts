@@ -81,7 +81,10 @@ const createPreferenceSchema = z.object({
   registrationId: z.string().optional(), // ID da inscrição existente para atualizar
   dynamicFormData: z.record(z.string(), z.unknown()).optional(),
   wantsShirt: z.boolean().optional(),
-  shirtSize: z.string().optional(),
+  // A camisa é opcional: o participante escolhe se quer ou não. Quando não
+  // quer, o frontend envia `shirtSize: null`, então precisamos aceitar null
+  // além de undefined (senão o Zod rejeita com "invalid_type").
+  shirtSize: z.string().nullable().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -567,8 +570,21 @@ export async function POST(request: NextRequest) {
     console.error("Erro ao criar preferência:", error);
 
     if (error instanceof z.ZodError) {
+      // Monta uma mensagem legível a partir dos campos inválidos, para que o
+      // frontend exiba algo mais claro do que um genérico "Dados inválidos".
+      const detalhes = error.issues
+        .map((issue) => {
+          const campo = issue.path.join(".") || "campo";
+          return `${campo}: ${issue.message}`;
+        })
+        .join("; ");
       return NextResponse.json(
-        { error: "Dados inválidos", details: error.issues },
+        {
+          error: detalhes
+            ? `Dados inválidos — ${detalhes}`
+            : "Dados inválidos",
+          details: error.issues,
+        },
         { status: 400 }
       );
     }

@@ -20,7 +20,8 @@ const manualRegistrationSchema = z.object({
   }),
   dynamicFormData: z.record(z.string(), z.unknown()).optional(),
   wantsShirt: z.boolean().optional(),
-  shirtSize: z.string().optional(),
+  // Aceita null (participante sem camisa), não só undefined.
+  shirtSize: z.string().nullable().optional(),
   status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).default("CONFIRMED"),
 });
 
