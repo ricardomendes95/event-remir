@@ -97,18 +97,9 @@ export default function EventRegistrationModal({
   const [existingRegistrationId, setExistingRegistrationId] = useState<
     string | null
   >(null);
-  // Forçar criação de nova preferência mesmo quando mostramos apenas seleção de método
-  const [forceCreateNewPreference, setForceCreateNewPreference] =
-    useState(false);
 
-  // Inscrição nova ou nova tentativa (CANCELLED/PAYMENT_FAILED): escolhe a camisa.
-  // Continuar pagamento de uma PENDING: a escolha já foi feita e é só exibida.
-  const canChooseShirt =
-    !!shirtConfig && (!isUpdatingPayment || forceCreateNewPreference);
-  const showShirtSummary = !!shirtConfig && !canChooseShirt;
-  // Inscrições antigas podem ter wantsShirt sem shirtSize; sem isto o submit trava
-  // pedindo um tamanho que o usuário não teria como informar.
-  const mustPickMissingSize = showShirtSummary && wantsShirt && !shirtSize;
+  // A camisa pode ser reescolhida enquanto a inscrição não foi paga.
+  const canChooseShirt = !!shirtConfig;
 
   // Estados para modais
   const [proofModalOpen, setProofModalOpen] = useState(false);
@@ -214,29 +205,23 @@ export default function EventRegistrationModal({
     };
     setFormData(existingFormData);
 
-    // Se a inscrição existente está em CANCELLED ou PAYMENT_FAILED, queremos
-    // que o usuário apenas escolha o método (mesmo comportamento visual do
-    // "continuar pagamento"), mas em backend vamos criar uma NOVA preferência.
     setShirtError(null);
+    setIsUpdatingPayment(true);
 
     if (
       existingRegistration.status === "CANCELLED" ||
       existingRegistration.status === "PAYMENT_FAILED"
     ) {
-      setForceCreateNewPreference(true);
-      setIsUpdatingPayment(true); // mostrar apenas seleção de método
       setExistingRegistrationId(null);
 
       // Nova tentativa: o participante escolhe a camisa do zero.
       setWantsShirt(false);
       setShirtSize(null);
     } else {
-      // Para PENDING (ou outros que permitimos atualizar), usar o fluxo de update
-      setForceCreateNewPreference(false);
-      setIsUpdatingPayment(true);
       setExistingRegistrationId(existingRegistration.id);
 
-      // Preservar a escolha de camisa da inscrição — é ela que define o valor cobrado.
+      // Pré-seleciona a escolha atual, que o participante ainda pode alterar
+      // antes de pagar — é ela que define o valor cobrado.
       setWantsShirt(existingRegistration.wantsShirt);
       setShirtSize(existingRegistration.shirtSize);
     }
@@ -486,8 +471,6 @@ export default function EventRegistrationModal({
       if (!redirectAttempted) {
         setLoading(false);
       }
-      // Resetar flag após tentativa
-      setForceCreateNewPreference(false);
     }
   };
 
@@ -510,7 +493,6 @@ export default function EventRegistrationModal({
     // Reset estados de atualização
     setIsUpdatingPayment(false);
     setExistingRegistrationId(null);
-    setForceCreateNewPreference(false);
 
     onClose();
   };
@@ -698,80 +680,19 @@ export default function EventRegistrationModal({
                     <strong> Email:</strong> {formData.email}
                   </p>
                   <p className="text-xs text-blue-600 mt-1">
-                    Os dados pessoais não podem ser alterados. Apenas selecione
-                    um novo método de pagamento.
+                    Os dados pessoais não podem ser alterados.
                   </p>
                 </div>
               )}
 
-              {/* Camisa já escolhida na inscrição: exibida sem permitir alteração */}
-              {shirtConfig && showShirtSummary && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium mb-1">Camisa do evento</h3>
-                  <div className="px-4 py-3 rounded-lg border-2 border-blue-600 bg-blue-50">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        {wantsShirt
-                          ? `Inscrição com camisa${
-                              shirtSize ? ` (${shirtSize})` : ""
-                            }`
-                          : "Inscrição sem camisa"}
-                      </span>
-                      <span className="font-bold text-blue-700">
-                        {formatCurrency(
-                          wantsShirt ? shirtConfig.priceWithShirt : event.price,
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  {!mustPickMissingSize && (
-                    <p className="text-xs text-gray-600 mt-2">
-                      Escolha feita na sua inscrição. Para alterá-la, entre em
-                      contato com a organização.
-                    </p>
-                  )}
-
-                  {mustPickMissingSize && (
-                    <div className="mt-4">
-                      <p className="font-medium mb-2 text-sm">
-                        Escolha o tamanho da camisa
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {shirtConfig.sizes.map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => {
-                              setShirtSize(size);
-                              setShirtError(null);
-                            }}
-                            style={{ minWidth: "56px", minHeight: "48px" }}
-                            className={`px-4 py-2 rounded-lg border-2 font-semibold transition ${
-                              shirtSize === size
-                                ? "border-blue-600 bg-blue-600 text-white"
-                                : "border-gray-300 bg-white text-gray-700"
-                            }`}
-                          >
-                            {size}
-                          </button>
-                        ))}
-                      </div>
-                      {shirtError && (
-                        <p className="text-red-600 text-sm mt-2">{shirtError}</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="border-t mt-5" />
-                </div>
-              )}
-
               {/* Seleção de camisa (evento pago com a opção habilitada) */}
-              {shirtConfig && canChooseShirt && (
+              {canChooseShirt && shirtConfig && (
                 <div className="mb-6">
                   <h3 className="text-lg font-medium mb-1">Camisa do evento</h3>
                   <p className="text-gray-600 mb-3 text-sm">
-                    Escolha sua inscrição. Você vê o valor antes de pagar.
+                    {isUpdatingPayment
+                      ? "Você pode alterar sua escolha antes de pagar."
+                      : "Escolha sua inscrição. Você vê o valor antes de pagar."}
                   </p>
 
                   <div className="flex flex-col gap-3">
