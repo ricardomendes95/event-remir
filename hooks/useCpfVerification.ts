@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import { isValidCpf } from "@/utils/cpfValidator";
 
-interface ExistingRegistration {
+export interface ExistingRegistration {
   id: string;
   name: string;
   email: string;
@@ -10,6 +10,11 @@ interface ExistingRegistration {
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId: string | null;
   registrationDate: string;
+  wantsShirt: boolean;
+  shirtSize: string | null;
+  eventHasShirt: boolean;
+  /** Valor da inscrição já resolvido no servidor (com camisa, se escolhida). */
+  amountPaid: number;
   event: {
     title: string;
     price: number;

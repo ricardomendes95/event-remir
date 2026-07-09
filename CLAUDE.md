@@ -96,6 +96,7 @@ Fluxo Mercado Pago em `app/api/payments/{create-preference,update-preference,con
 `/doc` contém documentação detalhada — ao mexer em áreas específicas, consultar:
 
 - `doc/ARQUITETURA.md` — Visão geral mais detalhada
+- `doc/FLUXO_INSCRICAO.md` — Fluxo de inscrição do participante (campos fixos/dinâmicos, camisa, gratuito vs. pago)
 - `doc/SOLUCAO_PREPARED_STATEMENTS.md` + `doc/EXEMPLO_PRISMA_RETRY.md` — Padrão Prisma
 - `doc/GUIA_DESENVOLVIMENTO.md` — Setup e padrões
 - `doc/REQUISITO_SISTEMA_PAGAMENTO_TAXAS.md` + `doc/TAXAS_MERCADOPAGO_2025.md` — Pagamentos

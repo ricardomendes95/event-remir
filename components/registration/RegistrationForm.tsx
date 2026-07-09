@@ -129,44 +129,6 @@ export function RegistrationForm({
     >
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Form.Item
-          name="name"
-          label={
-            <div className="flex items-center space-x-2">
-              <User className="h-4 w-4" />
-              <span>Nome Completo</span>
-            </div>
-          }
-          rules={[
-            { required: true, message: "Nome é obrigatório" },
-            { min: 2, message: "Nome deve ter pelo menos 2 caracteres" },
-          ]}
-        >
-          <Input placeholder="Digite seu nome completo" size="large" />
-        </Form.Item>
-
-        <Form.Item
-          name="email"
-          label={
-            <div className="flex items-center space-x-2">
-              <Mail className="h-4 w-4" />
-              <span>Email{!isEmailRequired && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>
-            </div>
-          }
-          rules={[
-            ...(isEmailRequired ? [{ required: true, message: "Email é obrigatório" }] : []),
-            { type: "email", message: "Email inválido" },
-          ]}
-        >
-          <Input
-            placeholder="seu@email.com"
-            size="large"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-          />
-        </Form.Item>
-
-        <Form.Item
           name="cpf"
           label={
             <div className="flex items-center space-x-2">
@@ -197,7 +159,7 @@ export function RegistrationForm({
                 const validation = isValidCpf(cleanCpf);
                 if (!validation.isValid) {
                   return Promise.reject(
-                    new Error(validation.error || "CPF inválido")
+                    new Error(validation.error || "CPF inválido"),
                   );
                 }
 
@@ -222,12 +184,69 @@ export function RegistrationForm({
             status={cpfValidationError ? "error" : undefined}
           />
         </Form.Item>
+        <Form.Item
+          name="name"
+          label={
+            <div className="flex items-center space-x-2">
+              <User className="h-4 w-4" />
+              <span>Nome Completo</span>
+            </div>
+          }
+          rules={[
+            { required: true, message: "Nome é obrigatório" },
+            { min: 2, message: "Nome deve ter pelo menos 2 caracteres" },
+          ]}
+        >
+          <Input placeholder="Digite seu nome completo" size="large" />
+        </Form.Item>
+
+        <Form.Item
+          name="email"
+          label={
+            <div className="flex items-center space-x-2">
+              <Mail className="h-4 w-4" />
+              <span>
+                Email
+                {!isEmailRequired && (
+                  <span className="text-gray-400 text-xs ml-1">(opcional)</span>
+                )}
+              </span>
+            </div>
+          }
+          rules={[
+            ...(isEmailRequired
+              ? [{ required: true, message: "Email é obrigatório" }]
+              : []),
+            { type: "email", message: "Email inválido" },
+          ]}
+        >
+          <Input
+            placeholder="seu@email.com"
+            size="large"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+          />
+        </Form.Item>
 
         <Form.Item
           name="phone"
-          label={<span>Telefone{!isPhoneRequired && <span className="text-gray-400 text-xs ml-1">(opcional)</span>}</span>}
+          label={
+            <span>
+              Telefone
+              {!isPhoneRequired ? (
+                <span className="text-gray-400 text-xs ml-1">(opcional)</span>
+              ) : (
+                <span className="text-gray-400 text-xs ml-1">
+                  (obrigatório do whatsapp)
+                </span>
+              )}
+            </span>
+          }
           rules={[
-            ...(isPhoneRequired ? [{ required: true, message: "Telefone é obrigatório" }] : []),
+            ...(isPhoneRequired
+              ? [{ required: true, message: "Telefone é obrigatório" }]
+              : []),
             {
               validator: (_, value) => {
                 if (!value) return Promise.resolve();
@@ -240,7 +259,7 @@ export function RegistrationForm({
 
                 if (cleanPhone.length < 10 || cleanPhone.length > 11) {
                   return Promise.reject(
-                    new Error("Telefone deve ter 10 ou 11 dígitos")
+                    new Error("Telefone deve ter 10 ou 11 dígitos"),
                   );
                 }
 
@@ -264,26 +283,28 @@ export function RegistrationForm({
       </div>
 
       {!hideButtons && (
-      <div className="mt-6 pt-4 border-t">
-        <div className="flex flex-col sm:flex-row gap-3 registration-buttons">
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={loading}
-            disabled={disabled}
-            className="flex-1 sm:order-2 text-base font-medium primary-button"
-          >
-            {loading ? "Processando..." : (submitLabel ?? "Continuar para Pagamento")}
-          </Button>
-          <Button
-            onClick={onCancel}
-            className="flex-1 sm:order-1 secondary-button"
-          >
-            Cancelar
-          </Button>
-        </div>
+        <div className="mt-6 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row gap-3 registration-buttons">
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              disabled={disabled}
+              className="flex-1 sm:order-2 text-base font-medium primary-button"
+            >
+              {loading
+                ? "Processando..."
+                : (submitLabel ?? "Continuar para Pagamento")}
+            </Button>
+            <Button
+              onClick={onCancel}
+              className="flex-1 sm:order-1 secondary-button"
+            >
+              Cancelar
+            </Button>
+          </div>
 
-        <style>{`
+          <style>{`
           .registration-buttons .primary-button {
             height: 64px !important;
             min-height: 64px !important;
@@ -310,10 +331,11 @@ export function RegistrationForm({
             }
           }
         `}</style>
-        <p className="text-xs text-gray-500 text-center mt-3">
-          Você será redirecionado para o Mercado Pago para finalizar o pagamento
-        </p>
-      </div>
+          <p className="text-xs text-gray-500 text-center mt-3">
+            Você será redirecionado para o Mercado Pago para finalizar o
+            pagamento
+          </p>
+        </div>
       )}
     </Form>
   );
