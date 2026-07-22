@@ -2,8 +2,9 @@ import {
   createInfinitePayCheckout,
   infinitePayConfig,
 } from "@/lib/infinitepay";
+import { toBrazilE164 } from "@/backend/utils/phone";
 
-/** Base URL pública da aplicação (mesma usada pelo Mercado Pago). */
+/** Base URL pública da aplicação. */
 function getAppBaseUrl(): string {
   return (
     process.env.NEXTAUTH_URL ||
@@ -57,7 +58,9 @@ export async function createInfinitePayCheckoutForRegistration(
       ? {
           name: params.participant.name,
           email: params.participant.email ?? undefined,
-          phone_number: params.participant.phone ?? undefined,
+          // Sempre no formato E.164 (+55...) para o InfinitePay não inferir o
+          // país errado a partir do DDD (ex.: 81 → +81 Japão).
+          phone_number: toBrazilE164(params.participant.phone),
         }
       : undefined,
   });
