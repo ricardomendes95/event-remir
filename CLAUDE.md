@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Documentação normativa (leitura obrigatória)
+
+`/docs/contexto-ia` é a **fonte oficial de verdade** deste repositório. Antes de qualquer implementação, ler `docs/contexto-ia/00_PROJECT_CONTEXT.md` e `docs/contexto-ia/08_AI_RULES.md`, e seguir o fluxo de `docs/contexto-ia/07_FEATURE_GUIDE.md`. O índice completo está em `docs/contexto-ia/README.md`. Em conflito com hábitos padrão, esses documentos prevalecem.
+
 ## Comandos
 
 ```bash
@@ -21,7 +25,7 @@ Path alias: `@/*` → raiz do projeto (definido em `tsconfig.json`).
 
 ## Stack
 
-Next.js 15 (App Router) + React 19 + TypeScript strict + Prisma 6 (PostgreSQL/Supabase) + Ant Design + TailwindCSS v4 + Zod + JWT (`jose` para Edge, `jsonwebtoken` para Node) + Mercado Pago + Cloudinary.
+Next.js 15 (App Router) + React 19 + TypeScript strict + Prisma 6 (PostgreSQL/Supabase) + Ant Design + TailwindCSS v4 + Zod + JWT (`jose` para Edge, `jsonwebtoken` para Node) + InfinitePay + Cloudinary.
 
 ## Arquitetura
 
@@ -32,7 +36,7 @@ A lógica fora do Next vive em `/backend`, separada da pasta `/app`:
 - `backend/controllers/` — Estendem `BaseController` (controllers/BaseController.ts), que centraliza respostas (`success`, `created`, `badRequest`, `notFound`, `conflict`, etc.), `handleError` que mapeia `ZodError` e mensagens (`"não encontrado"` → 404, `"já existe"` → 409, `"acesso negado"` → 403), `getPaginationParams`, `paginatedResponse`, e `extractUserFromRequest`/`requireAdmin`/`requireSuperAdmin` que **leem o usuário dos headers `x-user-id`/`x-user-email`/`x-user-role`** injetados pelo middleware global.
 - `backend/repositories/` — Estendem `BaseRepository` (repositories/BaseRepository.ts) com CRUD genérico tipado.
 - `backend/schemas/` — Zod schemas compartilhados entre frontend e backend.
-- `backend/middlewares/`, `backend/utils/`, `backend/types/` — Helpers de auth/validação/erro, bcrypt, JWT (Node), data, cálculo de taxas Mercado Pago.
+- `backend/middlewares/`, `backend/utils/`, `backend/types/` — Helpers de auth/validação/erro, bcrypt, JWT (Node), data, preços de camisa (`shirtPricing`) e taxas de referência (`paymentFees`).
 
 `/app/api/*/route.ts` deve ser fino: validar com Zod e delegar a um Controller.
 
@@ -45,7 +49,7 @@ A lógica fora do Next vive em `/backend`, separada da pasta `/app`:
 3. Em sucesso, **propaga `x-user-id`/`x-user-email`/`x-user-role`/`x-user-name` como request headers** — é assim que controllers obtêm o usuário, NÃO redecodificando o JWT.
 4. Páginas protegidas (`/admin/*`, `/checkin/*`) redirecionam para `/admin/login` se não autenticadas; rotas API equivalentes retornam 401/403.
 
-Ao adicionar nova rota protegida: incluí-la em `adminRoutes` E no `config.matcher` no fim do arquivo. Exceções públicas dentro de prefixos protegidos vão em `publicRoutes` (ex: `/api/events/active`, webhook do Mercado Pago, busca por CPF para o público).
+Ao adicionar nova rota protegida: incluí-la em `adminRoutes` E no `config.matcher` no fim do arquivo. Exceções públicas dentro de prefixos protegidos vão em `publicRoutes` (ex: `/api/events/active`, webhook do InfinitePay, busca por CPF para o público).
 
 ### Padrão obrigatório: `withPrismaRetry`
 
@@ -62,7 +66,7 @@ const [items, total] = await withPrismaRetry(async () =>
 );
 ```
 
-Detalhes em `doc/SOLUCAO_PREPARED_STATEMENTS.md`. O `prisma` exportado é singleton via `globalThis` (padrão Next.js dev).
+Detalhes em `docs/SOLUCAO_PREPARED_STATEMENTS.md`. O `prisma` exportado é singleton via `globalThis` (padrão Next.js dev).
 
 ### Schema do banco (`prisma/schema.prisma`)
 
@@ -81,11 +85,11 @@ Frontend assume esse envelope — preservar ao adicionar rotas.
 
 ### Frontend
 
-`/app` é App Router puro. Layouts aninhados em `app/layout.tsx` e `app/admin/layout.tsx`. Componentes organizados por domínio em `/components/{admin,event,registration,home,ui}` mais componentes top-level específicos (RichTextEditor com Tiptap, MercadoPagoCheckout, etc.). Hooks em `/hooks`. Não há provider global de auth — `useAuth` consome a API.
+`/app` é App Router puro. Layouts aninhados em `app/layout.tsx` e `app/admin/layout.tsx`. Componentes organizados por domínio em `/components/{admin,event,registration,home,ui}` mais componentes top-level específicos (RichTextEditor com Tiptap, PaymentResultPage, etc.). Hooks em `/hooks`. Não há provider global de auth — `useAuth` consome a API.
 
 ### Pagamentos
 
-Fluxo Mercado Pago em `app/api/payments/{create-preference,update-preference,continue-payment,webhook,status}` + `lib/mercadopago.ts` + `components/MercadoPagoCheckout.tsx`. Cálculo de taxas em `backend/utils/paymentFeeCalculator.ts`. Webhook é rota pública (listada em `publicRoutes` do middleware). O modelo `Event.paymentConfig` (JSON) guarda configuração por evento de quem paga a taxa.
+Gateway único: **InfinitePay** (Mercado Pago removido em 2026-07-22; `MERCADO_PAGO` sobrevive nos enums do Prisma só para dados históricos). Fluxo em `app/api/payments/{create-preference,status}` + webhook `app/api/payments/webhook/infinitepay` + `lib/infinitepay.ts` + `backend/services/payment/infinitePayService.ts`. O valor é sempre recalculado no servidor (`backend/utils/shirtPricing.ts`); método/parcelas são escolhidos dentro do checkout do gateway; conciliação por `order_nsu = registration.id`. Webhook é rota pública (listada em `publicRoutes` do middleware).
 
 ### Cron e deploy
 
@@ -93,11 +97,11 @@ Fluxo Mercado Pago em `app/api/payments/{create-preference,update-preference,con
 
 ## Documentação interna
 
-`/doc` contém documentação detalhada — ao mexer em áreas específicas, consultar:
+`/docs` contém documentação detalhada — ao mexer em áreas específicas, consultar:
 
-- `doc/ARQUITETURA.md` — Visão geral mais detalhada
-- `doc/FLUXO_INSCRICAO.md` — Fluxo de inscrição do participante (campos fixos/dinâmicos, camisa, gratuito vs. pago)
-- `doc/SOLUCAO_PREPARED_STATEMENTS.md` + `doc/EXEMPLO_PRISMA_RETRY.md` — Padrão Prisma
-- `doc/GUIA_DESENVOLVIMENTO.md` — Setup e padrões
-- `doc/REQUISITO_SISTEMA_PAGAMENTO_TAXAS.md` + `doc/TAXAS_MERCADOPAGO_2025.md` — Pagamentos
-- `doc/MELHORIAS_IOS_COMPATIBILITY.md` + `doc/PLANO_ACAO_MOBILE_FIXES.md` — Quirks mobile/iOS
+- `docs/ARQUITETURA.md` — Visão geral mais detalhada
+- `docs/FLUXO_INSCRICAO.md` — Fluxo de inscrição do participante (campos fixos/dinâmicos, camisa, gratuito vs. pago)
+- `docs/SOLUCAO_PREPARED_STATEMENTS.md` + `docs/EXEMPLO_PRISMA_RETRY.md` — Padrão Prisma
+- `docs/GUIA_DESENVOLVIMENTO.md` — Setup e padrões
+- `docs/PLANO_MIGRACAO_INFINITEPAY_E_CAMISA.md` — Pagamentos (InfinitePay + camisa)
+- `docs/MELHORIAS_IOS_COMPATIBILITY.md` + `docs/PLANO_ACAO_MOBILE_FIXES.md` — Quirks mobile/iOS
