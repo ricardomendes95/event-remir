@@ -36,7 +36,10 @@ const registrationSchema = z.object({
   status: z
     .enum(["PENDING", "CONFIRMED", "CANCELLED", "PAYMENT_FAILED"])
     .default("CONFIRMED"),
-  paymentMethod: z.enum(["MERCADO_PAGO", "MANUAL"]).default("MANUAL"),
+  // MERCADO_PAGO permanece aceito apenas para editar inscrições históricas
+  paymentMethod: z
+    .enum(["INFINITE_PAY", "MERCADO_PAGO", "MANUAL"])
+    .default("MANUAL"),
   dynamicFormData: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -326,8 +329,8 @@ export default function RegistrationModal({
               rules={[{ required: true, message: "Método de pagamento é obrigatório" }]}
             >
               <Select placeholder="Selecione o método de pagamento" size="large">
-                <Option value="MERCADO_PAGO">
-                  <Tag color="blue">Mercado Pago</Tag>
+                <Option value="INFINITE_PAY">
+                  <Tag color="blue">InfinitePay</Tag>
                 </Option>
                 <Option value="MANUAL">
                   <Tag color="orange">Manual</Tag>

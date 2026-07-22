@@ -1,8 +1,8 @@
 /**
  * Cliente do InfinitePay (Checkout Integrado / Link de Pagamento).
  *
- * Espelha o padrão de `lib/mercadopago.ts`: validação "lazy" (não quebra o build
- * quando a env não está presente) e helper de criação de checkout.
+ * Validação "lazy" (não quebra o build quando a env não está presente) e
+ * helper de criação de checkout.
  *
  * Docs de referência: POST https://api.checkout.infinitepay.io/links
  *  body: { handle, redirect_url, webhook_url, order_nsu, items:[{quantity, price(centavos), description}] }
@@ -10,7 +10,10 @@
  *  webhook: { invoice_slug, amount, paid_amount, installments, capture_method, transaction_nsu, order_nsu, receipt_url, items }
  */
 
-const INFINITEPAY_LINKS_ENDPOINT = "https://api.checkout.infinitepay.io/links";
+// Endpoint sobrescrevível por env para permitir smoke tests com gateway mockado.
+const INFINITEPAY_LINKS_ENDPOINT =
+  process.env.INFINITEPAY_LINKS_ENDPOINT ||
+  "https://api.checkout.infinitepay.io/links";
 
 const handle = process.env.INFINITEPAY_HANDLE;
 

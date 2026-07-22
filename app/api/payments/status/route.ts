@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Payment } from "mercadopago";
-import { mercadoPagoClient } from "@/lib/mercadopago";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,26 +14,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let registration = null;
-
-    // Buscar registro pelo ID da inscrição
-    if (registrationId) {
-      registration = await prisma.registration.findUnique({
-        where: { id: registrationId },
-        include: {
-          event: true,
-        },
-      });
-    }
-    // Buscar registro pelo payment ID (preference_id)
-    else if (paymentId) {
-      registration = await prisma.registration.findFirst({
-        where: { paymentId },
-        include: {
-          event: true,
-        },
-      });
-    }
+    // Buscar registro pelo ID da inscrição ou pela referência do provedor
+    const registration = await withPrismaRetry(() =>
+      registrationId
+        ? prisma.registration.findUnique({
+            where: { id: registrationId },
+            include: { event: true },
+          })
+        : prisma.registration.findFirst({
+            where: { paymentId },
+            include: { event: true },
+          })
+    );
 
     if (!registration) {
       return NextResponse.json(
@@ -44,102 +34,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Se já está confirmado, retornar status
-    if (registration.status === "CONFIRMED") {
-      return NextResponse.json({
-        success: true,
-        status: "approved",
-        registration: {
-          id: registration.id,
-          name: registration.name,
-          email: registration.email,
-          event: registration.event.title,
-          status: registration.status,
-        },
-      });
-    }
-
-    // InfinitePay: a confirmação vem exclusivamente pelo webhook.
-    // Não consultamos gateway externo aqui — retornamos o status persistido.
-    if (registration.paymentMethod === "INFINITE_PAY") {
-      return NextResponse.json({
-        success: true,
-        status: registration.status.toLowerCase(),
-        registration: {
-          id: registration.id,
-          name: registration.name,
-          email: registration.email,
-          event: registration.event.title,
-          status: registration.status,
-        },
-      });
-    }
-
-    // Verificar status no Mercado Pago se ainda está pendente
-    if (registration.paymentId && mercadoPagoClient) {
-      try {
-        const payment = new Payment(mercadoPagoClient!);
-        const paymentInfo = await payment.get({ id: registration.paymentId });
-
-        if (paymentInfo) {
-          // Atualizar status local se necessário
-          let newStatus:
-            | "PENDING"
-            | "CONFIRMED"
-            | "CANCELLED"
-            | "PAYMENT_FAILED" = registration.status;
-
-          switch (paymentInfo.status) {
-            case "approved":
-              newStatus = "CONFIRMED";
-              break;
-            case "rejected":
-              newStatus = "PAYMENT_FAILED";
-              break;
-            case "cancelled":
-              newStatus = "CANCELLED";
-              break;
-            case "pending":
-            case "in_process":
-            default:
-              newStatus = "PENDING";
-              break;
-          }
-
-          // Atualizar no banco se o status mudou
-          if (newStatus !== registration.status) {
-            await prisma.registration.update({
-              where: { id: registration.id },
-              data: {
-                status: newStatus,
-                updatedAt: new Date(),
-              },
-            });
-          }
-
-          return NextResponse.json({
-            success: true,
-            status: paymentInfo.status,
-            registration: {
-              id: registration.id,
-              name: registration.name,
-              email: registration.email,
-              event: registration.event.title,
-              status: newStatus,
-              paymentStatus: paymentInfo.status,
-            },
-          });
-        }
-      } catch (mpError) {
-        console.error("Erro ao consultar Mercado Pago:", mpError);
-        // Continuar com o status local
-      }
-    }
-
-    // Retornar status atual do banco
+    // A confirmação de pagamento chega exclusivamente pelo webhook do gateway.
+    // Aqui retornamos o status persistido no banco.
     return NextResponse.json({
       success: true,
-      status: registration.status.toLowerCase(),
+      status:
+        registration.status === "CONFIRMED"
+          ? "approved"
+          : registration.status.toLowerCase(),
       registration: {
         id: registration.id,
         name: registration.name,

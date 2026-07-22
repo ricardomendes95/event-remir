@@ -6,7 +6,6 @@ import { Layout, Button, Typography, Avatar, Dropdown } from "antd";
 import {
   LogoutOutlined,
   UserOutlined,
-  SettingOutlined,
   QrcodeOutlined,
   ArrowLeftOutlined,
 } from "@ant-design/icons";
@@ -78,12 +77,6 @@ export default function AdminHeader({ adminName }: AdminHeaderProps) {
       icon: <UserOutlined />,
       label: "Perfil",
       onClick: () => console.log("Abrir perfil"),
-    },
-    {
-      key: "settings",
-      icon: <SettingOutlined />,
-      label: "Configurações",
-      onClick: () => router.push("/admin/settings"),
     },
     {
       type: "divider",

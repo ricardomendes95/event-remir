@@ -3,5 +3,4 @@ export * from "./dateUtils";
 export * from "./jwt";
 export { generateRandomPassword } from "./password";
 export { hashPassword, verifyPassword } from "./bcrypt";
-export * from "./paymentFeeCalculator";
 export * from "./dynamicFormValidator";

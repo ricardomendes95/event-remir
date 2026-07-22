@@ -332,8 +332,8 @@ export function RegistrationForm({
           }
         `}</style>
           <p className="text-xs text-gray-500 text-center mt-3">
-            Você será redirecionado para o Mercado Pago para finalizar o
-            pagamento
+            Você será redirecionado para a página segura de pagamento para
+            finalizar a inscrição
           </p>
         </div>
       )}

@@ -417,7 +417,7 @@ export default function EventRegistrationModal({
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
       const response = await fetch(apiEndpoint, {
-        method: apiEndpoint.includes("update-preference") ? "PUT" : "POST",
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -432,8 +432,8 @@ export default function EventRegistrationModal({
         throw new Error(data.error || "Erro ao processar pagamento");
       }
 
-      // Redirecionar para MercadoPago
-      const redirectUrl = data.checkoutUrl || data.sandboxCheckoutUrl;
+      // Redirecionar para o checkout do gateway
+      const redirectUrl = data.checkoutUrl;
 
       if (redirectUrl) {
         redirectAttempted = true;
