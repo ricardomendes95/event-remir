@@ -130,8 +130,8 @@ Etapas do modal: **Dados → Confirmar inscrição** (2 passos, sem pagamento).
 ### B) Evento PAGO (`isFree = false`)
 
 Etapas do modal: **Dados → Pagamento** (2 passos). Método e parcelas **não** são
-escolhidos no app — isso acontece no checkout do gateway (InfinitePay é o padrão,
-via `AppSettings.activePaymentGateway`).
+escolhidos no app — isso acontece no checkout do InfinitePay (gateway único
+desde a remoção do Mercado Pago em 2026-07-22).
 
 1. Preenche fixos (email/telefone obrigatórios) + dinâmicos se `BOTH`.
 2. Etapa "Pagamento": escolhe camisa (se habilitada) e vê o valor final. "Ir para
@@ -149,8 +149,9 @@ via `AppSettings.activePaymentGateway`).
    `status` para `CONFIRMED` (ou `PAYMENT_FAILED`).
 
 Guardas cruzadas: `create-preference` rejeita evento gratuito ("use create-free")
-e vice-versa. O fluxo Mercado Pago ainda existe no código como **legado** (exige
-`paymentData` com método/parcelas e calcula taxas), mas não é o ativo.
+e vice-versa. O código do Mercado Pago foi **removido em 2026-07-22** — o valor
+`MERCADO_PAGO` permanece no enum `paymentMethod` apenas para inscrições
+históricas.
 
 ## 6. Deduplicação e "continuar pagamento"
 
@@ -173,7 +174,7 @@ já existe inscrição:
 | Fixos opcionais | email/telefone obrigatórios ou não | `fixedFieldsConfig` (só em gratuito) |
 | Campos dinâmicos | 8 tipos, até 30 campos, validações por tipo | `dynamicFormFields` |
 | Camisa | Habilitada ou não; se sim, escolha opcional com tamanho obrigatório | `shirtConfig` (só pago) |
-| Gateway | InfinitePay (padrão) / Mercado Pago (legado) | `AppSettings.activePaymentGateway` |
+| Gateway | InfinitePay (único) | fixo no código (`create-preference`) |
 
 Restrições que amarram tudo: **camisa só em evento pago**; **`DYNAMIC_ONLY` só em
 gratuito**; **pago só admite `FIXED_ONLY` ou `BOTH`**; valores e seleção de camisa
