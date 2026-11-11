@@ -64,3 +64,6 @@ tmp/
 
 # OS generated files
 Thumbs.db
+
+# configurações pessoais locais
+.claude/settings.local.json
