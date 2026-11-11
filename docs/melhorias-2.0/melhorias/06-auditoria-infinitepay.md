@@ -144,7 +144,7 @@ Tela `/admin/financial/audit` (ou aba "Auditoria" no financeiro — alinhar com 
 
 - [x] P-04: pesquisa sobre API de transações → **não existe; estratégia = importação de CSV + payment_check**
 - [ ] ADR-001 aprovado (colunas tipadas de transação)
-- [ ] Q10 (amostra real de extrato) e Q11 respondidas
+- [x] Q10 (amostra real recebida em 2026-11-11) e Q11 respondidas
 - [x] Análise técnica completa e estratégia definida
 - [ ] Schema de importação + `db push`
 - [ ] Backend (parser, conciliação, rotas)
@@ -156,3 +156,16 @@ Tela `/admin/financial/audit` (ou aba "Auditoria" no financeiro — alinhar com 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
 _(preencher durante a implementação)_
+
+## Amostra real recebida (2026-11-11)
+
+Arquivo exportado pelo Ricardo do painel InfinitePay (extrato de movimentações da conta), período 01/07/2026 a 22/07/2026, 69 linhas. **O arquivo real não entra no repositório** (contém nomes de pagadores); a fixture de teste deve ser sintética.
+
+- Formato: CSV UTF-8, separador `,`, cabeçalho `Data,Hora,Tipo de transação,Nome,Detalhe,Valor`.
+- `Data` em `AAAA-MM-DD`; `Hora` em `HH:MM:SS`; `Valor` como `+R$ 30,00` / `-R$ 2.615,00` (sinal, prefixo `R$`, milhar com ponto, decimal com vírgula).
+- Tipos encontrados: `Pix` (62; `Detalhe` = `Recebido` ou `Enviado`) e `Depósito de vendas` (7; `Detalhe` = `Depósito InfinitePay`).
+- `Nome` = nome do pagador (Pix recebido) ou do destinatário (Pix enviado).
+- **Não há NSU/código de transação.** O casamento com inscrições precisa ser por valor + data/hora + similaridade de nome do pagador, com sugestão para revisão manual.
+- Pagamentos com cartão aparecem só agregados em `Depósito de vendas`; não dá para conciliar cartão linha a linha com este arquivo. Se o painel tiver um relatório de **Vendas** com NSU, ele complementa a auditoria de cartão.
+- Valores com centavo extra (`R$ 30,01`, `R$ 60,01`, `R$ 90,02`) aparecem em alguns Pix; tratar como tolerância de até R$ 0,05 no casamento.
+- `Pix Enviado` (saídas) e `Depósito de vendas` não são recebimentos de inscrição: classificar como "movimentação da conta", fora da conciliação.
