@@ -183,7 +183,17 @@ export function reconcile(
     }
 
     if (strongFresh.length === 0) {
-      const exactFresh = fresh.filter((e) => e.amountOk && e.exactTime);
+      let exactFresh = fresh.filter((e) => e.amountOk && e.exactTime);
+      // Vários candidatos na janela: o extrato e o webhook coincidem no mesmo
+      // minuto, então um único candidato a menos de 1 minuto desempata.
+      if (exactFresh.length > 1) {
+        const sameMinute = exactFresh.filter(
+          (e) =>
+            e.candidate.paidAt !== null &&
+            Math.abs(e.candidate.paidAt.getTime() - entry.paidAt.getTime()) < 60_000
+        );
+        if (sameMinute.length === 1) exactFresh = sameMinute;
+      }
       if (exactFresh.length === 1) {
         const e = exactFresh[0];
         consumed.add(e.candidate.id);

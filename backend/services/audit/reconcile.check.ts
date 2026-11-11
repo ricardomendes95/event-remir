@@ -127,3 +127,14 @@ const seq = reconcile(
   ]
 );
 assert.deepEqual(seq.results.map((r) => [r.status, r.candidateId]), [["MATCHED", "order:a"], ["MATCHED", "order:b"]]);
+
+// Dois candidatos na janela de 2 min, só um no mesmo minuto -> conferido com ele
+const sameMin = reconcile(
+  [{ key: "m", kind: "PIX_RECEIVED", payerName: "Roberto Alves", amountCents: 3000, paidAt: brt("2026-07-10T10:00:00") }],
+  [
+    { id: "registration:x", names: ["Clara Mendes"], amountsCents: [3000], paidAt: brt("2026-07-10T10:00:20"), paidAtExact: true, channel: "PIX" },
+    { id: "registration:y", names: ["Davi Lopes"], amountsCents: [3000], paidAt: brt("2026-07-10T10:02:00"), paidAtExact: true, channel: "PIX" },
+  ]
+);
+assert.equal(sameMin.results[0].status, "MATCHED");
+assert.equal(sameMin.results[0].candidateId, "registration:x");
