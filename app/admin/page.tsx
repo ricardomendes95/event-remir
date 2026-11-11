@@ -21,6 +21,7 @@ import {
   EyeOutlined,
   QrcodeOutlined,
   RiseOutlined,
+  RollbackOutlined,
   SettingOutlined,
   UserOutlined,
 } from "@ant-design/icons";
@@ -120,6 +121,11 @@ const NAV_ITEMS = [
     path: "/admin/financial",
     label: "Financeiro",
     icon: <DollarOutlined className="text-yellow-500" />,
+  },
+  {
+    path: "/admin/refund-requests",
+    label: "Estornos",
+    icon: <RollbackOutlined className="text-red-500" />,
   },
   {
     path: "/admin/users",

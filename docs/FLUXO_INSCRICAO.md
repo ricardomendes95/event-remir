@@ -354,3 +354,33 @@ Criada/editada no `RegistrationModal` (`POST /api/registrations` e
 - Financeiro (`/admin/financial`): Manual quebrado por PIX/Dinheiro/Cartão/Não
   informado, total em espécie destacado, responsáveis pelo dinheiro listados e
   CSV com "Pagamento Manual", "Responsável pelo Dinheiro" e "Observação".
+
+## Cancelamento e estorno
+
+A InfinitePay **não tem API de estorno**: a devolução é feita à mão no app da
+InfinitePay, e o sistema organiza o pedido e registra o que foi feito.
+
+- **Participante** (`RegistrationProofModal`, só inscrição `CONFIRMED`): "Solicitar
+  cancelamento" pede um motivo curto (`POST /api/registrations/[id]/refund-request`,
+  pública, exige o CPF da inscrição). Uma solicitação em andamento por inscrição;
+  enquanto estiver aberta o participante pode "Desistir do cancelamento"
+  (`DELETE`). O pedido **não cancela** a inscrição: ela segue válida até a decisão
+  da organização. O texto não promete devolução.
+- **Admin** (`/admin/refund-requests`, só ADMIN/SUPER_ADMIN): lista em andamento e
+  encerradas; "Entrar em contato" abre o WhatsApp (telefone em E.164) com mensagem
+  pronta; "Marcar em contato"; "Negar"; "Registrar estorno e cancelar" (passo a
+  passo, valor limitado ao pago, confirmação de que o estorno já foi feito no app);
+  "Cancelar sem estorno"; "Reativar inscrição" (exige vaga; não vale para já
+  estornada); "Reabrir".
+- **Estados**: solicitação `OPEN → IN_CONTACT → RESOLVED` (`REFUNDED`, `DENIED`,
+  `WITHDRAWN`, `CANCELLED_NO_REFUND`); a inscrição só vai a `CANCELLED` (sem status
+  "estornada"). Cancelar libera a vaga.
+- **Cancelamento direto pelo admin** (editando o status da inscrição confirmada para
+  Cancelado, só ADMIN+) cria uma solicitação de origem administrativa: pendente
+  de estorno, ou já encerrada se a inscrição é gratuita.
+- **Pedido em grupo**: o estorno é **por participante** (valor da própria
+  inscrição); o `Order` não muda de status/total e recebe a entrada no
+  `paymentDetails.history[]`. Inscrição legada (sem `Order`) segue a mesma regra.
+- **Voltar depois de estornada**: o participante se inscreve de novo pelo CPF
+  ("Continuar Pagamento"), que reaproveita a inscrição cancelada sem duplicar.
+

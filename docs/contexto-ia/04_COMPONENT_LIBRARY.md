@@ -25,7 +25,7 @@ há identidade visual própria (páginas públicas institucionais).
 | `ConsentPreferencesButton` | Reabre o banner de consentimento | Rodapé e `/privacidade` | — |
 | `StructuredData` | JSON-LD para SEO | Páginas públicas indexáveis | Admin |
 | `SearchComprovante` | Busca pública de inscrição por CPF | Home/página de evento | Buscas do admin (têm filtros próprios) |
-| `RegistrationProofModal` | Comprovante com QR code | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante |
+| `RegistrationProofModal` | Comprovante com QR code; inclui "Solicitar cancelamento" / "Desistir do cancelamento" (inscrição confirmada) | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante |
 | `AutoShowProofModal` | Abre o comprovante automaticamente pós-fluxo | Retornos de fluxo de inscrição | — |
 | `PaymentResultPage` | Corpo das páginas `/payment/*` | Páginas de retorno de gateway | — |
 | `EmbeddedBrowserWarningModal` | Aviso p/ navegador embutido (Instagram etc.) | Junto de `redirectToPayment` | Nunca chamar isolado sem contexto de redirect |

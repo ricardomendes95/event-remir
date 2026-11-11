@@ -11,6 +11,13 @@ import {
   zodErrorResponse,
 } from "@/backend/utils/validationResponse";
 import { sanitizeRegistrationForRole } from "@/backend/utils/registrationSerializer";
+import { canViewFinancialValues } from "@/lib/permissions";
+import { lockRow } from "@/backend/services/batchRegistrationService";
+import {
+  closeRequestsOnReactivation,
+  hasRoomToReactivate,
+  recordAdminCancellation,
+} from "@/backend/services/refundService";
 
 interface Params {
   id: string;
@@ -163,45 +170,98 @@ export async function PUT(
       );
     }
 
-    // Atualizar inscrição
-    const updatedRegistration = await withPrismaRetry(() =>
-      prisma.registration.update({
-        where: { id: params.id },
-        data: {
-          ...(name && { name }),
-          ...(email !== undefined && { email: email || null }),
-          ...(cpf && { cpf: cpf.replace(/\D/g, "") }),
-          ...(phone !== undefined && {
-            phone: phone ? phone.replace(/\D/g, "") : null,
-          }),
-          ...(status && { status }),
-          ...(paymentMethod && { paymentMethod }),
-          ...(dynamicFormData !== undefined && {
-            dynamicFormData: (dynamicFormData ??
-              Prisma.JsonNull) as Prisma.InputJsonValue,
-          }),
-          ...(notes !== undefined && { notes: notes ?? null }),
-          manualPaymentType: effectiveType ?? null,
-          cashResponsible: effectiveResponsible ?? null,
-          ...(shirtSelection
-            ? {
-                wantsShirt: shirtSelection.wantsShirt,
-                shirtSize: shirtSelection.shirtSize,
-              }
-            : {}),
+    // Cancelar ou reativar mexe em dinheiro/vaga: só ADMIN e SUPER_ADMIN
+    // (req. 12, ADR-003 Q9).
+    const wasCancelled = existingRegistration.status === "CANCELLED";
+    const cancelling = status === "CANCELLED" && !wasCancelled;
+    const reactivating =
+      wasCancelled && status !== undefined && status !== "CANCELLED";
+    const adminId = request.headers.get("x-user-id");
+    if (
+      (cancelling || reactivating) &&
+      !canViewFinancialValues(request.headers.get("x-user-role"))
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Acesso negado - apenas Admin e Super Admin cancelam ou reativam inscrições",
         },
-        include: {
-          event: {
-            select: {
-              id: true,
-              title: true,
-              price: true,
-              startDate: true,
+        { status: 403 }
+      );
+    }
+
+    // Atualizar inscrição (cancelamento/reativação e histórico de estorno na
+    // mesma transação)
+    const outcome = await withPrismaRetry(() =>
+      prisma.$transaction(async (tx) => {
+        if (reactivating) {
+          await lockRow(tx, "events", existingRegistration.eventId);
+          if (
+            status !== "PAYMENT_FAILED" &&
+            !(await hasRoomToReactivate(tx, existingRegistration))
+          ) {
+            return { roomFull: true as const };
+          }
+        }
+
+        const updated = await tx.registration.update({
+          where: { id: params.id },
+          data: {
+            ...(name && { name }),
+            ...(email !== undefined && { email: email || null }),
+            ...(cpf && { cpf: cpf.replace(/\D/g, "") }),
+            ...(phone !== undefined && {
+              phone: phone ? phone.replace(/\D/g, "") : null,
+            }),
+            ...(status && { status }),
+            ...(paymentMethod && { paymentMethod }),
+            ...(dynamicFormData !== undefined && {
+              dynamicFormData: (dynamicFormData ??
+                Prisma.JsonNull) as Prisma.InputJsonValue,
+            }),
+            ...(notes !== undefined && { notes: notes ?? null }),
+            manualPaymentType: effectiveType ?? null,
+            cashResponsible: effectiveResponsible ?? null,
+            ...(shirtSelection
+              ? {
+                  wantsShirt: shirtSelection.wantsShirt,
+                  shirtSize: shirtSelection.shirtSize,
+                }
+              : {}),
+          },
+          include: {
+            event: {
+              select: {
+                id: true,
+                title: true,
+                price: true,
+                startDate: true,
+              },
             },
           },
-        },
-      })
+        });
+
+        // Só cancelamento de inscrição confirmada gera histórico de estorno.
+        if (cancelling && existingRegistration.status === "CONFIRMED") {
+          await recordAdminCancellation(tx, updated, adminId);
+        } else if (reactivating) {
+          await closeRequestsOnReactivation(tx, updated, adminId);
+        }
+        return { roomFull: false as const, updated };
+      }, { maxWait: 5000, timeout: 15000 })
     );
+
+    if (outcome.roomFull) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Não há vagas disponíveis para reativar esta inscrição",
+        },
+        { status: 409 }
+      );
+    }
+    const updatedRegistration = outcome.updated;
 
     return NextResponse.json({
       success: true,

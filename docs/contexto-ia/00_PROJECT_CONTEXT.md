@@ -64,6 +64,7 @@ priorizar, nesta ordem:
 - Gestão de inscrições (filtros, edição, inscrição manual, exportação,
   relatórios de impressão com listas por tamanho de camisa).
 - Financeiro (`/admin/financial`).
+- Solicitações de estorno (`/admin/refund-requests`, só `ADMIN`/`SUPER_ADMIN`).
 - Usuários (`/admin/users`, restrito por papel).
 
 ### Check-in (`/checkin`)
@@ -135,6 +136,12 @@ Detalhe completo e autoritativo em `docs/FLUXO_INSCRICAO.md`.
   `$transaction` com lock (`lockRow`, `FOR UPDATE`). Webhook `ord_` é idempotente,
   valida o total recalculado e recusa link obsoleto. Detalhe em
   `docs/FLUXO_INSCRICAO.md`.
+- **Cancelamento e estorno** (`RefundRequest`): estorno é **manual** no app da
+  InfinitePay (não existe API); o sistema registra pedido, contato e conclusão.
+  Participante pede pelo comprovante (`POST|DELETE registrations/{id}/refund-request`,
+  pública, validada por CPF, sem dados pessoais na resposta); só ADMIN+ gerencia
+  (`/api/admin/refund-requests`) e cancela/reativa inscrições. Estorno é por
+  participante, inclusive em pedido em grupo. Detalhe em `docs/FLUXO_INSCRICAO.md`.
 - Webhook InfinitePay não tem assinatura/HMAC (limitação do produto): validação
   = `order_nsu` corresponde a `Registration` real + `paid_amount` cobre o valor
   recalculado. Não inventar secret.

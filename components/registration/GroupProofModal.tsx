@@ -70,6 +70,7 @@ export function GroupProofModal({ open, onClose, data }: GroupProofModalProps) {
         wantsShirt: r.wantsShirt,
         shirtSize: r.shirtSize,
         eventHasShirt: r.eventHasShirt,
+        refundRequest: r.refundRequest ?? null,
         event: {
           title: r.event.title,
           price: r.event.price,

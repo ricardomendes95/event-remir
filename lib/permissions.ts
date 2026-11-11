@@ -57,6 +57,7 @@ const routeRules: RouteRule[] = [
   // Páginas
   { prefix: "/admin/users", roles: ["SUPER_ADMIN"] },
   { prefix: "/admin/financial", roles: ["SUPER_ADMIN", "ADMIN"] },
+  { prefix: "/admin/refund-requests", roles: ["SUPER_ADMIN", "ADMIN"] },
   { prefix: "/admin/events", roles: ["SUPER_ADMIN", "ADMIN", "SUPPORT"] },
   {
     prefix: "/admin/registrations",
@@ -68,6 +69,7 @@ const routeRules: RouteRule[] = [
   // APIs
   { prefix: "/api/admin/users", roles: ["SUPER_ADMIN"] },
   { prefix: "/api/admin/financial", roles: ["SUPER_ADMIN", "ADMIN"] },
+  { prefix: "/api/admin/refund-requests", roles: ["SUPER_ADMIN", "ADMIN"] },
   { prefix: "/api/admin/dashboard", roles: ALL_ROLES },
   {
     prefix: "/api/admin/registrations/manual",

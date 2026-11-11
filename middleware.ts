@@ -49,8 +49,19 @@ export async function middleware(request: NextRequest) {
     /^\/api\/registrations\/[^\/]+\/leave-order$/
   );
 
+  // Pedido/desistência de cancelamento: público, mas exige o CPF da própria
+  // inscrição e responde sem dados pessoais (mesma superfície da busca por CPF)
+  const isRefundRequestRoute = pathname.match(
+    /^\/api\/registrations\/[^\/]+\/refund-request$/
+  );
+
   // Se for rota pública, deixar passar
-  if (isPublicRoute || isBySlugRoute || isLeaveOrderRoute) {
+  if (
+    isPublicRoute ||
+    isBySlugRoute ||
+    isLeaveOrderRoute ||
+    isRefundRequestRoute
+  ) {
     return NextResponse.next();
   }
 

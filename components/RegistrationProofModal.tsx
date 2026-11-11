@@ -26,6 +26,17 @@ interface RegistrationProof {
   shirtSize?: string | null;
   /** Indica se o evento oferece camisa (para exibir a linha no comprovante). */
   eventHasShirt?: boolean;
+  /** Pedido de cancelamento mais recente do próprio participante. */
+  refundRequest?: {
+    status: "OPEN" | "IN_CONTACT" | "RESOLVED";
+    resolution:
+      | "REFUNDED"
+      | "DENIED"
+      | "WITHDRAWN"
+      | "CANCELLED_NO_REFUND"
+      | null;
+    createdAt: string;
+  } | null;
   event: {
     title: string;
     price: number;
@@ -51,6 +62,10 @@ export function RegistrationProofModal({
   );
   const [searched, setSearched] = useState(!!preloadedData);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSending, setCancelSending] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   // Atualizar registration quando preloadedData mudar
   useEffect(() => {
@@ -189,11 +204,91 @@ export function RegistrationProofModal({
     }
   };
 
+  const setRefundRequest = (refundRequest: RegistrationProof["refundRequest"]) =>
+    setRegistration((prev) => (prev ? { ...prev, refundRequest } : prev));
+
+  const handleRequestCancel = async () => {
+    if (!registration) return;
+    const reason = cancelReason.trim();
+    if (reason.length < 5) {
+      message.warning("Conte em poucas palavras o motivo do cancelamento");
+      return;
+    }
+    try {
+      setCancelSending(true);
+      const response = await fetch(
+        `/api/registrations/${registration.id}/refund-request`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cpf: registration.cpf, reason }),
+        }
+      );
+      const result = await response.json().catch(() => null);
+      const sent = {
+        status: "OPEN" as const,
+        resolution: null,
+        createdAt: new Date().toISOString(),
+      };
+      if (response.ok) {
+        message.success(
+          "Recebemos sua solicitação. Entraremos em contato pelo WhatsApp."
+        );
+      } else if (response.status === 409) {
+        message.info(result?.error ?? "Já recebemos sua solicitação.");
+      } else {
+        message.error(
+          result?.error ?? "Não foi possível enviar. Tente novamente."
+        );
+        return;
+      }
+      setRefundRequest(sent);
+      setCancelOpen(false);
+      setCancelReason("");
+    } catch {
+      message.error("Não foi possível enviar. Tente novamente.");
+    } finally {
+      setCancelSending(false);
+    }
+  };
+
+  const handleWithdrawCancel = async () => {
+    if (!registration) return;
+    try {
+      setWithdrawing(true);
+      const response = await fetch(
+        `/api/registrations/${registration.id}/refund-request`,
+        {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cpf: registration.cpf }),
+        }
+      );
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        message.error(result?.error ?? "Não foi possível desistir agora.");
+        return;
+      }
+      message.success("Pedido encerrado. Sua inscrição segue ativa.");
+      setRefundRequest({
+        status: "RESOLVED",
+        resolution: "WITHDRAWN",
+        createdAt: new Date().toISOString(),
+      });
+    } catch {
+      message.error("Não foi possível desistir agora. Tente novamente.");
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   const handleClose = () => {
     form.resetFields();
     setRegistration(null);
     setSearched(false);
     setQrCodeUrl("");
+    setCancelOpen(false);
+    setCancelReason("");
     onClose();
   };
 
@@ -422,9 +517,19 @@ export function RegistrationProofModal({
             {registration.status !== "CONFIRMED" && (
               <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                 <p className="text-orange-800">
-                  Esta inscrição ainda está com o pagamento pendente. Clique no
-                  botão <b>&quot;Continuar Pagamento&quot;</b> para finalizar
-                  sua inscrição.
+                  {registration.status === "CANCELLED" ? (
+                    <>
+                      Esta inscrição foi cancelada. Para participar, toque em{" "}
+                      <b>&quot;Continuar Pagamento&quot;</b> e faça a inscrição
+                      novamente.
+                    </>
+                  ) : (
+                    <>
+                      Esta inscrição ainda está com o pagamento pendente.
+                      Clique no botão <b>&quot;Continuar Pagamento&quot;</b>{" "}
+                      para finalizar sua inscrição.
+                    </>
+                  )}
                 </p>
               </div>
             )}
@@ -453,6 +558,55 @@ export function RegistrationProofModal({
                 )}
               </div>
             </div>
+
+            {registration.status === "CONFIRMED" &&
+              (() => {
+                const req = registration.refundRequest;
+                const active =
+                  req?.status === "OPEN" || req?.status === "IN_CONTACT";
+                if (active) {
+                  return (
+                    <div
+                      className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex flex-col gap-3"
+                      data-testid="refund-active"
+                    >
+                      <p className="text-blue-900">
+                        <b>Pedido de cancelamento em análise.</b> A organização
+                        vai entrar em contato com você. Sua inscrição continua
+                        valendo até lá.
+                      </p>
+                      <Button
+                        block
+                        loading={withdrawing}
+                        onClick={handleWithdrawCancel}
+                        style={{ minHeight: 44 }}
+                      >
+                        Desistir do cancelamento
+                      </Button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-col gap-3">
+                    {req?.status === "RESOLVED" &&
+                      req.resolution === "DENIED" && (
+                        <p className="text-sm text-gray-700 p-3 bg-gray-100 rounded-lg">
+                          Seu último pedido de cancelamento não foi aprovado.
+                          Sua inscrição segue ativa. Em caso de dúvida, fale com
+                          a organização do evento.
+                        </p>
+                      )}
+                    <Button
+                      danger
+                      block
+                      onClick={() => setCancelOpen(true)}
+                      style={{ minHeight: 44 }}
+                    >
+                      Solicitar cancelamento
+                    </Button>
+                  </div>
+                );
+              })()}
 
             <Descriptions
               title="Dados do Evento"
@@ -555,6 +709,32 @@ export function RegistrationProofModal({
           </div>
         )}
       </div>
+
+      <Modal
+        title="Solicitar cancelamento"
+        open={cancelOpen}
+        onCancel={() => setCancelOpen(false)}
+        onOk={handleRequestCancel}
+        okText="Enviar solicitação"
+        cancelText="Voltar"
+        okButtonProps={{ loading: cancelSending, danger: true }}
+        destroyOnHidden
+      >
+        <p className="text-gray-700 mb-3">
+          Conte o motivo e a organização entrará em contato pelo WhatsApp. Seu
+          pedido será analisado: ele não cancela a inscrição na hora, e a
+          devolução do valor, quando houver, é combinada com a organização e
+          depende do meio de pagamento usado.
+        </p>
+        <Input.TextArea
+          value={cancelReason}
+          onChange={(e) => setCancelReason(e.target.value)}
+          placeholder="Qual o motivo do cancelamento?"
+          rows={4}
+          maxLength={500}
+          showCount
+        />
+      </Modal>
     </Modal>
   );
 }

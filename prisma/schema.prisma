@@ -86,6 +86,7 @@ model Registration {
   batch           EventBatch?      @relation(fields: [batchId], references: [id])
   orderId         String?
   order           Order?           @relation(fields: [orderId], references: [id])
+  refundRequests  RefundRequest[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -126,6 +127,47 @@ model Order {
   @@index([eventId])
   @@index([transactionNsu])
   @@map("orders")
+}
+
+// Solicitação/registro de cancelamento e estorno (req. 12). O estorno é manual
+// no app da InfinitePay (não há API): esta tabela organiza e audita o processo.
+model RefundRequest {
+  id             String              @id @default(cuid())
+  registrationId String
+  registration   Registration        @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  reason         String              @db.Text
+  origin         RefundOrigin        @default(PARTICIPANT)
+  status         RefundRequestStatus @default(OPEN)
+  resolution     RefundResolution?
+  adminNotes     String?             @db.Text
+  refundedAmount Float?
+  refundedAt     DateTime?
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([registrationId])
+  @@index([status])
+  @@map("refund_requests")
+}
+
+enum RefundOrigin {
+  PARTICIPANT
+  ADMIN
+}
+
+enum RefundRequestStatus {
+  OPEN
+  IN_CONTACT
+  RESOLVED
+}
+
+enum RefundResolution {
+  REFUNDED
+  DENIED
+  WITHDRAWN
+  CANCELLED_NO_REFUND
 }
 
 enum OrderType {

@@ -1,6 +1,6 @@
 # Requisito 12 — Cancelamento e estorno
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: 🧪 Implementada e testada no banco local — aguardando aprovação do Ricardo
 - **Ordem no roadmap**: 5ª — depois de permissões (req. 11, ✅)
 - **Requisito original**: `../requisitos.md` (item 12)
 - **RFC escrito em**: 2026-07-24
@@ -133,15 +133,55 @@ Rotas novas admin entram em `adminRoutes` **e** `config.matcher`; as públicas e
 
 - [x] P-04: pesquisa endpoint de estorno InfinitePay → **não existe API; fluxo manual assistido**
 - [x] Análise técnica completa (máquina de estados de 3 níveis)
-- [ ] Q7/Q8/Q9 respondidas pelo Ricardo
-- [ ] Schema (`RefundRequest`) + `db push`
-- [ ] Backend (rotas públicas e admin, permissões, transações)
-- [ ] Frontend (comprovante, tela de solicitações, WhatsApp)
-- [ ] Reativação por CPF sem duplicidade
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Q7/Q8/Q9 respondidas (ADR-003): Q7 sim (origem administrativa), Q8 página própria, Q9 ADMIN+
+- [x] Schema (`RefundRequest`) + `db push`
+- [x] Backend (rotas públicas e admin, permissões, transações)
+- [x] Frontend (comprovante, tela de solicitações, WhatsApp)
+- [x] Reativação por CPF sem duplicidade
+- [x] Testes no servidor local (API); E2E em viewport mobile fica para o teste final
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+**Implementado (2026-11-11).**
+
+**Arquivos**
+- `prisma/schema.prisma`: `RefundRequest` + enums `RefundOrigin`, `RefundRequestStatus`, `RefundResolution`; relação `Registration.refundRequests`.
+- `backend/schemas/refundSchemas.ts`, `backend/services/refundService.ts`, `backend/controllers/RefundRequestController.ts`.
+- Rotas: `app/api/registrations/[id]/refund-request` (POST/DELETE, públicas), `app/api/admin/refund-requests` (GET) e `[id]` (PATCH).
+- `app/api/registrations/[id]/route.ts` (PUT): cancelar/reativar só ADMIN+, histórico administrativo, checagem de vaga na reativação.
+- `search-by-cpf` e `get-by-id`: devolvem `refundRequest` (status/resolução, sem motivo nem notas).
+- `middleware.ts` (rota pública do participante), `lib/permissions.ts` (matriz).
+- UI: `components/RegistrationProofModal.tsx` (solicitar/desistir), `components/registration/GroupProofModal.tsx` (repasse do estado), `app/admin/refund-requests/page.tsx`, atalho "Estornos" em `app/admin/page.tsx`.
+
+**Decisões**
+- Máquina de estados do RFC mantida (`OPEN → IN_CONTACT → RESOLVED`); sem novo valor em `RegistrationStatus`.
+- **Pedido em grupo: estorno por participante**, não pelo pedido inteiro. O valor sugerido/limite é o da própria inscrição (`resolveBaseValue`, lote e camisa), o `Order` não muda de status nem de total e recebe só uma entrada em `paymentDetails.history[]` (`refund_registered`, `registration_cancelled`, `registration_reactivated`). Cada pessoa tem comprovante e CPF próprios; o pedido segue válido para as demais.
+- Inscrição legada (sem `Order`) usa a mesma lógica; nada específico.
+- Q7: cancelamento direto (PUT com `CANCELLED` sobre inscrição `CONFIRMED`) cria `RefundRequest` com `origin = ADMIN`: `OPEN` quando pode haver dinheiro a devolver, já `RESOLVED/CANCELLED_NO_REFUND` quando a inscrição é gratuita. Não duplica se já houver solicitação em andamento.
+- Q9: rotas `/api/admin/refund-requests*` e página `/admin/refund-requests` só ADMIN/SUPER_ADMIN (matriz + guarda no controller). Além disso, mudar uma inscrição para ou a partir de `CANCELLED` pelo PUT passou a exigir ADMIN+ (SUPPORT continua editando os demais campos).
+- P-05: a listagem devolve `phoneE164` (`toBrazilE164`) e a tela monta o link `wa.me` com mensagem pronta.
+- Participante: só inscrição `CONFIRMED` pode pedir; resposta pública idêntica (404) para "não existe" e "CPF não confere"; texto sem promessa de devolução ("depende do meio de pagamento"); desistir só enquanto a inscrição ainda está ativa.
+- Reativação: pela tela de solicitações (ação `reactivate`) ou pelo PUT; exige vaga (evento e quota do lote, sob lock do evento). Solicitação com resolução `REFUNDED` não reativa: o participante paga de novo pelo CPF (fluxo existente de `create-preference`).
+
+**Desvios do RFC**
+- Campos extras: `RefundRequest.origin` (Q7), `resolvedAt`, e resolução `CANCELLED_NO_REFUND` (cancelar sem estorno: inscrição gratuita, dinheiro/manual ou acordo sem devolução). O RFC só previa `REFUNDED | DENIED | WITHDRAWN`.
+- Ação "Reabrir" cobre apenas pedidos negados/desistidos com a inscrição ativa.
+- `adminRoutes` e `config.matcher` do middleware já cobriam `/admin` e `/api/admin`; só a matriz de permissões e a rota pública do participante foram alteradas.
+- Item 7 do plano (ações rápidas na tela de inscrições, req. 9): o cancelamento pelo `RegistrationModal` existente já dispara o histórico (Q7); botão dedicado fica para o req. 9.
+
+**Testes (servidor local, banco local, dados apagados ao fim)**
+- Participante: CPF errado/id inexistente 404 idêntico; motivo curto 422; criar 201; duplicada 409; desistir 200; desistir sem pedido 404; `search-by-cpf` devolve o estado do pedido.
+- Admin: marcar contato; estorno sem confirmação 422; valor acima do pago 422; estorno registrado cancela a inscrição, grava `resolvedById`/valor e histórico do pedido; repetir 409; reativar estornada 409; negar, reabrir, cancelar sem estorno, reativar (inscrição legada).
+- Pedido em grupo: estorno de uma pessoa deixa a outra `CONFIRMED`; cancelamento direto da segunda gera solicitação administrativa e entrada no histórico do pedido.
+- Vaga: ocupadas 2 → 1 após cancelar; reativar com evento lotado 409; com vaga 200 e solicitação encerrada como desistência.
+- Permissões: CHECKIN e SUPPORT 403 em GET/PATCH das rotas de estorno e redirecionados na página; anônimo 401; SUPPORT 403 ao cancelar/reativar pelo PUT, 200 ao editar nome; CHECKIN 403 no PUT.
+- Inscrição gratuita cancelada pelo admin nasce `RESOLVED/CANCELLED_NO_REFUND`.
+- `tsc`, `lint` (sem avisos novos) e `build` limpos.
+
+**Pendências**
+- Teste visual/E2E em viewport mobile e no navegador do Instagram (modal de pedido e tela de estorno) no teste final.
+- Financeiro (req. 10) e auditoria (req. 6) devem ler `RefundRequest` com `resolution = REFUNDED` como saída/estorno.
+- Sem rate limiting na rota pública (débito conhecido); proteção é CPF + uma solicitação aberta por inscrição.
+- `db push` no Supabase no deploy (tabela e enums novos, aditivo).

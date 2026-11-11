@@ -10,6 +10,12 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 
 ---
 
+## 2026-11-11 — Req. 12 (cancelamento e estorno)
+
+Modelo `RefundRequest` (aditivo, banco local), rotas públicas do participante (pedir/desistir, validadas por CPF), tela admin `/admin/refund-requests` (WhatsApp, contato, negar, registrar estorno manual, cancelar sem estorno, reativar), cancelamento direto gerando histórico administrativo e restrição a ADMIN+. Estorno por participante, inclusive em pedido em grupo. Testado na API local; E2E mobile fica para o teste final. Aguardando aprovação do Ricardo.
+
+---
+
 ## 2026-11-11 — Req. 2 (inscrição em lote): frontend
 
 Extensão inline do `EventRegistrationModal` (checkbox, quantidade, cartões recolhíveis, camisa por pessoa, total), Opção C, comprovante consolidado, toggle e tag de grupo no admin. Testado em desktop no servidor local com gateway simulado; E2E em viewport mobile e no navegador do Instagram ficam para o teste final. Aguardando aprovação do Ricardo.

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
+import { getParticipantRefundView } from "@/backend/services/refundService";
 
 const searchSchema = z.object({
   cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(11, "CPF inválido"),
@@ -81,6 +82,8 @@ export async function POST(request: NextRequest) {
         }
       : null;
 
+    const refundRequest = await getParticipantRefundView(registration.id);
+
     // Formatear resposta
     const response = {
       id: registration.id,
@@ -99,6 +102,7 @@ export async function POST(request: NextRequest) {
         registration.event.shirtConfig as { enabled?: boolean } | null
       )?.enabled,
       amountPaid,
+      refundRequest,
       event: {
         title: registration.event.title,
         price: Number(registration.event.price),
