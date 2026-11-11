@@ -114,3 +114,16 @@ const farOther = reconcile(
 );
 assert.equal(farOther.results[0].status, "UNMATCHED");
 assert.equal(farOther.results[0].suggestions[0]?.candidateId, "registration:beatriz");
+
+// Mesma pessoa, pedidos iguais em sequência (dentro de 30 min): o horário exato desempata
+const seq = reconcile(
+  [
+    { key: "s1", kind: "PIX_RECEIVED", payerName: "Mariana Costa Lima", amountCents: 18000, paidAt: brt("2026-07-10T14:13:19") },
+    { key: "s2", kind: "PIX_RECEIVED", payerName: "Mariana Costa Lima", amountCents: 18000, paidAt: brt("2026-07-10T14:27:09") },
+  ],
+  [
+    { id: "order:a", names: ["Mariana Costa Lima"], amountsCents: [18000], paidAt: brt("2026-07-10T14:13:19"), paidAtExact: true, channel: "PIX" },
+    { id: "order:b", names: ["Mariana Costa Lima"], amountsCents: [18000], paidAt: brt("2026-07-10T14:27:09"), paidAtExact: true, channel: "PIX" },
+  ]
+);
+assert.deepEqual(seq.results.map((r) => [r.status, r.candidateId]), [["MATCHED", "order:a"], ["MATCHED", "order:b"]]);

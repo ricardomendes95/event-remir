@@ -442,7 +442,7 @@ export default function RegistrationTable({
           </Title>
           <Badge count={pagination.total} showZero color="#1890ff" />
         </div>
-        <Space>
+        <Space wrap>
           {showValues && (
             <Tooltip
               title={printDisabled ? "Selecione um evento específico para imprimir" : "Imprimir lista de inscrições"}

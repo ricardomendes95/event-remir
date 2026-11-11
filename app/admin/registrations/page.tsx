@@ -254,20 +254,30 @@ export default function RegistrationsPage() {
   // Buscar eventos para o seletor e o formulário
   const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetch("/api/events?limit=100");
+      const response = await fetch("/api/events?limit=100&includeStats=true");
       const data = await response.json();
 
       if (data.success) {
         const items: Event[] = data.data.items || [];
         setEvents(items);
-        // Restaura o último evento escolhido nesta sessão (se ainda existir)
+        // Restaura o último evento escolhido nesta sessão (se ainda existir);
+        // sem escolha anterior, abre no evento ativo mais recente, como o painel.
+        let saved: string | null = null;
         try {
-          const saved = sessionStorage.getItem(EVENT_STORAGE_KEY);
-          if (saved && items.some((e) => e.id === saved)) {
-            setEventFilter(saved);
-          }
+          saved = sessionStorage.getItem(EVENT_STORAGE_KEY);
         } catch {
           // sessionStorage indisponível: segue sem lembrar a seleção
+        }
+        if (saved && items.some((e) => e.id === saved)) {
+          setEventFilter(saved);
+        } else {
+          const latestActive = items
+            .filter((e) => e.isActive)
+            .sort(
+              (a, b) =>
+                new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+            )[0];
+          if (latestActive) setEventFilter(latestActive.id);
         }
       }
     } catch (error) {

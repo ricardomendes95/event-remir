@@ -161,7 +161,13 @@ export function reconcile(
       e.amountOk && e.timeOk && e.nameScore >= opts.minNameSimilarity;
 
     const fresh = evals.filter((e) => !consumed.has(e.candidate.id));
-    const strongFresh = fresh.filter(strong);
+    let strongFresh = fresh.filter(strong);
+    // Vários candidatos fortes (mesma pessoa pagando pedidos iguais em sequência):
+    // o horário exato desempata quando aponta um único.
+    if (strongFresh.length > 1) {
+      const exactStrong = strongFresh.filter((e) => e.exactTime);
+      if (exactStrong.length === 1) strongFresh = exactStrong;
+    }
 
     if (strongFresh.length === 1) {
       const c = strongFresh[0].candidate;

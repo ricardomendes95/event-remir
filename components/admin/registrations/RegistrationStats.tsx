@@ -45,13 +45,13 @@ export default function RegistrationStats({
     >
       <div
         style={{
-          display: "flex",
-          gap: "16px",
-          minWidth: "560px", // 5 cards × 112px cada
+          display: "grid",
+          gap: "12px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
           width: "100%",
         }}
       >
-        <div style={{ minWidth: "178px", flex: "1" }}>
+        <div>
           <Card>
             <Statistic
               title="Total de Inscrições"
@@ -60,7 +60,7 @@ export default function RegistrationStats({
             />
           </Card>
         </div>
-        <div style={{ minWidth: "178px", flex: "1" }}>
+        <div>
           <Card>
             <Statistic
               title="Confirmadas"
@@ -70,7 +70,7 @@ export default function RegistrationStats({
             />
           </Card>
         </div>
-        <div style={{ minWidth: "178px", flex: "1" }}>
+        <div>
           <Card>
             <Statistic
               title="Pendentes"
@@ -81,7 +81,7 @@ export default function RegistrationStats({
           </Card>
         </div>
         {showRevenue && (
-          <div style={{ minWidth: "178px", flex: "1" }}>
+          <div>
             <Card>
               <Statistic
                 title="Inscritos no Site"
@@ -96,7 +96,7 @@ export default function RegistrationStats({
           </div>
         )}
         {showRevenue && (
-          <div style={{ minWidth: "178px", flex: "1" }}>
+          <div>
             <Card>
               <Statistic
                 title="Receita Total"
@@ -111,7 +111,7 @@ export default function RegistrationStats({
           </div>
         )}
         {stats.openRefunds != null && (
-          <div style={{ minWidth: "178px", flex: "1" }}>
+          <div>
             <Card>
               <Statistic
                 title="Estornos em aberto"
