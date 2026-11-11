@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { Layout } from "antd";
 import { usePathname } from "next/navigation";
-import AdminHeader from "../../components/admin/AdminHeader";
+import AdminShell from "@/components/admin/shell/AdminShell";
 
-const { Content } = Layout;
+// Telas fora do shell (sem menu)
+const PAGES_WITHOUT_SHELL = ["/admin/login", "/admin/access-denied"];
 
 export default function AdminLayout({
   children,
@@ -14,25 +14,9 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
 
-  // Páginas que não devem ter o AdminHeader
-  const pagesWithoutHeader = ["/admin/login", "/admin/access-denied"];
-  const shouldShowHeader = !pagesWithoutHeader.includes(pathname);
-
-  if (!shouldShowHeader) {
+  if (PAGES_WITHOUT_SHELL.includes(pathname)) {
     return <>{children}</>;
   }
 
-  return (
-    <Layout style={{ minHeight: "100vh" }}>
-      <AdminHeader />
-      <Content
-        style={{
-          padding: 0,
-          background: "#f5f5f5",
-        }}
-      >
-        {children}
-      </Content>
-    </Layout>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

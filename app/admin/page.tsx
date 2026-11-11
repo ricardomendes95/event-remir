@@ -1,33 +1,38 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
+  Button,
   Card,
   Col,
+  Empty,
   List,
   Progress,
   Row,
   Select,
+  Skeleton,
   Spin,
   Statistic,
-  Table,
   Tag,
   Typography,
 } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import {
-  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
   DollarOutlined,
   EyeOutlined,
   QrcodeOutlined,
-  RiseOutlined,
+  ReloadOutlined,
   RollbackOutlined,
-  SettingOutlined,
+  TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../hooks/useAuth";
-import { canAccessPath, canViewFinancialValues } from "../../lib/permissions";
+import { canViewFinancialValues } from "../../lib/permissions";
+import { menuForRole } from "../../components/admin/shell/adminMenu";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
@@ -35,37 +40,46 @@ dayjs.locale("pt-br");
 
 const { Title, Text } = Typography;
 
-interface DashboardKPIs {
-  totalRegistrations: number;
-  confirmedRevenue: number;
-  activeEvents: number;
-  last7DaysRegistrations: number;
-}
+// Mesma chave da tela de inscrições (req. 9): o evento escolhido é lembrado na sessão
+const EVENT_STORAGE_KEY = "admin.registrations.eventId";
 
-interface UpcomingEvent {
+interface EventOption {
   id: string;
   title: string;
   startDate: string;
-  price: number;
-  isFree: boolean;
-  maxParticipants: number;
-  confirmedCount: number;
-  occupancyPercent: number;
-}
-
-interface RecentRegistration {
-  id: string;
-  name: string;
-  status: string;
-  paymentMethod: string;
-  createdAt: string;
-  eventTitle: string;
+  isActive: boolean;
 }
 
 interface DashboardData {
-  kpis: DashboardKPIs;
-  upcomingEvents: UpcomingEvent[];
-  recentRegistrations: RecentRegistration[];
+  events: EventOption[];
+  selectedEventId: string | null;
+  event: {
+    id: string;
+    title: string;
+    startDate: string;
+    isActive: boolean;
+    isFree: boolean;
+    maxParticipants: number;
+    hasShirt: boolean;
+  } | null;
+  stats?: {
+    total: number;
+    confirmed: number;
+    pending: number;
+    cancelled: number;
+    spotsLeft: number;
+    checkedIn: number;
+  };
+  shirtsBySize?: { size: string; count: number }[];
+  recentRegistrations?: {
+    id: string;
+    name: string;
+    status: string;
+    paymentMethod: string;
+    createdAt: string;
+  }[];
+  // Só presente para SUPER_ADMIN/ADMIN
+  financial?: { net: number; gross: number; openRefunds: number };
 }
 
 interface TopPage {
@@ -99,156 +113,54 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   PAYMENT_FAILED: { color: "red", label: "Falha" },
 };
 
-const PAYMENT_LABEL: Record<string, string> = {
-  FREE: "Gratuito",
-  MANUAL: "Manual",
-  INFINITE_PAY: "InfinitePay",
-  MERCADO_PAGO: "MercadoPago",
-};
+const formatBRL = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const NAV_ITEMS = [
-  {
-    path: "/admin/events",
-    label: "Eventos",
-    icon: <CalendarOutlined className="text-blue-500" />,
-  },
-  {
-    path: "/admin/registrations",
-    label: "Inscrições",
-    icon: <UserOutlined className="text-green-500" />,
-  },
-  {
-    path: "/admin/financial",
-    label: "Financeiro",
-    icon: <DollarOutlined className="text-yellow-500" />,
-  },
-  {
-    path: "/admin/refund-requests",
-    label: "Estornos",
-    icon: <RollbackOutlined className="text-red-500" />,
-  },
-  {
-    path: "/admin/users",
-    label: "Usuários",
-    icon: <SettingOutlined className="text-purple-500" />,
-  },
-  {
-    path: "/checkin",
-    label: "Check-in",
-    icon: <QrcodeOutlined className="text-cyan-500" />,
-  },
-];
-
-const upcomingColumns: ColumnsType<UpcomingEvent> = [
-  {
-    title: "Evento",
-    dataIndex: "title",
-    key: "title",
-    ellipsis: true,
-  },
-  {
-    title: "Data",
-    dataIndex: "startDate",
-    key: "startDate",
-    width: 100,
-    render: (v: string) => dayjs(v).format("DD/MM/YYYY"),
-  },
-  {
-    title: "Preço",
-    dataIndex: "price",
-    key: "price",
-    width: 90,
-    render: (price: number, record: UpcomingEvent) =>
-      record.isFree ? "Gratuito" : `R$ ${price.toFixed(2).replace(".", ",")}`,
-  },
-  {
-    title: "Ocupação",
-    key: "occupancy",
-    width: 140,
-    render: (_: unknown, record: UpcomingEvent) => {
-      const strokeColor =
-        record.occupancyPercent >= 90
-          ? "#ff4d4f"
-          : record.occupancyPercent >= 70
-            ? "#faad14"
-            : "#1890ff";
-      return (
-        <div>
-          <Text style={{ fontSize: 12 }}>
-            {record.confirmedCount}/{record.maxParticipants}
-          </Text>
-          <Progress
-            percent={record.occupancyPercent}
-            size="small"
-            strokeColor={strokeColor}
-            showInfo={false}
-          />
-        </div>
-      );
-    },
-  },
-];
-
-const recentColumns: ColumnsType<RecentRegistration> = [
-  {
-    title: "Participante",
-    key: "participant",
-    ellipsis: true,
-    render: (_: unknown, record: RecentRegistration) => (
-      <div>
-        <div style={{ fontWeight: 500 }}>{record.name}</div>
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          {record.eventTitle}
-        </Text>
-      </div>
-    ),
-  },
-  {
-    title: "Status",
-    dataIndex: "status",
-    key: "status",
-    width: 100,
-    render: (status: string) => {
-      const cfg = STATUS_CONFIG[status] ?? { color: "default", label: status };
-      return <Tag color={cfg.color}>{cfg.label}</Tag>;
-    },
-  },
-  {
-    title: "Método",
-    dataIndex: "paymentMethod",
-    key: "paymentMethod",
-    width: 100,
-    render: (method: string) => <Tag>{PAYMENT_LABEL[method] ?? method}</Tag>,
-  },
-  {
-    title: "Data",
-    dataIndex: "createdAt",
-    key: "createdAt",
-    width: 120,
-    render: (v: string) => dayjs(v).format("DD/MM/YYYY HH:mm"),
-  },
-];
+function readSavedEventId(): string | null {
+  try {
+    return sessionStorage.getItem(EVENT_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export default function AdminDashboard() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [pvData, setPvData] = useState<PageViewData | null>(null);
   const [pvLoading, setPvLoading] = useState(true);
   const [pvPeriod, setPvPeriod] = useState("30d");
 
-  useEffect(() => {
-    fetch("/api/admin/dashboard")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setData(json.data);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  const loadDashboard = useCallback(async (eventId: string | null) => {
+    setLoading(true);
+    setError(false);
+    try {
+      const params = new URLSearchParams();
+      if (eventId) params.set("eventId", eventId);
+      const res = await fetch(`/api/admin/dashboard?${params}`);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      setData(json.data);
+    } catch (err) {
+      console.error(err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
+    loadDashboard(readSavedEventId());
+  }, [loadDashboard]);
+
+  const role = user?.role;
+  const showFinancials = canViewFinancialValues(role);
+
+  useEffect(() => {
+    if (!showFinancials) return;
     setPvLoading(true);
     const { start, end } = getPeriodDates(pvPeriod);
     const params = new URLSearchParams({
@@ -262,188 +174,334 @@ export default function AdminDashboard() {
       })
       .catch(console.error)
       .finally(() => setPvLoading(false));
-  }, [pvPeriod]);
+  }, [pvPeriod, showFinancials]);
 
-  // Perfil define o que aparece (ADR-002): navegação, receita e analytics
-  const role = user?.role;
-  const showFinancials = canViewFinancialValues(role);
-  const navItems = NAV_ITEMS.filter((item) =>
-    canAccessPath(item.path, "GET", role)
+  const handleEventChange = (eventId: string) => {
+    try {
+      sessionStorage.setItem(EVENT_STORAGE_KEY, eventId);
+    } catch {
+      // sessionStorage indisponível: segue sem lembrar a seleção
+    }
+    loadDashboard(eventId);
+  };
+
+  const shortcuts = menuForRole(role).filter(
+    (item) => item.shortcut && item.path !== "/checkin"
   );
-  const eventColumns = showFinancials
-    ? upcomingColumns
-    : upcomingColumns.filter((column) => column.key !== "price");
+  const canCheckin = menuForRole(role).some((item) => item.path === "/checkin");
+  const isCheckinOnly = role === "CHECKIN";
 
-  if (loading || authLoading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "50vh",
-        }}
-      >
-        <Spin size="large" />
-      </div>
-    );
-  }
+  const { event, stats } = data ?? {};
+  const eventSelector = (
+    <Select
+      value={data?.selectedEventId ?? undefined}
+      onChange={handleEventChange}
+      loading={loading}
+      disabled={!data?.events.length}
+      placeholder="Selecione o evento"
+      style={{ width: "100%", maxWidth: 420 }}
+      size="large"
+      showSearch
+      optionFilterProp="label"
+      options={(data?.events ?? []).map((e) => ({
+        value: e.id,
+        label: `${e.title} (${dayjs(e.startDate).format("DD/MM/YYYY")})${
+          e.isActive ? "" : " - inativo"
+        }`,
+      }))}
+    />
+  );
 
   return (
-    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-      <div className="mb-6">
-        <Title level={2} style={{ marginBottom: 4 }}>
+    <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+      <div className="mb-4">
+        <Title level={3} style={{ marginBottom: 4 }}>
           Dashboard
         </Title>
-        <Text type="secondary">Visão geral do sistema</Text>
+        {eventSelector}
       </div>
-      {/* Navegação */}
-      <Row gutter={[12, 12]} className="mb-6">
-        {navItems.map((item) => (
-          <Col key={item.path} xs={12} sm={6}>
-            <Card
+
+      {error && (
+        <Alert
+          type="error"
+          showIcon
+          className="mb-4"
+          message="Não foi possível carregar o dashboard"
+          action={
+            <Button
               size="small"
-              className="text-center cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => router.push(item.path)}
+              icon={<ReloadOutlined />}
+              onClick={() => loadDashboard(data?.selectedEventId ?? null)}
             >
-              <div className="text-xl mb-1">{item.icon}</div>
-              <Text style={{ fontSize: 13, fontWeight: 500 }}>
-                {item.label}
-              </Text>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+              Tentar novamente
+            </Button>
+          }
+        />
+      )}
 
-      {/* KPI Cards */}
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Total de Inscrições"
-              value={data?.kpis.totalRegistrations ?? 0}
-              prefix={<UserOutlined />}
-            />
-          </Card>
-        </Col>
-        {showFinancials && (
-          <Col xs={12} sm={12} md={6}>
-            <Card>
-              <Statistic
-                title="Receita Confirmada"
-                value={data?.kpis.confirmedRevenue ?? 0}
-                precision={2}
-                prefix={<DollarOutlined style={{ color: "#52c41a" }} />}
-                valueStyle={{ color: "#52c41a" }}
-                suffix="R$"
-              />
-            </Card>
-          </Col>
-        )}
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Eventos Ativos"
-              value={data?.kpis.activeEvents ?? 0}
-              prefix={<CalendarOutlined style={{ color: "#1890ff" }} />}
-              valueStyle={{ color: "#1890ff" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Inscrições (7 dias)"
-              value={data?.kpis.last7DaysRegistrations ?? 0}
-              prefix={<RiseOutlined style={{ color: "#722ed1" }} />}
-              valueStyle={{ color: "#722ed1" }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {/* Atalhos por perfil */}
+      {!authLoading && canCheckin && (
+        <Button
+          type="primary"
+          size="large"
+          block
+          icon={<QrcodeOutlined />}
+          onClick={() => router.push("/checkin")}
+          className="mb-4"
+          style={{ height: isCheckinOnly ? 88 : 56, fontSize: isCheckinOnly ? 22 : 16 }}
+        >
+          Abrir check-in
+        </Button>
+      )}
+      {!isCheckinOnly && (
+        <Row gutter={[12, 12]} className="mb-4">
+          {shortcuts.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Col key={item.path} xs={12} sm={8} md={6} lg={4}>
+                <Card
+                  size="small"
+                  hoverable
+                  className="text-center"
+                  onClick={() => router.push(item.path)}
+                >
+                  <div className="text-xl mb-1">
+                    <Icon />
+                  </div>
+                  <Text style={{ fontSize: 13, fontWeight: 500 }}>
+                    {item.label}
+                  </Text>
+                </Card>
+              </Col>
+            );
+          })}
+        </Row>
+      )}
 
-      {/* Tabelas */}
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} lg={14}>
-          <Card title="Próximos Eventos">
-            <Table
-              columns={eventColumns}
-              dataSource={data?.upcomingEvents ?? []}
-              rowKey="id"
-              size="small"
-              pagination={false}
-              locale={{ emptyText: "Nenhum evento futuro ativo" }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} lg={10}>
-          <Card title="Últimas Inscrições">
-            <Table
-              columns={recentColumns}
-              dataSource={data?.recentRegistrations ?? []}
-              rowKey="id"
-              size="small"
-              pagination={false}
-              locale={{ emptyText: "Nenhuma inscrição encontrada" }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      {loading && !data && <Skeleton active paragraph={{ rows: 6 }} />}
 
-      {/* Visualizações de Página */}
+      {data && !data.event && (
+        <Card>
+          <Empty description="Nenhum evento cadastrado ainda" />
+        </Card>
+      )}
+
+      {event && stats && (
+        <Spin spinning={loading}>
+          {!event.isActive && (
+            <Alert
+              type="warning"
+              showIcon
+              className="mb-4"
+              message="Este evento está inativo"
+            />
+          )}
+
+          <Row gutter={[12, 12]} className="mb-4">
+            <Col xs={12} md={8} lg={6} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Inscritos"
+                  value={stats.total}
+                  prefix={<UserOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} md={8} lg={6} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Confirmados"
+                  value={stats.confirmed}
+                  prefix={<CheckCircleOutlined />}
+                  valueStyle={{ color: "#52c41a" }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} md={8} lg={6} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Pendentes"
+                  value={stats.pending}
+                  prefix={<ClockCircleOutlined />}
+                  valueStyle={{ color: "#fa8c16" }}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} md={8} lg={6} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Vagas restantes"
+                  value={stats.spotsLeft}
+                  suffix={`/ ${event.maxParticipants}`}
+                  prefix={<TeamOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} md={8} lg={6} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Check-ins"
+                  value={stats.checkedIn}
+                  suffix={`/ ${stats.confirmed}`}
+                  prefix={<QrcodeOutlined />}
+                  valueStyle={{ color: "#13c2c2" }}
+                />
+                <Progress
+                  percent={
+                    stats.confirmed > 0
+                      ? Math.round((stats.checkedIn / stats.confirmed) * 100)
+                      : 0
+                  }
+                  size="small"
+                  showInfo={false}
+                />
+              </Card>
+            </Col>
+            {data?.financial && (
+              <>
+                <Col xs={12} md={8} lg={6} xl={4}>
+                  <Card size="small">
+                    <Statistic
+                      title="Receita líquida"
+                      value={formatBRL(data.financial.net)}
+                      prefix={<DollarOutlined />}
+                      valueStyle={{ color: "#52c41a", fontSize: 20 }}
+                    />
+                  </Card>
+                </Col>
+                <Col xs={12} md={8} lg={6} xl={4}>
+                  <Link href="/admin/refund-requests">
+                    <Card size="small" hoverable>
+                      <Statistic
+                        title="Estornos abertos"
+                        value={data.financial.openRefunds}
+                        prefix={<RollbackOutlined />}
+                        valueStyle={{
+                          color:
+                            data.financial.openRefunds > 0
+                              ? "#ff4d4f"
+                              : undefined,
+                        }}
+                      />
+                    </Card>
+                  </Link>
+                </Col>
+              </>
+            )}
+          </Row>
+
+          <Row gutter={[12, 12]} className="mb-4">
+            {(event.hasShirt || (data?.shirtsBySize?.length ?? 0) > 0) && (
+              <Col xs={24} lg={isCheckinOnly ? 24 : 10}>
+                <Card size="small" title="Camisas confirmadas por tamanho">
+                  {data?.shirtsBySize?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {data.shirtsBySize.map((s) => (
+                        <Tag
+                          key={s.size}
+                          color="blue"
+                          style={{ fontSize: 15, padding: "4px 10px" }}
+                        >
+                          {s.size}: <strong>{s.count}</strong>
+                        </Tag>
+                      ))}
+                    </div>
+                  ) : (
+                    <Text type="secondary">Nenhuma camisa confirmada</Text>
+                  )}
+                </Card>
+              </Col>
+            )}
+            {!isCheckinOnly && (
+              <Col xs={24} lg={14}>
+                <Card size="small" title="Últimas inscrições">
+                  <List
+                    size="small"
+                    dataSource={data?.recentRegistrations ?? []}
+                    locale={{ emptyText: "Nenhuma inscrição neste evento" }}
+                    renderItem={(r) => {
+                      const cfg = STATUS_CONFIG[r.status] ?? {
+                        color: "default",
+                        label: r.status,
+                      };
+                      return (
+                        <List.Item
+                          extra={<Tag color={cfg.color}>{cfg.label}</Tag>}
+                        >
+                          <List.Item.Meta
+                            title={r.name}
+                            description={dayjs(r.createdAt).format(
+                              "DD/MM/YYYY HH:mm"
+                            )}
+                          />
+                        </List.Item>
+                      );
+                    }}
+                  />
+                </Card>
+              </Col>
+            )}
+          </Row>
+        </Spin>
+      )}
+
+      {/* Visualizações de página (só quem vê valores) */}
       {showFinancials && (
-      <Row gutter={[16, 16]} className="mb-6">
-        <Col xs={24} sm={8}>
-          <Card
-            style={{ height: "100%" }}
-            extra={
-              <Select
-                value={pvPeriod}
-                onChange={setPvPeriod}
-                options={PERIOD_OPTIONS}
-                size="small"
-                style={{ width: 160 }}
-              />
-            }
-          >
-            <Spin spinning={pvLoading}>
-              <Statistic
-                title="Visualizações de Página"
-                value={pvData?.totalViews ?? 0}
-                prefix={<EyeOutlined style={{ color: "#13c2c2" }} />}
-                valueStyle={{ color: "#13c2c2" }}
-              />
-            </Spin>
-          </Card>
-        </Col>
-        <Col xs={24} sm={16}>
-          <Card title="Páginas Mais Visitadas">
-            <Spin spinning={pvLoading}>
-              <List
-                size="small"
-                dataSource={pvData?.topPages ?? []}
-                locale={{ emptyText: "Sem dados no período" }}
-                renderItem={(item, index) => (
-                  <List.Item
-                    extra={
-                      <Tag color="cyan">
-                        {item.count.toLocaleString("pt-BR")}
-                      </Tag>
-                    }
-                  >
-                    <Text
-                      style={{ fontSize: 12, fontWeight: index === 0 ? 600 : 400 }}
-                      ellipsis={{ tooltip: item.page }}
+        <Row gutter={[12, 12]} className="mb-6">
+          <Col xs={24} sm={8}>
+            <Card
+              style={{ height: "100%" }}
+              extra={
+                <Select
+                  value={pvPeriod}
+                  onChange={setPvPeriod}
+                  options={PERIOD_OPTIONS}
+                  size="small"
+                  style={{ width: 160 }}
+                />
+              }
+            >
+              <Spin spinning={pvLoading}>
+                <Statistic
+                  title="Visualizações de Página"
+                  value={pvData?.totalViews ?? 0}
+                  prefix={<EyeOutlined style={{ color: "#13c2c2" }} />}
+                  valueStyle={{ color: "#13c2c2" }}
+                />
+              </Spin>
+            </Card>
+          </Col>
+          <Col xs={24} sm={16}>
+            <Card title="Páginas Mais Visitadas">
+              <Spin spinning={pvLoading}>
+                <List
+                  size="small"
+                  dataSource={pvData?.topPages ?? []}
+                  locale={{ emptyText: "Sem dados no período" }}
+                  renderItem={(item, index) => (
+                    <List.Item
+                      extra={
+                        <Tag color="cyan">
+                          {item.count.toLocaleString("pt-BR")}
+                        </Tag>
+                      }
                     >
-                      {item.page}
-                    </Text>
-                  </List.Item>
-                )}
-              />
-            </Spin>
-          </Card>
-        </Col>
-      </Row>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: index === 0 ? 600 : 400,
+                        }}
+                        ellipsis={{ tooltip: item.page }}
+                      >
+                        {item.page}
+                      </Text>
+                    </List.Item>
+                  )}
+                />
+              </Spin>
+            </Card>
+          </Col>
+        </Row>
       )}
     </div>
   );

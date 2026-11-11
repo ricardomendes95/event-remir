@@ -1,6 +1,6 @@
 # Requisito 8 — Novo painel administrativo
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: ✅ Implementado (aguardando aprovação)
 - **Ordem no roadmap**: 11ª — depois do req. 11 (dashboards por perfil, ✅)
 - **Requisito original**: `../requisitos.md` (item 8)
 - **RFC escrito em**: 2026-07-24
@@ -72,15 +72,26 @@ Shell administrativo próprio (dashboard inicial, menu exclusivo, organização 
 ## Checklist
 
 - [x] Análise técnica completa (2026-07-24)
-- [ ] Q15 respondida
-- [ ] Shell administrativo (Sider/Header/menu por perfil)
-- [ ] Dashboard inicial por perfil
-- [ ] Migração das telas existentes para o novo shell
-- [ ] Teste mobile (check-in)
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Q15 respondida (ADR-003: evento ativo mais recente + seletor)
+- [x] Shell administrativo (Sider/Header/menu por perfil)
+- [x] Dashboard inicial por perfil
+- [x] Migração das telas existentes para o novo shell
+- [ ] Teste mobile (check-in) — layout responsivo implementado, falta teste visual em 375px
+- [x] Testes (ver `../testes.md`)
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+**Arquivos**: `components/admin/shell/AdminShell.tsx` e `adminMenu.ts` (novos); `app/admin/layout.tsx` (usa o shell); `app/admin/page.tsx` (dashboard reescrito); `app/api/admin/dashboard/route.ts` (por evento, sem receita própria); `backend/utils/financialData.ts` (novo: carga dos insumos de `revenueBreakdown`, compartilhada); `app/api/admin/financial/route.ts` (passa a usar o loader, comportamento igual); docs `04`/`05`.
+
+**Decisões/desvios**:
+- Dashboard abre no evento ativo mais recente (por `startDate`) com seletor; reaproveita a chave de sessão `admin.registrations.eventId` da tela de inscrições.
+- Receita líquida e estornos abertos vêm de `buildFinancialSummary` (mesma fonte do Financeiro); para CHECKIN/SUPPORT o campo `financial` nem existe no payload. Pageviews continuam só para ADMIN+.
+- `AdminHeader` NÃO foi aposentado: a tela `/checkin` é standalone (decisão do RFC) e segue usando-o; o shell cobre `/admin/*`.
+- Atalho "nova inscrição manual" do SUPPORT não foi feito (o modal não abre por URL); o atalho "Inscrições" cobre.
+- Vagas = limite − (PENDING + CONFIRMED), igual à regra de inscrição. Camisas por tamanho = inscrições CONFIRMED com `wantsShirt`.
+
+**Testes**: `tsc`, `lint` (só avisos antigos) e `build` passam. Evento de teste com 5 inscrições: dashboard e Financeiro batem (líquida R$ 190 = 50 + 70 + 70; 3 confirmadas, 1 pendente) e batem com `/api/registrations/stats`; seletor troca de evento; default sem parâmetro devolve o evento ativo mais recente; payload de CHECKIN/SUPPORT sem nenhum campo de valor; páginas por perfil: SUPPORT 307 em financeiro/estornos/usuários, CHECKIN 307 em eventos/financeiro/estornos/usuários, SUPER_ADMIN 200 em tudo. Dados de teste removidos.
+
+**Pendências**: teste visual em 375px (Drawer, check-in em ≤ 2 toques) e conferência visual das telas internas dentro da nova moldura; aprovação do Ricardo.

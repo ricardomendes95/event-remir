@@ -47,7 +47,7 @@ telas novas **atualizam este documento** e passam a ser o padrão oficial.
 | **Cards** | Escolhas do usuário no fluxo público (ex.: sem/com camisa — cartões grandes, tocáveis, com preço explícito) e métricas no dashboard |
 | **Modais** — AntD `Modal` | Fluxos sobre a página (inscrição, comprovante, CRUD admin). No mobile: altura controlada com scroll interno (quirk iOS — `docs/PLANO_ACAO_MOBILE_FIXES.md`). Máx. 1 modal sobreposto |
 | **Steps/etapas** | Fluxo de inscrição (Dados → Pagamento/Confirmação). Máximo 3 etapas; rótulos de 1 palavra |
-| **Navegação** | Público: header simples + âncoras. Admin: `AdminHeader`. Sem menus profundos |
+| **Navegação** | Público: header simples + âncoras. Admin: `AdminShell` (Sider/Drawer); `/checkin` usa `AdminHeader`. Sem menus profundos |
 
 ## 3. Feedback e estados (obrigatórios em toda tela)
 

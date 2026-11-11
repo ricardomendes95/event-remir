@@ -56,7 +56,9 @@ há identidade visual própria (páginas públicas institucionais).
 
 | Componente | Responsabilidade | Notas |
 |---|---|---|
-| `AdminHeader` | Chrome/navegação do admin | |
+| `shell/AdminShell` | Moldura do admin (`app/admin/layout.tsx`): `Sider` colapsável no desktop, `Drawer` no mobile, `Header` com usuário/perfil/sair e breadcrumb | Login e access-denied ficam fora. Menu vem de `shell/adminMenu` |
+| `shell/adminMenu` | Lista declarativa do menu/atalhos; visibilidade por perfil derivada de `canAccessPath` (`lib/permissions.ts`) | Nunca duplicar a matriz de permissões |
+| `AdminHeader` | Barra superior só da tela standalone `/checkin` (com botão de voltar ao painel) | Não usar nas demais telas do admin |
 | `EventModal` | CRUD de evento (form completo, banner, rich text, camisa, lotes de inscrição, form dinâmico, toggle de inscrição em grupo) | |
 | `DynamicFormBuilder` | Construtor visual dos campos dinâmicos | Par do `DynamicFormRenderer` |
 | `UserManagement` / `UserModal` / `ChangePasswordModal` | Gestão de admins | Restrito a SUPER_ADMIN |

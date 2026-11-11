@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { canViewFinancialValues } from "@/lib/permissions";
+import { loadBreakdownInputs } from "@/backend/utils/financialData";
 import {
   buildFinancialSummary,
   buildRows,
@@ -47,102 +47,8 @@ export async function GET(request: NextRequest) {
       ...(eventScope ? { eventId: eventScope } : {}),
     };
 
-    const [registrations, shirtOrders, shirtTargets, eventInfo] = await withPrismaRetry(
-      async () =>
-        Promise.all([
-          prisma.registration.findMany({
-            where: registrationWhere,
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              paymentMethod: true,
-              manualPaymentType: true,
-              cashResponsible: true,
-              wantsShirt: true,
-              orderId: true,
-              paymentDetails: true,
-              createdAt: true,
-              event: {
-                select: {
-                  id: true,
-                  title: true,
-                  price: true,
-                  startDate: true,
-                  shirtConfig: true,
-                },
-              },
-              batch: {
-                select: {
-                  id: true,
-                  name: true,
-                  price: true,
-                  priceWithShirt: true,
-                },
-              },
-              refundRequests: {
-                where: { resolution: "REFUNDED" },
-                select: { refundedAmount: true, refundedAt: true },
-              },
-            },
-          }),
-          prisma.order.findMany({
-            where: shirtOrderWhere,
-            select: {
-              id: true,
-              eventId: true,
-              totalValue: true,
-              paymentDetails: true,
-            },
-          }),
-          // Inscrições que compraram a camisa depois (qualquer data): o valor
-          // da camisa entra só pelo pedido avulso, nunca duplicado na inscrição.
-          prisma.order.findMany({
-            where: {
-              type: "SHIRT_ONLY",
-              status: "CONFIRMED",
-              ...(eventScope ? { eventId: eventScope } : {}),
-            },
-            select: { targetRegistrationId: true },
-          }),
-          eventScope
-            ? prisma.event.findUnique({
-                where: { id: eventScope },
-                select: { id: true, title: true, startDate: true },
-              })
-            : Promise.resolve(null),
-        ])
-    );
-
-    const boughtShirtLater = new Set(
-      shirtTargets.map((o) => o.targetRegistrationId).filter(Boolean)
-    );
-
-    const items: BreakdownRegistration[] = registrations.map((r) => ({
-      id: r.id,
-      name: r.name,
-      status: r.status,
-      paymentMethod: r.paymentMethod,
-      manualPaymentType: r.manualPaymentType,
-      cashResponsible: r.cashResponsible,
-      wantsShirt: boughtShirtLater.has(r.id) ? false : r.wantsShirt,
-      orderId: r.orderId,
-      paymentDetails: r.paymentDetails,
-      createdAt: r.createdAt,
-      event: {
-        id: r.event.id,
-        title: r.event.title,
-        price: Number(r.event.price),
-        shirtConfig: r.event.shirtConfig,
-      },
-      batch: r.batch,
-      refunds: r.refundRequests
-        .filter((q) => (q.refundedAmount ?? 0) > 0)
-        .map((q) => ({
-          amount: q.refundedAmount ?? 0,
-          refundedAt: q.refundedAt,
-        })),
-    }));
+    const { registrations, items, shirtOrders, eventInfo } =
+      await loadBreakdownInputs({ registrationWhere, shirtOrderWhere, eventScope });
 
     if (format === "export") {
       const eventTitles = new Map(items.map((i) => [i.event.id, i.event.title]));
