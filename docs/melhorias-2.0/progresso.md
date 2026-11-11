@@ -6,7 +6,7 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 
 - **Fase**: planejamento — escrita dos **RFCs das 11 melhorias restantes** (req. 11 já ✅ aprovado).
 - **Próximo passo**: concluir os RFCs em `melhorias/` (ordem do roadmap), obter aprovação do Ricardo e só então iniciar a implementação do req. 1.
-- **Bloqueios**: P-06 (`db push` do enum no Supabase) bloqueia apenas o deploy do req. 11, não o planejamento nem o dev local.
+- **Bloqueios**: nenhum — P-06 resolvida em 2026-11-11 (enum aplicado no Supabase).
 
 ---
 
