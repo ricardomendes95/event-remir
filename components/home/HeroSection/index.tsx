@@ -3,34 +3,15 @@ import { Youtube, BookOpen, Calendar } from "lucide-react";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { Container } from "../Container";
+import { VERSES, type BibleVerse } from "./verses";
 
-type Verse = {
-  translation: {
-    identifier: string;
-    name: string;
-    language: string;
-    language_code: string;
-    license: string;
-  };
-  random_verse: {
-    book_id: string;
-    book: string;
-    chapter: number;
-    verse: number;
-    text: string;
-  };
-};
 // Hero Section
 export const HeroSection = () => {
-  const [verse, setVerse] = useState<Verse | null>(null);
+  const [verse, setVerse] = useState<BibleVerse | null>(null);
 
+  // Sorteio só no cliente para não divergir do HTML renderizado no servidor.
   useEffect(() => {
-    fetch("https://bible-api.com/data/almeida/random/NT")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.random_verse?.text) setVerse(data);
-      })
-      .catch(() => {});
+    setVerse(VERSES[Math.floor(Math.random() * VERSES.length)]);
   }, []);
 
   return (
@@ -135,7 +116,7 @@ export const HeroSection = () => {
                   </h3>
                   {verse ? (
                     <p className="text-gray-600 italic mb-4">
-                      {`"${verse.random_verse.text}" - ${verse.random_verse.book} ${verse.random_verse.chapter}:${verse.random_verse.verse}`}
+                      {`"${verse.text}" - ${verse.reference} (NVI)`}
                     </p>
                   ) : (
                     <p className="text-gray-600">
