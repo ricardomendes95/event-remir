@@ -119,9 +119,9 @@ export function buildProofPrintHtml(
               <div class="info-row"><span class="label">Local:</span> <span class="value">${
                 r.event.location
               }</span></div>
-              <div class="info-row"><span class="label">Valor pago:</span> <span class="value">R$ ${getAmountPaid(
+              <div class="info-row"><span class="label">Valor pago:</span> <span class="value">${getAmountPaid(
                 r
-              ).toFixed(2)}</span></div>
+              ).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></div>
               ${
                 r.eventHasShirt
                   ? `<div class="info-row"><span class="label">Camisa:</span> <span class="value">${getShirtText(

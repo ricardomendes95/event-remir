@@ -513,7 +513,10 @@ export function RegistrationProofModal({
                 {registration.event.location}
               </Descriptions.Item>
               <Descriptions.Item label="Valor pago">
-                R$ {getAmountPaid(registration).toFixed(2)}
+                {getAmountPaid(registration).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
               </Descriptions.Item>
               {registration.eventHasShirt && (
                 <Descriptions.Item label="Camisa">

@@ -193,26 +193,20 @@ export function CountdownTimer({
         >
           {isUrgent ? "⚠️ Últimas horas! " : ""}
           Restam apenas{" "}
-          {timeLeft.days > 0 && (
-            <>
-              <span className="font-semibold">{timeLeft.days}</span>{" "}
-              {timeLeft.days === 1 ? "dia" : "dias"}
-              {(timeLeft.hours > 0 || timeLeft.minutes > 0) && ", "}
-            </>
-          )}
-          {timeLeft.hours > 0 && (
-            <>
-              <span className="font-semibold">{timeLeft.hours}</span>{" "}
-              {timeLeft.hours === 1 ? "hora" : "horas"}
-              {timeLeft.minutes > 0 && " e "}
-            </>
-          )}
-          {timeLeft.minutes > 0 && timeLeft.days === 0 && (
-            <>
-              <span className="font-semibold">{timeLeft.minutes}</span>{" "}
-              {timeLeft.minutes === 1 ? "minuto" : "minutos"}
-            </>
-          )}{" "}
+          {(() => {
+            const parts: Array<[number, string, string]> = [];
+            if (timeLeft.days > 0) parts.push([timeLeft.days, "dia", "dias"]);
+            if (timeLeft.hours > 0) parts.push([timeLeft.hours, "hora", "horas"]);
+            if (timeLeft.days === 0 && timeLeft.minutes > 0)
+              parts.push([timeLeft.minutes, "minuto", "minutos"]);
+            return parts.map(([value, one, many], i) => (
+              <span key={one}>
+                {i > 0 && (i === parts.length - 1 ? " e " : ", ")}
+                <span className="font-semibold">{value}</span>{" "}
+                {value === 1 ? one : many}
+              </span>
+            ));
+          })()}{" "}
           para se inscrever! {isUrgent ? "⏰" : ""}
         </p>
       </div>
