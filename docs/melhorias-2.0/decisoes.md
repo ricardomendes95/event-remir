@@ -6,7 +6,7 @@ Formato: número, data, status (`proposta` | `aceita` | `rejeitada` | `substitu�
 
 ## ADR-001 — Modelo de pedido/pagamento (Order) desacoplado de Registration
 
-- **Status**: proposta detalhada (2026-07-24, pendente de aprovação do Ricardo)
+- **Status**: aceita (aprovada pelo Ricardo em 2026-11-11)
 - **Data**: 2026-07-22 (esboço) · 2026-07-24 (detalhamento)
 - **Contexto**: Hoje o pagamento vive dentro de `Registration` (`paymentId`, `paymentError`, `paymentDetails` JSON) e a conciliação InfinitePay usa `order_nsu = registration.id` — relação 1:1 entre pagamento e inscrição. Quatro requisitos quebram essa premissa:
   - Req. 2 (inscrição em lote): 1 pagamento → N inscrições.
@@ -51,4 +51,21 @@ Formato: número, data, status (`proposta` | `aceita` | `rejeitada` | `substitu�
 
 ---
 
-## ADR-003 — (reservado)
+## ADR-003 — Respostas em bloco às perguntas abertas dos RFCs
+
+- **Status**: aceita (Ricardo, 2026-11-11: "concordo" com as recomendações dos RFCs)
+- **Decisões**:
+  - **Q5**: a contagem de vagas (global e por lote) passa a considerar só `PENDING` + `CONFIRMED`, corrigida na mesma entrega do req. 3.
+  - **Q6**: a inscrição em lote entra com a Fase 6 do RFC (`leave-order` self-service).
+  - **Q7**: cancelamento direto pelo admin gera `RefundRequest` de origem administrativa, para histórico.
+  - **Q8**: "Solicitações de estorno" é página própria no menu admin.
+  - **Q9**: estorno é exclusivo de `ADMIN`/`SUPER_ADMIN` na v1.
+  - **Q11**: auditoria vive como aba "Auditoria" dentro do Financeiro.
+  - **Q12**: `SUPPORT` pode imprimir o comprovante (documento público).
+  - **Q13**: a receita da camisa é sempre `priceWithShirt − price` do lote/evento da inscrição.
+  - **Q14**: compra posterior de camisa ganha prazo limite opcional (`shirtConfig.purchaseDeadline`).
+  - **Q15**: o dashboard do admin abre no evento ativo mais recente, com seletor de evento.
+  - **P-05**: o botão "Entrar em contato" usa o telefone do participante em E.164.
+  - **P-03**: canal oficial `@ministerioremir3524` (já usado no site); a API key do YouTube é opcional — sem ela, a página de lives usa o fallback por embed.
+  - **Q10/P-08**: a amostra do extrato CSV fica por último; o req. 6 é implementado depois de todos os outros.
+

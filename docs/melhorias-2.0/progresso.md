@@ -4,9 +4,29 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 
 ## Estado atual (resumo)
 
-- **Fase**: planejamento — escrita dos **RFCs das 11 melhorias restantes** (req. 11 já ✅ aprovado).
-- **Próximo passo**: concluir os RFCs em `melhorias/` (ordem do roadmap), obter aprovação do Ricardo e só então iniciar a implementação do req. 1.
+- **Fase**: implementação (sessão 4) — ver plano de ação de 2026-11-11.
+- **Próximo passo**: seguir o plano de ação da sessão 4.
 - **Bloqueios**: nenhum — P-06 resolvida em 2026-11-11 (enum aplicado no Supabase).
+
+---
+
+## 2026-11-11 — Sessão 4: plano de ação e execução das melhorias
+
+**Decisões (Ricardo):** ADR-001 aceito; recomendações dos RFCs aceitas em bloco (ADR-003); executar tudo sem esperar aprovação a cada etapa, na ordem do roadmap, com a auditoria (req. 6) por último — antes dela, levantar a data do último evento em produção e ensinar a exportar o extrato.
+
+**Plano de ação** (branch `feat/melhorias-2-0`, um commit por melhoria, schema aplicado só no banco local; produção recebe `db push` no deploy):
+
+1. Req. 1 — cadastro e pagamentos
+2. Req. 3 — lotes do evento (+ Q5)
+3. Req. 2 — inscrição em lote (ADR-001, `Order`)
+4. Req. 12 — cancelamento e estorno
+5. Req. 9 — tela de inscrições
+6. Req. 10 — financeiro
+7. Req. 5 — compra posterior da camisa
+8. Req. 4 — foto da camisa
+9. Req. 8 — novo painel administrativo
+10. Req. 7 — página de lives
+11. Req. 6 — auditoria InfinitePay (depende da amostra de extrato)
 
 ---
 
