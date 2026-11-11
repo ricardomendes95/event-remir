@@ -26,8 +26,11 @@ export const HeroSection = () => {
 
   useEffect(() => {
     fetch("https://bible-api.com/data/almeida/random/NT")
-      .then((res) => res.json())
-      .then((data) => setVerse(data));
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.random_verse?.text) setVerse(data);
+      })
+      .catch(() => {});
   }, []);
 
   return (
