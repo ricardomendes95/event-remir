@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { isValidCpf } from "@/utils/cpfValidator";
+import { OCCUPYING_STATUSES } from "@/backend/utils/eventBatches";
 import { validateDynamicFormData } from "@/backend/utils/dynamicFormValidator";
 import type {
   DynamicField,
@@ -35,7 +36,13 @@ export async function POST(request: NextRequest) {
     const event = await withPrismaRetry(() =>
       prisma.event.findUnique({
         where: { id: eventId },
-        include: { _count: { select: { registrations: true } } },
+        include: {
+          _count: {
+            select: {
+              registrations: { where: { status: { in: [...OCCUPYING_STATUSES] } } },
+            },
+          },
+        },
       })
     );
 

@@ -1,5 +1,14 @@
 export type EventFormMode = "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
 
+/** Lote vigente exposto ao público (sem quotas nem contagens). */
+export interface ActiveBatch {
+  name: string;
+  price: number;
+  priceWithShirt: number | null;
+  endDate: string;
+  limitedByQuota: boolean;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -17,6 +26,10 @@ export interface Event {
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
   shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
   registrationEndDate?: string;
+  /** Lote vigente; `price` e `shirtConfig` já vêm com os valores do lote. */
+  activeBatch?: ActiveBatch | null;
+  /** Evento com lotes e nenhum vigente: inscrições fechadas. */
+  batchesClosed?: boolean;
   createdAt: string;
   updatedAt: string;
 }

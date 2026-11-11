@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
+import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
 export async function GET(request: NextRequest) {
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
           dynamicFormData: true,
           wantsShirt: true,
           shirtSize: true,
+          batch: { select: { price: true, priceWithShirt: true } },
         },
         orderBy: { name: "asc" },
       })
@@ -78,19 +80,23 @@ export async function GET(request: NextRequest) {
 
     const confirmed = byStatus["CONFIRMED"] ?? 0;
 
+
     // Configuração de camisa do evento
     const shirtCfg = event.shirtConfig as
       | { enabled: boolean; priceWithShirt: number; sizes: string[] }
       | null;
-    const priceWithShirt = shirtCfg?.enabled
-      ? Number(shirtCfg.priceWithShirt)
-      : Number(event.price);
 
     // Receita estimada: soma por inscrição confirmada (com/sem camisa)
     const totalRevenue = registrations
       .filter((r) => r.status === "CONFIRMED")
       .reduce(
-        (sum, r) => sum + (r.wantsShirt ? priceWithShirt : Number(event.price)),
+        (sum, r) =>
+          sum +
+          resolveBaseValue(
+            { price: Number(event.price), shirtConfig: event.shirtConfig },
+            r.wantsShirt ?? false,
+            r.batch
+          ),
         0
       );
 

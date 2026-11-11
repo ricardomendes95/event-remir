@@ -1,7 +1,10 @@
 import { useState, useCallback } from "react";
 import { z } from "zod";
 import dayjs, { Dayjs } from "dayjs";
-import { PaymentConfig } from "@/backend/schemas/eventSchemas";
+import {
+  PaymentConfig,
+  EventBatchSchema,
+} from "@/backend/schemas/eventSchemas";
 import { DynamicFormFieldsSchema } from "@/backend/schemas/dynamicFormSchemas";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
@@ -22,7 +25,7 @@ export const EventCreateSchema = z
       .max(100, "Slug muito longo")
       .regex(
         /^[a-z0-9-]+$/,
-        "Slug deve conter apenas letras minúsculas, números e hífens"
+        "Slug deve conter apenas letras minúsculas, números e hífens",
       ),
     location: z
       .string()
@@ -49,6 +52,7 @@ export const EventCreateSchema = z
       .enum(["FIXED_ONLY", "DYNAMIC_ONLY", "BOTH"])
       .default("FIXED_ONLY"),
     dynamicFormFields: DynamicFormFieldsSchema.optional(),
+    batches: z.array(EventBatchSchema).max(20, "Máximo de 20 lotes").optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
     message: "Data de início deve ser anterior à data de fim",
@@ -60,14 +64,14 @@ export const EventCreateSchema = z
     {
       message: "Data de início das inscrições deve ser anterior à data de fim",
       path: ["registrationEndDate"],
-    }
+    },
   )
   .refine(
     (data) => new Date(data.registrationEndDate) <= new Date(data.startDate),
     {
       message: "Inscrições devem encerrar antes ou no início do evento",
       path: ["registrationEndDate"],
-    }
+    },
   )
   .refine((data) => !data.isFree || data.price === 0, {
     message: "Evento gratuito deve ter preço igual a zero",
@@ -82,16 +86,57 @@ export const EventCreateSchema = z
       message:
         "Formulário dinâmico ou misto exige pelo menos um campo dinâmico",
       path: ["dynamicFormFields"],
-    }
+    },
   )
+  .refine((data) => data.formMode !== "DYNAMIC_ONLY" || data.isFree === true, {
+    message: "Modo apenas dinâmico só é permitido em eventos gratuitos",
+    path: ["formMode"],
+  })
   .refine(
-    (data) => data.formMode !== "DYNAMIC_ONLY" || data.isFree === true,
+    (data) =>
+      !data.shirtConfig?.enabled ||
+      (data.batches ?? []).every(
+        (b) => b.priceWithShirt != null && b.priceWithShirt > b.price,
+      ),
     {
       message:
-        "Modo apenas dinâmico só é permitido em eventos gratuitos",
-      path: ["formMode"],
-    }
+        "Em cada lote, o valor com camisa deve ser informado e maior que o valor do lote",
+      path: ["batches"],
+    },
   );
+
+// Lote como editado no formulário (período em um único RangePicker)
+export interface BatchFormValue {
+  id?: string;
+  name: string;
+  period: [Dayjs, Dayjs];
+  quota?: number | null;
+  priority?: number;
+  price: number | string;
+  priceWithShirt?: number | string | null;
+  isActive?: boolean;
+}
+
+/** Converte os lotes do formulário para o formato da API. */
+export function serializeBatches(
+  batches: BatchFormValue[] | undefined,
+  withShirt: boolean,
+) {
+  return (batches ?? []).map((b, index) => ({
+    ...(b.id ? { id: b.id } : {}),
+    name: (b.name ?? "").trim(),
+    startDate: dayjs(b.period?.[0]).toISOString(),
+    endDate: dayjs(b.period?.[1]).toISOString(),
+    quota: b.quota ? Number(b.quota) : null,
+    priority: b.priority ?? index + 1,
+    price: parseFloat(String(b.price ?? 0)),
+    priceWithShirt:
+      withShirt && b.priceWithShirt != null
+        ? parseFloat(String(b.priceWithShirt))
+        : null,
+    isActive: b.isActive ?? true,
+  }));
+}
 
 // Tipo para os dados do formulário (com Dayjs para datas)
 export interface EventFormData {
@@ -109,10 +154,14 @@ export interface EventFormData {
   isActive: boolean;
   paymentConfig?: PaymentConfig;
   shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
+  batches?: BatchFormValue[];
   isFree?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];
-  fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
+  fixedFieldsConfig?: {
+    email?: { required: boolean };
+    phone?: { required: boolean };
+  };
 }
 
 interface FieldError {
@@ -141,12 +190,15 @@ export function useEventValidation() {
           startDate: dayjs(values.startDate).toISOString(),
           endDate: dayjs(values.endDate).toISOString(),
           registrationStartDate: dayjs(
-            values.registrationStartDate
+            values.registrationStartDate,
           ).toISOString(),
           registrationEndDate: dayjs(values.registrationEndDate).toISOString(),
           maxParticipants: parseInt(values.maxParticipants.toString()),
           price: parseFloat(values.price.toString()),
           bannerUrl: values.bannerUrl || undefined,
+          batches: values.isFree
+            ? undefined
+            : serializeBatches(values.batches, !!values.shirtConfig?.enabled),
         };
 
         // Validar com o schema
@@ -188,7 +240,7 @@ export function useEventValidation() {
         };
       }
     },
-    []
+    [],
   );
 
   // Processar erros da API (formato do backend)
@@ -212,7 +264,7 @@ export function useEventValidation() {
     (fieldName: string) => {
       return validationErrors[fieldName];
     },
-    [validationErrors]
+    [validationErrors],
   );
 
   return {

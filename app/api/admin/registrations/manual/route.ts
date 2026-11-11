@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { z } from "zod";
 import { validateDynamicFormData } from "@/backend/utils/dynamicFormValidator";
 import type {
@@ -8,6 +8,11 @@ import type {
   DynamicFormFields,
 } from "@/backend/schemas/dynamicFormSchemas";
 import { validateShirtSelection } from "@/backend/utils/shirtPricing";
+import {
+  countOccupiedSlots,
+  getEventBatchState,
+} from "@/backend/services/eventBatchService";
+import { OCCUPYING_STATUSES } from "@/backend/utils/eventBatches";
 
 // Schema de validação para inscrição manual
 const manualRegistrationSchema = z.object({
@@ -39,16 +44,9 @@ export async function POST(request: NextRequest) {
     } = manualRegistrationSchema.parse(body);
 
     // Buscar evento
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: {
-        _count: {
-          select: {
-            registrations: true,
-          },
-        },
-      },
-    });
+    const event = await withPrismaRetry(() =>
+      prisma.event.findUnique({ where: { id: eventId } })
+    );
 
     if (!event) {
       return NextResponse.json(
@@ -64,9 +62,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se ainda há vagas
-    if (event._count.registrations >= event.maxParticipants) {
-      return NextResponse.json({ error: "Evento lotado" }, { status: 400 });
+    // Verificar se ainda há vagas (só PENDING/CONFIRMED ocupam vaga)
+    const occupiesSlot = (OCCUPYING_STATUSES as readonly string[]).includes(
+      status
+    );
+    if (occupiesSlot) {
+      const occupied = await withPrismaRetry(() =>
+        countOccupiedSlots(prisma, eventId)
+      );
+      if (occupied >= event.maxParticipants) {
+        return NextResponse.json({ error: "Evento lotado" }, { status: 400 });
+      }
     }
 
     const requiresDynamic = event.formMode !== "FIXED_ONLY";
@@ -124,6 +130,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A inscrição manual entra no lote vigente (sem lote vigente, fica sem
+    // lote); o admin não é bloqueado pelo fim dos lotes.
+    const batchState = await withPrismaRetry(() =>
+      getEventBatchState(prisma, eventId)
+    );
+
     // Criar inscrição manual
     const registration = await prisma.registration.create({
       data: {
@@ -139,6 +151,7 @@ export async function POST(request: NextRequest) {
           .substr(2, 9)}`,
         wantsShirt: shirtSelection.wantsShirt,
         shirtSize: shirtSelection.shirtSize,
+        batchId: batchState.activeBatch?.id ?? null,
         dynamicFormData: sanitizedDynamic
           ? (sanitizedDynamic as Prisma.InputJsonValue)
           : undefined,

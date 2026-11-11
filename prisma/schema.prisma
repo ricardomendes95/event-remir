@@ -34,8 +34,30 @@ model Event {
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   registrations          Registration[]
+  batches                EventBatch[]
 
   @@map("events")
+}
+
+// Lote de inscrição (tier de preço/vagas/período) de um evento pago.
+model EventBatch {
+  id             String         @id @default(cuid())
+  eventId        String
+  event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name           String
+  startDate      DateTime
+  endDate        DateTime
+  quota          Int?
+  priority       Int            @default(0)
+  price          Float
+  priceWithShirt Float?
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  registrations  Registration[]
+
+  @@index([eventId])
+  @@map("event_batches")
 }
 
 model Registration {
@@ -58,9 +80,12 @@ model Registration {
   manualPaymentType ManualPaymentType?
   cashResponsible   String?
   checkedInAt     DateTime?
+  batchId         String?
+  batch           EventBatch?      @relation(fields: [batchId], references: [id])
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
+  @@index([batchId])
   @@map("registrations")
 }
 

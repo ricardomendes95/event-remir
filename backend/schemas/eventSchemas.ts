@@ -45,6 +45,34 @@ export const ShirtConfigSchema = z.object({
     ),
 });
 
+// Lote de inscrição: período, vagas (opcional), prioridade e preço próprio.
+// `priceWithShirt` só vale (e é obrigatório) quando o evento tem camisa.
+export const EventBatchSchema = z
+  .object({
+    id: z.string().min(1).optional(),
+    name: z
+      .string()
+      .trim()
+      .min(1, "Informe o nome do lote")
+      .max(60, "Nome do lote muito longo"),
+    startDate: z.string().datetime("Início do lote inválido"),
+    endDate: z.string().datetime("Fim do lote inválido"),
+    quota: z
+      .number()
+      .int("Vagas do lote deve ser um número inteiro")
+      .min(1, "Vagas do lote deve ser pelo menos 1")
+      .nullable()
+      .optional(),
+    priority: z.number().int().min(0).max(999).default(0),
+    price: z.number().min(0, "Preço do lote inválido"),
+    priceWithShirt: z.number().min(0, "Valor com camisa inválido").nullable().optional(),
+    isActive: z.boolean().default(true),
+  })
+  .refine((b) => new Date(b.startDate) < new Date(b.endDate), {
+    message: "O início do lote deve ser anterior ao fim",
+    path: ["endDate"],
+  });
+
 export const EventCreateSchema = z
   .object({
     title: z
@@ -89,6 +117,7 @@ export const EventCreateSchema = z
     fixedFieldsConfig: FixedFieldsConfigSchema,
     paymentConfig: PaymentConfigSchema.optional(),
     shirtConfig: ShirtConfigSchema.optional(),
+    batches: z.array(EventBatchSchema).max(20, "Máximo de 20 lotes").optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {
     message: "Data de início deve ser anterior à data de fim",
@@ -150,6 +179,24 @@ export const EventCreateSchema = z
       message: "Informe ao menos um tamanho de camisa",
       path: ["shirtConfig", "sizes"],
     }
+  )
+  // Lotes só existem em evento pago
+  .refine((data) => !data.isFree || !data.batches?.length, {
+    message: "Lotes só são permitidos em eventos pagos",
+    path: ["batches"],
+  })
+  // Com camisa habilitada, cada lote precisa de valor com camisa maior que o do lote
+  .refine(
+    (data) =>
+      !data.shirtConfig?.enabled ||
+      (data.batches ?? []).every(
+        (b) => b.priceWithShirt != null && b.priceWithShirt > b.price
+      ),
+    {
+      message:
+        "Em cada lote, o valor com camisa deve ser informado e maior que o valor do lote",
+      path: ["batches"],
+    }
   );
 
 export const EventUpdateSchema = EventCreateSchema.partial();
@@ -164,6 +211,7 @@ export type EventData = z.infer<typeof EventCreateSchema>;
 export type EventUpdateData = z.infer<typeof EventUpdateSchema>;
 export type EventSearchData = z.infer<typeof EventSearchSchema>;
 export type PaymentConfig = z.infer<typeof PaymentConfigSchema>;
+export type EventBatchInput = z.infer<typeof EventBatchSchema>;
 export type ShirtConfig = z.infer<typeof ShirtConfigSchema>;
 export type PaymentMethodConfig = z.infer<typeof PaymentMethodConfigSchema>;
 export type CreditCardConfig = z.infer<typeof CreditCardConfigSchema>;

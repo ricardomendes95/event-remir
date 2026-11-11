@@ -1,6 +1,6 @@
 # Requisito 3 — Sistema de lotes do evento
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: ✅ Implementado (aguardando aprovação do Ricardo)
 - **Ordem no roadmap**: 3ª
 - **Requisito original**: `../requisitos.md` (item 3)
 - **RFC escrito em**: 2026-07-24
@@ -107,7 +107,7 @@ Gerenciado dentro do update/create do evento (`EventController`): payload ganha 
 
 - **Q3 ✅ (Ricardo, 2026-07-24)**: preço com camisa **por lote** (`priceWithShirt` no `EventBatch`).
 - **Q4 ✅ (Ricardo, 2026-07-24)**: ao "continuar pagamento" após virada de lote, cobra o **preço do lote atual** (o `batchId` da inscrição é atualizado no novo checkout).
-- **Q5** (pendente): corrigir na mesma entrega a contagem global de vagas para excluir `CANCELLED`/`PAYMENT_FAILED` (recomendado) ou registrar como débito separado?
+- **Q5 ✅ (decidida, ADR-003)**: corrigir na mesma entrega a contagem global de vagas para excluir `CANCELLED`/`PAYMENT_FAILED` (recomendado) ou registrar como débito separado?
 
 ## Plano de implementação
 
@@ -138,15 +138,48 @@ Gerenciado dentro do update/create do evento (`EventController`): payload ganha 
 
 - [x] Análise técnica completa (2026-07-24)
 - [x] Decisão de nomenclatura (`EventBatch`) e regra de "lote ativo" (período + quota + priority, fonte única no servidor)
-- [x] Q3/Q4 respondidas (2026-07-24: por lote; preço do lote atual) · [ ] Q5 pendente
-- [ ] Schema (`EventBatch`, `Registration.batchId`) + `db push`
-- [ ] Backend (serviço lote ativo, CRUD, create-preference, webhook)
-- [ ] Frontend (admin de lotes, página pública, checkout)
-- [ ] Retrocompatibilidade com eventos sem lote verificada
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Q3/Q4/Q5 respondidas (por lote; preço do lote atual; contagem só PENDING + CONFIRMED, corrigida nesta entrega)
+- [x] Schema (`EventBatch`, `Registration.batchId`) + `db push` (banco local)
+- [x] Backend (serviço lote ativo, CRUD, create-preference, webhook)
+- [x] Frontend (admin de lotes, página pública, checkout)
+- [x] Retrocompatibilidade com eventos sem lote verificada
+- [ ] Testes (ver `../testes.md`) — verificados por chamadas à API local; sem suíte automatizada no projeto
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+### Progresso
+
+Implementação completa conforme o plano, com os desvios abaixo.
+
+**Desvios do RFC**
+
+- Não existe `update-preference`: "continuar pagamento" é o UPDATE dentro de `create-preference`, que agora recalcula o lote vigente e atualiza o `batchId` (Q4).
+- A rota de inscrição manual que o admin usa é `POST /api/registrations` (além de `POST /api/admin/registrations/manual`); as duas gravam o lote vigente. O admin não é bloqueado pelo fim dos lotes (fica sem lote).
+- APIs públicas devolvem `price` e `shirtConfig.priceWithShirt` já resolvidos pelo lote vigente (o front não muda de cálculo), mais `activeBatch` e `batchesClosed`.
+- Lote com inscrições não pode ser removido (422); só desativado. Lotes só em evento pago (Zod + controller).
+- Contagem de vagas (Q5): `create-preference`, `create-free`, inscrição manual, `isRegistrationOpen`, `getEventStats.availableSpots` e `currentRegistrations` das APIs públicas passam a contar só PENDING + CONFIRMED. As métricas "confirmadas" do painel/admin seguem contando CONFIRMED por serem outra métrica.
+- Na retomada de pagamento, a própria inscrição é excluída da contagem de vagas (antes um PENDING cheio bloqueava o próprio retorno).
+- Aviso "período do lote fora da janela do evento" não foi implementado no admin (era aviso, não bloqueio).
+
+### Arquivos alterados
+
+Schema `prisma/schema.prisma`; `backend/utils/eventBatches.ts` e `backend/services/eventBatchService.ts` (novos); `backend/utils/shirtPricing.ts`; `backend/schemas/eventSchemas.ts`; `backend/controllers/EventController.ts`; `backend/repositories/EventRepository.ts`; rotas `payments/create-preference`, `payments/webhook/infinitepay`, `registrations` (GET/POST), `registrations/create-free`, `registrations/{get-by-id,search-by-cpf,stats,export-admin}`, `admin/registrations/manual`, `admin/{dashboard,financial}`, `events/{active,by-slug,list-active}`; front `EventModal`, `hooks/useEventValidation.ts`, `EventDisplay`, `EventRegistrationModal`, `app/eventos/page.tsx`, `RegistrationTable` (coluna Lote), `types/event.ts`; docs `FLUXO_INSCRICAO.md`, `00_PROJECT_CONTEXT.md`, `04_COMPONENT_LIBRARY.md`.
+
+### Testes realizados (servidor local, banco local, checkout InfinitePay simulado por um endpoint local)
+
+- Zod/422: lote sem nome, fim antes do início, camisa sem `priceWithShirt`, lote em evento gratuito, PUT com lote sem valor com camisa, remoção de lote com inscrições.
+- Preço no payload da InfinitePay = lote vigente (R$ 90 / 130 com camisa / 110 no 2º lote); preço adulterado no body é ignorado.
+- Virada por quantidade (quota 2 do 1º lote esgotada → 2º lote) e por data (fim do 1º lote no passado); nenhum lote vigente → 400 "Período de inscrições encerrado".
+- CANCELLED e PAYMENT_FAILED liberam vaga no lote e no teto global (5/5 → "Evento lotado"; cancelar → volta a aceitar).
+- Continuar pagamento após virada: cobra o lote atual e atualiza `batchId`.
+- Webhook: pago abaixo do lote gravado → 422; valor correto → CONFIRMED.
+- Inscrição manual recebe `batchId`; receita (stats) usa o preço do lote.
+- Regressão: evento sem lotes (preço e camisa do evento), evento gratuito (`create-free`), PUT sem `batches` mantém os lotes.
+
+### Pendências
+
+- Conferência visual em navegador/mobile do `EventModal` (seção de lotes) e do card público não foi feita (só tsc/lint/build e API).
+- Corrida na última vaga continua sem lock (ver Riscos).
+- Relatório financeiro por lote fica para o req. 10.

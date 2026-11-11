@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
       prisma.registration.findMany({
         where: whereClause,
         include: {
+          batch: { select: { price: true, priceWithShirt: true } },
           event: {
             select: {
               id: true,
@@ -92,10 +93,12 @@ export async function GET(request: NextRequest) {
     const revenueOf = (r: {
       event: { price: number | Prisma.Decimal; shirtConfig?: unknown };
       wantsShirt?: boolean | null;
+      batch?: { price: number; priceWithShirt: number | null } | null;
     }) =>
       resolveBaseValue(
         { price: Number(r.event.price), shirtConfig: r.event.shirtConfig },
-        r.wantsShirt ?? false
+        r.wantsShirt ?? false,
+        r.batch
       );
 
     // Calcular estatísticas gerais

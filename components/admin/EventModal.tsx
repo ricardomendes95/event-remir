@@ -14,6 +14,7 @@ import {
   Alert,
   Checkbox,
   Space,
+  InputNumber,
 } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -25,6 +26,7 @@ import RichTextEditor from "../RichTextEditor";
 import { DynamicFormBuilder } from "./DynamicFormBuilder";
 import {
   useEventValidation,
+  serializeBatches,
   EventFormData,
 } from "../../hooks/useEventValidation";
 import { generateSlug } from "../../utils/slugUtils";
@@ -48,9 +50,23 @@ interface Event {
   isFree?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];
-  fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
+  fixedFieldsConfig?: {
+    email?: { required: boolean };
+    phone?: { required: boolean };
+  };
   paymentConfig?: PaymentConfig;
   shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
+  batches?: {
+    id: string;
+    name: string;
+    startDate: string;
+    endDate: string;
+    quota: number | null;
+    priority: number;
+    price: number;
+    priceWithShirt: number | null;
+    isActive: boolean;
+  }[];
   _count?: { registrations: number };
 }
 
@@ -70,20 +86,24 @@ export default function EventModal({
   const [form] = Form.useForm();
   const [loading, setLoading] = React.useState(false);
   const slugManuallyEdited = React.useRef(false);
-  const { validateFormData, setApiErrors, clearErrors, getFieldError } =
-    useEventValidation();
+  const {
+    validationErrors,
+    validateFormData,
+    setApiErrors,
+    clearErrors,
+    getFieldError,
+  } = useEventValidation();
 
   const isFree = Form.useWatch("isFree", form) as boolean | undefined;
   const formMode = Form.useWatch("formMode", form) as
-    | "FIXED_ONLY"
-    | "DYNAMIC_ONLY"
-    | "BOTH"
-    | undefined;
+    "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH" | undefined;
   const watchedPrice = Form.useWatch("price", form) as number | undefined;
-  const shirtEnabled = Form.useWatch(
-    ["shirtConfig", "enabled"],
-    form
-  ) as boolean | undefined;
+  const shirtEnabled = Form.useWatch(["shirtConfig", "enabled"], form) as
+    boolean | undefined;
+
+  const batchErrors = Object.entries(validationErrors)
+    .filter(([field]) => field === "batches" || field.startsWith("batches."))
+    .map(([, msg]) => msg);
 
   const hasRegistrations = (editingEvent?._count?.registrations ?? 0) > 0;
 
@@ -104,6 +124,16 @@ export default function EventModal({
         isFree: editingEvent.isFree ?? false,
         formMode: editingEvent.formMode ?? "FIXED_ONLY",
         dynamicFormFields: editingEvent.dynamicFormFields ?? [],
+        batches: (editingEvent.batches ?? []).map((b) => ({
+          id: b.id,
+          name: b.name,
+          period: [dayjs(b.startDate), dayjs(b.endDate)],
+          quota: b.quota,
+          priority: b.priority,
+          price: b.price,
+          priceWithShirt: b.priceWithShirt,
+          isActive: b.isActive,
+        })),
         shirtConfig: editingEvent.shirtConfig ?? {
           enabled: false,
           priceWithShirt: 0,
@@ -141,26 +171,31 @@ export default function EventModal({
         startDate: dayjs(values.startDate).toISOString(),
         endDate: dayjs(values.endDate).toISOString(),
         registrationStartDate: dayjs(
-          values.registrationStartDate
+          values.registrationStartDate,
         ).toISOString(),
         registrationEndDate: dayjs(values.registrationEndDate).toISOString(),
         maxParticipants: parseInt(values.maxParticipants.toString()),
         price: isFreeVal ? 0 : parseFloat(values.price.toString()),
         bannerUrl: values.bannerUrl || undefined,
-        paymentConfig: isFreeVal ? undefined : (values.paymentConfig || undefined),
+        paymentConfig: isFreeVal
+          ? undefined
+          : values.paymentConfig || undefined,
         // Camisa só vale para evento pago e quando habilitada
         shirtConfig:
           !isFreeVal && values.shirtConfig?.enabled
             ? {
                 enabled: true,
                 priceWithShirt: parseFloat(
-                  values.shirtConfig.priceWithShirt?.toString() || "0"
+                  values.shirtConfig.priceWithShirt?.toString() || "0",
                 ),
                 sizes: (values.shirtConfig.sizes ?? [])
                   .map((s) => (s ?? "").toString().trim())
                   .filter(Boolean),
               }
             : undefined,
+        batches: isFreeVal
+          ? undefined
+          : serializeBatches(values.batches, !!values.shirtConfig?.enabled),
         isFree: isFreeVal,
         formMode: formModeVal,
         dynamicFormFields:
@@ -169,8 +204,8 @@ export default function EventModal({
             : (values.dynamicFormFields ?? []),
         fixedFieldsConfig: isFreeVal
           ? {
-              email: { required: !!(values.fixedFieldsConfig?.email?.required) },
-              phone: { required: !!(values.fixedFieldsConfig?.phone?.required) },
+              email: { required: !!values.fixedFieldsConfig?.email?.required },
+              phone: { required: !!values.fixedFieldsConfig?.phone?.required },
             }
           : undefined,
       };
@@ -200,7 +235,7 @@ export default function EventModal({
         message.success(
           editingEvent
             ? "Evento atualizado com sucesso!"
-            : "Evento criado com sucesso!"
+            : "Evento criado com sucesso!",
         );
         form.resetFields();
         clearErrors();
@@ -330,7 +365,10 @@ export default function EventModal({
           >
             <Input placeholder="Local do evento" />
           </Form.Item>
-          <Form.Item shouldUpdate={(prev, curr) => prev.location !== curr.location} noStyle>
+          <Form.Item
+            shouldUpdate={(prev, curr) => prev.location !== curr.location}
+            noStyle
+          >
             {({ getFieldValue }) => {
               const loc: string = getFieldValue("location");
               return loc && loc.length >= 5 ? (
@@ -448,7 +486,7 @@ export default function EventModal({
                     const num = parseInt(value);
                     if (isNaN(num) || num < 1) {
                       return Promise.reject(
-                        "Deve permitir pelo menos 1 participante"
+                        "Deve permitir pelo menos 1 participante",
                       );
                     }
                     return Promise.resolve();
@@ -475,7 +513,7 @@ export default function EventModal({
                       typeof value === "number" ? value : parseFloat(value);
                     if (isNaN(num) || num < 0) {
                       return Promise.reject(
-                        "Preço deve ser maior ou igual a zero"
+                        "Preço deve ser maior ou igual a zero",
                       );
                     }
                     return Promise.resolve();
@@ -523,7 +561,9 @@ export default function EventModal({
             help={getFieldError("formMode")}
           >
             <Radio.Group>
-              <Radio value="FIXED_ONLY">Somente fixo (nome, e-mail, CPF, telefone)</Radio>
+              <Radio value="FIXED_ONLY">
+                Somente fixo (nome, e-mail, CPF, telefone)
+              </Radio>
               <Radio value="BOTH">Fixo + dinâmico</Radio>
             </Radio.Group>
           </Form.Item>
@@ -531,7 +571,9 @@ export default function EventModal({
           {/* Campos obrigatórios - visível apenas em eventos gratuitos */}
           {isFree && (
             <div className="border rounded p-4 mb-4 bg-gray-50">
-              <p className="text-sm font-medium mb-3">Campos obrigatórios na inscrição</p>
+              <p className="text-sm font-medium mb-3">
+                Campos obrigatórios na inscrição
+              </p>
               <div className="flex gap-6">
                 <Form.Item
                   name={["fixedFieldsConfig", "email", "required"]}
@@ -581,8 +623,8 @@ export default function EventModal({
             <div className="border rounded p-4 mb-4 bg-gray-50">
               <p className="text-sm font-medium mb-1">Camisa do evento</p>
               <p className="text-xs text-gray-500 mb-3">
-                O participante poderá escolher se inscrever com ou sem camisa. Se
-                escolher com camisa, será obrigatório informar o tamanho.
+                O participante poderá escolher se inscrever com ou sem camisa.
+                Se escolher com camisa, será obrigatório informar o tamanho.
               </p>
 
               <Form.Item
@@ -634,7 +676,7 @@ export default function EventModal({
                             return Promise.reject(
                               `Deve ser maior que o valor sem camisa (R$ ${(
                                 base || 0
-                              ).toFixed(2)})`
+                              ).toFixed(2)})`,
                             );
                           }
                           return Promise.resolve();
@@ -698,6 +740,183 @@ export default function EventModal({
                   </Form.List>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Lotes de inscrição (apenas evento pago) */}
+          {!isFree && (
+            <div className="border rounded p-4 mb-4 bg-gray-50">
+              <p className="text-sm font-medium mb-1">Lotes de inscrição</p>
+              <p className="text-xs text-gray-500 mb-3">
+                Opcional. Sem lotes, vale o valor único da inscrição. Com lotes,
+                cada um tem seu valor e período; quando acaba o prazo ou as
+                vagas do lote, passa a valer o próximo (menor ordem primeiro). O
+                limite de participantes do evento sempre vale.
+              </p>
+
+              {batchErrors.length > 0 && (
+                <Alert
+                  type="error"
+                  showIcon
+                  className="mb-3"
+                  message={batchErrors.join(" · ")}
+                />
+              )}
+
+              <Form.List name="batches">
+                {(fields, { add, remove }) => (
+                  <div className="flex flex-col gap-3">
+                    {fields.map((field, index) => (
+                      <div
+                        key={field.key}
+                        className="border rounded p-3 bg-white"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium">
+                            Lote {index + 1}
+                          </span>
+                          <Button
+                            type="text"
+                            danger
+                            icon={<MinusCircleOutlined />}
+                            onClick={() => remove(field.name)}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+
+                        <Form.Item name={[field.name, "id"]} hidden>
+                          <Input />
+                        </Form.Item>
+
+                        <Form.Item
+                          name={[field.name, "name"]}
+                          label="Nome do lote"
+                          rules={[
+                            {
+                              required: true,
+                              message: "Informe o nome do lote",
+                            },
+                          ]}
+                        >
+                          <Input placeholder="Ex: 1º Lote" maxLength={60} />
+                        </Form.Item>
+
+                        <Form.Item
+                          name={[field.name, "period"]}
+                          label="Período em que o lote vale"
+                          rules={[
+                            { required: true, message: "Informe o período" },
+                          ]}
+                        >
+                          <DatePicker.RangePicker
+                            showTime
+                            format="DD/MM/YYYY HH:mm"
+                            className="w-full"
+                            placeholder={["Início", "Fim"]}
+                          />
+                        </Form.Item>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                          <Form.Item
+                            name={[field.name, "price"]}
+                            label="Valor sem camisa"
+                            rules={[
+                              { required: true, message: "Informe o valor" },
+                            ]}
+                          >
+                            <MoneyInput placeholder="R$ 0,00" />
+                          </Form.Item>
+
+                          {shirtEnabled && (
+                            <Form.Item
+                              name={[field.name, "priceWithShirt"]}
+                              label="Valor com camisa"
+                              dependencies={[["batches", field.name, "price"]]}
+                              rules={[
+                                {
+                                  required: true,
+                                  message: "Informe o valor com camisa",
+                                },
+                                ({ getFieldValue }) => ({
+                                  validator: (_, value) => {
+                                    const base = Number(
+                                      getFieldValue([
+                                        "batches",
+                                        field.name,
+                                        "price",
+                                      ]) ?? 0,
+                                    );
+                                    if (Number(value) <= base) {
+                                      return Promise.reject(
+                                        "Deve ser maior que o valor sem camisa",
+                                      );
+                                    }
+                                    return Promise.resolve();
+                                  },
+                                }),
+                              ]}
+                            >
+                              <MoneyInput placeholder="R$ 0,00" />
+                            </Form.Item>
+                          )}
+
+                          <Form.Item
+                            name={[field.name, "quota"]}
+                            label="Vagas do lote (opcional)"
+                            tooltip="Deixe vazio para não limitar as vagas deste lote."
+                          >
+                            <InputNumber
+                              min={1}
+                              precision={0}
+                              inputMode="numeric"
+                              className="w-full"
+                              placeholder="Sem limite"
+                            />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={[field.name, "priority"]}
+                            label="Ordem de uso"
+                            tooltip="Se dois lotes valerem ao mesmo tempo, vale o de menor número."
+                          >
+                            <InputNumber
+                              min={0}
+                              precision={0}
+                              inputMode="numeric"
+                              className="w-full"
+                            />
+                          </Form.Item>
+                        </div>
+
+                        <Form.Item
+                          name={[field.name, "isActive"]}
+                          valuePropName="checked"
+                          className="mb-0"
+                        >
+                          <Switch
+                            checkedChildren="Lote ativo"
+                            unCheckedChildren="Lote desativado"
+                          />
+                        </Form.Item>
+                      </div>
+                    ))}
+                    <Button
+                      type="dashed"
+                      onClick={() =>
+                        add({
+                          isActive: true,
+                          priority: fields.length + 1,
+                        })
+                      }
+                      block
+                      icon={<PlusOutlined />}
+                    >
+                      Adicionar lote
+                    </Button>
+                  </div>
+                )}
+              </Form.List>
             </div>
           )}
 

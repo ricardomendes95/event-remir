@@ -35,7 +35,7 @@ há identidade visual própria (páginas públicas institucionais).
 
 | Componente | Responsabilidade | Notas normativas |
 |---|---|---|
-| `EventDisplay` | Cartão/apresentação pública do evento | Toda listagem/destaque público de evento |
+| `EventDisplay` | Cartão/apresentação pública do evento (inclui lote vigente) | Toda listagem/destaque público de evento |
 | `EventRegistrationModal` | **Coração do produto**: fluxo multi-etapas de inscrição (dados → pagamento/confirmação, camisa, continuar pagamento) | Mudanças aqui exigem ler `docs/FLUXO_INSCRICAO.md` e testar todos os cenários da matriz (gratuito/pago × formMode × camisa × continuar) |
 
 ## Domínio `registration` (`components/registration`)
@@ -52,7 +52,7 @@ há identidade visual própria (páginas públicas institucionais).
 | Componente | Responsabilidade | Notas |
 |---|---|---|
 | `AdminHeader` | Chrome/navegação do admin | |
-| `EventModal` | CRUD de evento (form completo, banner, rich text, camisa, form dinâmico) | |
+| `EventModal` | CRUD de evento (form completo, banner, rich text, camisa, lotes de inscrição, form dinâmico) | |
 | `DynamicFormBuilder` | Construtor visual dos campos dinâmicos | Par do `DynamicFormRenderer` |
 | `ManualRegistrationModal` | Inscrição manual pelo admin | `paymentMethod = MANUAL` |
 | `UserManagement` / `UserModal` / `ChangePasswordModal` | Gestão de admins | Restrito a SUPER_ADMIN |

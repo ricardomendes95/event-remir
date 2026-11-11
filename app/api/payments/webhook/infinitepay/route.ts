@@ -84,9 +84,22 @@ export async function POST(request: NextRequest) {
         select: { price: true, shirtConfig: true },
       })
     );
+    // O valor esperado usa o lote gravado na inscrição (não o vigente agora)
+    const registrationBatch = registration.batchId
+      ? await withPrismaRetry(() =>
+          prisma.eventBatch.findUnique({
+            where: { id: registration!.batchId! },
+            select: { price: true, priceWithShirt: true },
+          })
+        )
+      : null;
     if (event) {
       const expectedCents = Math.round(
-        resolveBaseValue(event, registration.wantsShirt ?? false) * 100
+        resolveBaseValue(
+          event,
+          registration.wantsShirt ?? false,
+          registrationBatch
+        ) * 100
       );
       const paidCents = parsed.paidAmount ?? parsed.amount;
       if (typeof paidCents === "number" && paidCents + 1 < expectedCents) {

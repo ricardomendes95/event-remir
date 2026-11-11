@@ -96,6 +96,15 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
     return new Date() < new Date(event.registrationEndDate);
   };
 
+  const batchesClosed = !!event.batchesClosed;
+  const isSoldOut = event.currentRegistrations >= event.capacity;
+  const batchEndLabel = event.activeBatch
+    ? new Date(event.activeBatch.endDate).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      })
+    : null;
+
   return (
     <>
       {!event.isFree && <EmbeddedBrowserWarningModal />}
@@ -196,7 +205,7 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
             <div className="lg:col-span-1">
               <div className="bg-gray-50 rounded-xl p-6 sticky top-6">
                 {/* Contagem Regressiva */}
-                {event.registrationEndDate && isRegistrationOpen() && (
+                {event.registrationEndDate && isRegistrationOpen() && !batchesClosed && (
                   <div className="mb-6">
                     <CountdownTimer
                       targetDate={event.registrationEndDate}
@@ -223,6 +232,19 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
                   {!event.isFree && (
                     <p className="text-sm text-gray-600">por pessoa</p>
                   )}
+                  {event.activeBatch && (
+                    <p
+                      className="mt-2 inline-block rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700"
+                      data-testid="lote-vigente"
+                    >
+                      {event.activeBatch.name}
+                      {batchEndLabel
+                        ? event.activeBatch.limitedByQuota
+                          ? ` · até ${batchEndLabel} ou enquanto houver vagas`
+                          : ` · até ${batchEndLabel}`
+                        : ""}
+                    </p>
+                  )}
                 </div>
 
                 <Button
@@ -231,14 +253,13 @@ export function EventDisplay({ initialCpf, slug }: EventDisplayProps) {
                   className="w-full h-12 text-lg font-semibold"
                   onClick={() => setModalOpen(true)}
                   disabled={
-                    event.currentRegistrations >= event.capacity ||
-                    !isRegistrationOpen()
+                    isSoldOut || batchesClosed || !isRegistrationOpen()
                   }
                   data-testid="inscricao-button"
                 >
-                  {event.currentRegistrations >= event.capacity
+                  {isSoldOut
                     ? "Esgotado"
-                    : !isRegistrationOpen()
+                    : batchesClosed || !isRegistrationOpen()
                     ? "Inscrições Encerradas"
                     : "Quero me inscrever"}
                 </Button>

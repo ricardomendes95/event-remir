@@ -9,16 +9,28 @@ export function getShirtConfig(event: {
   return cfg;
 }
 
+/** Preços do lote vigente usados no cálculo do valor da inscrição. */
+export interface BatchPricing {
+  price: number;
+  priceWithShirt: number | null;
+}
+
 /**
  * Calcula o valor base da inscrição no servidor (nunca confiar no cliente):
  * preço com camisa quando o participante optou por ela e a camisa está
- * habilitada; caso contrário, o preço base do evento.
+ * habilitada; caso contrário, o preço base. Com `batch`, os preços do lote
+ * substituem os do evento.
  */
 export function resolveBaseValue(
   event: { price: number; shirtConfig?: unknown },
-  wantsShirt: boolean
+  wantsShirt: boolean,
+  batch?: BatchPricing | null
 ): number {
   const shirt = getShirtConfig(event);
+  if (batch) {
+    if (wantsShirt && shirt) return batch.priceWithShirt ?? shirt.priceWithShirt;
+    return batch.price;
+  }
   if (wantsShirt && shirt) return shirt.priceWithShirt;
   return event.price;
 }

@@ -50,6 +50,7 @@ interface Registration {
   notes?: string | null;
   createdAt: string;
   updatedAt: string;
+  batch?: { id: string; name: string } | null;
   event: {
     id: string;
     title: string;
@@ -153,6 +154,11 @@ export default function RegistrationTable({
           )}
         </div>
       ),
+    },
+    {
+      title: "Lote",
+      key: "batch",
+      render: (_, record) => record.batch?.name ?? "—",
     },
     {
       title: "Pagamento",

@@ -20,6 +20,7 @@ e o preço:
 | `dynamicFormFields` | `Json?` | Array de definições dos campos dinâmicos |
 | `fixedFieldsConfig` | `Json?` | Se `email`/`phone` são obrigatórios (efeito só em gratuito) |
 | `shirtConfig` | `Json?` | Config do item opcional "camisa" (só em evento pago) |
+| `batches` | `EventBatch[]` | Lotes de inscrição (opcional, só em evento pago) — ver seção "Lotes de inscrição" |
 | `maxParticipants`, `registrationStartDate`, `registrationEndDate`, `isActive` | — | Gates de disponibilidade |
 
 Cada inscrição vira uma `Registration`:
@@ -29,6 +30,7 @@ Cada inscrição vira uma `Registration`:
 - `paymentId`: referência do provedor (ou `free_<timestamp>_<rand>` em gratuito)
 - `dynamicFormData` (JSON): respostas sanitizadas do formulário dinâmico
 - `wantsShirt` / `shirtSize`: seleção de camisa
+- `batchId` (nullable): lote em que a inscrição foi feita (`null` em evento sem lotes e em inscrições históricas)
 - `notes` (até 500 caracteres), `manualPaymentType` (`PIX | CASH | CARD`) e
   `cashResponsible`: dados **administrativos** (ver "Inscrição manual pelo admin")
 
@@ -139,7 +141,9 @@ desde a remoção do Mercado Pago em 2026-07-22).
 2. Etapa "Pagamento": escolhe camisa (se habilitada) e vê o valor final. "Ir para
    o pagamento" → `POST /api/payments/create-preference`.
 3. Servidor valida: evento ativo/pago, **não** `DYNAMIC_ONLY`, dinâmicos (se
-   `BOTH`), vagas, janela de inscrição, seleção de camisa, e recalcula `baseValue`.
+   `BOTH`), janela de inscrição, seleção de camisa e, numa transação, vagas
+   (só `PENDING` + `CONFIRMED` ocupam vaga) e lote vigente; recalcula `baseValue`
+   com o preço do lote vigente (ver "Lotes de inscrição").
 4. **Persiste a `Registration` primeiro** (`status = PENDING`,
    `paymentMethod = INFINITE_PAY`) para obter o `id`, que vira o `order_nsu` do
    gateway.
@@ -165,7 +169,9 @@ já existe inscrição:
   com opções "Ver comprovante" ou "Continuar pagamento". Nesse caso o modal entra
   em modo `isUpdatingPayment` (etapa única "Pagamento"), pré-carrega os dados (não
   editáveis) e o backend faz **UPDATE** da inscrição existente (nova
-  preferência/checkout), em vez de criar duplicata.
+  preferência/checkout), em vez de criar duplicata. Se o lote vigente mudou
+  desde a primeira tentativa, cobra-se o **preço do lote atual** e o `batchId`
+  da inscrição é atualizado; a própria inscrição não conta como vaga ocupada.
 
 ## 7. Resumo das combinações
 
@@ -176,6 +182,7 @@ já existe inscrição:
 | Fixos opcionais | email/telefone obrigatórios ou não | `fixedFieldsConfig` (só em gratuito) |
 | Campos dinâmicos | 8 tipos, até 30 campos, validações por tipo | `dynamicFormFields` |
 | Camisa | Habilitada ou não; se sim, escolha opcional com tamanho obrigatório | `shirtConfig` (só pago) |
+| Lotes | Sem lotes (preço único) ou com lotes (preço/período/vagas por lote) | `EventBatch` (só pago) |
 | Gateway | InfinitePay (único) | fixo no código (`create-preference`) |
 
 Restrições que amarram tudo: **camisa só em evento pago**; **`DYNAMIC_ONLY` só em
@@ -183,6 +190,42 @@ gratuito**; **pago só admite `FIXED_ONLY` ou `BOTH`**; valores e seleção de c
 sempre recalculados no servidor.
 </content>
 </invoke>
+
+## Lotes de inscrição
+
+Opcionais, só em evento **pago**. Cada `EventBatch` tem nome, período
+(`startDate`–`endDate`), vagas (`quota`, opcional), ordem de uso (`priority`),
+`price`, `priceWithShirt` (obrigatório e maior que `price` quando o evento tem
+camisa) e `isActive`. São gerenciados na seção "Lotes de inscrição" do
+`EventModal` e salvos junto com o evento (`batches` no `POST/PUT /api/events`,
+sincronizados em transação; lote que já tem inscrições não pode ser removido,
+só desativado).
+
+- **Evento sem lotes**: nada muda; vale `price`/`shirtConfig` do evento.
+- **Lote vigente** (`resolveActiveBatch`, `backend/utils/eventBatches.ts`): ativo,
+  dentro do período e com vaga no lote; havendo mais de um, vence a menor
+  `priority`. A janela de inscrição do evento e o teto `maxParticipants`
+  continuam valendo por cima dos lotes.
+- **Evento com lotes e nenhum vigente** → inscrições fechadas
+  ("Período de inscrições encerrado", 400 no `create-preference`).
+- **Vagas**: global e por lote contam só `PENDING` + `CONFIRMED`
+  (`OCCUPYING_STATUSES`); `CANCELLED`/`PAYMENT_FAILED` liberam a vaga.
+- **Preço**: `resolveBaseValue(event, wantsShirt, batch)` usa o preço do lote;
+  `create-preference` grava o `batchId`. O webhook confere o valor pelo lote
+  **gravado na inscrição**, não pelo vigente no momento. Relatórios e financeiro
+  usam o lote da inscrição.
+- **APIs públicas** (`events/active`, `by-slug`, `list-active`): `price` e
+  `shirtConfig.priceWithShirt` já saem com os valores do lote vigente, mais
+  `activeBatch` (nome, preços, fim do período, `limitedByQuota`) e
+  `batchesClosed`. Quotas e contagens dos lotes nunca são expostas.
+- **UI pública**: o card do evento mostra o lote vigente e até quando vale
+  ("1º Lote · até 15/08 ou enquanto houver vagas"); a etapa de pagamento mostra
+  o nome do lote. Nenhum passo novo.
+- **Inscrição manual do admin** recebe o lote vigente (ou fica sem lote); não é
+  bloqueada pelo fim dos lotes.
+- Limitação conhecida: a checagem de vagas e a gravação da inscrição rodam numa
+  transação, mas sem lock; duas inscrições simultâneas na última vaga ainda podem
+  passar (mesma classe de corrida do teto global; lock definitivo fica para o req. 2).
 
 ## Inscrição manual pelo admin
 

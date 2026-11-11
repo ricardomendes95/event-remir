@@ -1,25 +1,34 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
+import { buildPublicBatchView } from "@/backend/services/eventBatchService";
+import { OCCUPYING_STATUSES } from "@/backend/utils/eventBatches";
 
 export async function GET() {
   try {
-    const activeEvent = await prisma.event.findFirst({
-      where: {
-        isActive: true,
-      },
-      include: {
-        registrations: {
-          where: {
-            status: "CONFIRMED",
-          },
-          select: { id: true },
+    const activeEvent = await withPrismaRetry(() =>
+      prisma.event.findFirst({
+        where: {
+          isActive: true,
         },
-      },
-    });
+        include: {
+          registrations: {
+            where: { status: { in: [...OCCUPYING_STATUSES] } },
+            select: { id: true, batchId: true },
+          },
+          batches: true,
+        },
+      }),
+    );
 
     if (!activeEvent) {
       return NextResponse.json(null);
     }
+
+    const pricing = buildPublicBatchView(
+      activeEvent,
+      activeEvent.batches,
+      activeEvent.registrations,
+    );
 
     // Formato da resposta
     const eventResponse = {
@@ -32,7 +41,9 @@ export async function GET() {
       currentRegistrations: Array.isArray(activeEvent.registrations)
         ? activeEvent.registrations.length
         : 0,
-      price: Number(activeEvent.price),
+      price: pricing.price,
+      activeBatch: pricing.activeBatch,
+      batchesClosed: pricing.batchesClosed,
       bannerUrl: activeEvent.bannerUrl,
       isActive: activeEvent.isActive,
       isFree: activeEvent.isFree,
@@ -49,7 +60,7 @@ export async function GET() {
     console.error("Erro ao buscar evento ativo:", error);
     return NextResponse.json(
       { error: "Erro interno do servidor" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

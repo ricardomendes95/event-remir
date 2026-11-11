@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { z } from "zod";
 import { validateDynamicFormData } from "@/backend/utils/dynamicFormValidator";
 import type {
@@ -12,6 +12,10 @@ import {
   resolveBaseValue,
   validateShirtSelection,
 } from "@/backend/utils/shirtPricing";
+import {
+  countOccupiedSlots,
+  getEventBatchState,
+} from "@/backend/services/eventBatchService";
 
 // Schema de validação
 const createPreferenceSchema = z.object({
@@ -45,16 +49,9 @@ export async function POST(request: NextRequest) {
     } = createPreferenceSchema.parse(body);
 
     // Buscar evento
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: {
-        _count: {
-          select: {
-            registrations: true,
-          },
-        },
-      },
-    });
+    const event = await withPrismaRetry(() =>
+      prisma.event.findUnique({ where: { id: eventId } })
+    );
 
     if (!event) {
       return NextResponse.json(
@@ -113,11 +110,6 @@ export async function POST(request: NextRequest) {
       sanitizedDynamic = result.sanitized;
     }
 
-    // Verificar se ainda há vagas
-    if (event._count.registrations >= event.maxParticipants) {
-      return NextResponse.json({ error: "Evento lotado" }, { status: 400 });
-    }
-
     // Verificar se inscrições estão abertas
     const now = new Date();
     if (now < event.registrationStartDate || now > event.registrationEndDate) {
@@ -139,18 +131,18 @@ export async function POST(request: NextRequest) {
         { status: 422 }
       );
     }
-    const baseValue = resolveBaseValue(event, shirtSelection.wantsShirt);
-
     // Verificar se participante já está inscrito.
     // O CPF é gravado sem formatação, então a busca também precisa normalizar
     // (senão um CPF formatado nunca casa e cria inscrição duplicada).
     const cpfDigits = participantData.cpf.replace(/\D/g, "");
-    const existingRegistration = await prisma.registration.findFirst({
-      where: {
-        eventId,
-        cpf: cpfDigits,
-      },
-    });
+    const existingRegistration = await withPrismaRetry(() =>
+      prisma.registration.findFirst({
+        where: {
+          eventId,
+          cpf: cpfDigits,
+        },
+      })
+    );
 
     let registrationAction: "CREATE" | "UPDATE" = "CREATE";
     let targetRegistrationId: string | null = null;
@@ -182,45 +174,82 @@ export async function POST(request: NextRequest) {
       targetRegistrationId = existingRegistration.id;
     }
 
-    // Persistir a inscrição primeiro para obter o id (usado como order_nsu).
-    let regId: string;
-    if (registrationAction === "UPDATE" && targetRegistrationId) {
-      await prisma.registration.update({
-        where: { id: targetRegistrationId },
-        data: {
-          name: participantData.name,
-          email: participantData.email,
-          phone: participantData.phone.replace(/\D/g, ""),
-          status: "PENDING",
-          paymentMethod: "INFINITE_PAY",
-          paymentError: null,
-          wantsShirt: shirtSelection.wantsShirt,
-          shirtSize: shirtSelection.shirtSize,
-          ...(sanitizedDynamic
-            ? { dynamicFormData: sanitizedDynamic as Prisma.InputJsonValue }
-            : {}),
-        },
-      });
-      regId = targetRegistrationId;
-    } else {
-      const created = await prisma.registration.create({
-        data: {
+    // Vagas, lote vigente, valor e gravação da inscrição na mesma transação.
+    // O valor é sempre recalculado aqui (lote vigente + camisa), nunca vem do
+    // cliente. Na retomada (UPDATE) a própria inscrição não conta como vaga e
+    // o batchId passa a ser o do lote vigente agora.
+    const outcome = await withPrismaRetry(() =>
+      prisma.$transaction(async (tx) => {
+        const occupied = await countOccupiedSlots(
+          tx,
           eventId,
-          name: participantData.name,
-          email: participantData.email,
-          cpf: participantData.cpf.replace(/\D/g, ""),
-          phone: participantData.phone.replace(/\D/g, ""),
-          status: "PENDING",
-          paymentMethod: "INFINITE_PAY",
-          wantsShirt: shirtSelection.wantsShirt,
-          shirtSize: shirtSelection.shirtSize,
-          dynamicFormData: sanitizedDynamic
-            ? (sanitizedDynamic as Prisma.InputJsonValue)
-            : undefined,
-        },
-      });
-      regId = created.id;
+          targetRegistrationId ?? undefined
+        );
+        if (occupied >= event.maxParticipants) {
+          return { error: "Evento lotado" } as const;
+        }
+
+        const batchState = await getEventBatchState(tx, eventId, {
+          excludeRegistrationId: targetRegistrationId ?? undefined,
+          now,
+        });
+        if (batchState.hasBatches && !batchState.activeBatch) {
+          return { error: "Período de inscrições encerrado" } as const;
+        }
+
+        const batch = batchState.activeBatch;
+        const value = resolveBaseValue(
+          event,
+          shirtSelection.wantsShirt,
+          batch
+        );
+
+        if (registrationAction === "UPDATE" && targetRegistrationId) {
+          await tx.registration.update({
+            where: { id: targetRegistrationId },
+            data: {
+              name: participantData.name,
+              email: participantData.email,
+              phone: participantData.phone.replace(/\D/g, ""),
+              status: "PENDING",
+              paymentMethod: "INFINITE_PAY",
+              paymentError: null,
+              wantsShirt: shirtSelection.wantsShirt,
+              shirtSize: shirtSelection.shirtSize,
+              batchId: batch?.id ?? null,
+              ...(sanitizedDynamic
+                ? { dynamicFormData: sanitizedDynamic as Prisma.InputJsonValue }
+                : {}),
+            },
+          });
+          return { regId: targetRegistrationId, baseValue: value } as const;
+        }
+
+        const created = await tx.registration.create({
+          data: {
+            eventId,
+            name: participantData.name,
+            email: participantData.email,
+            cpf: participantData.cpf.replace(/\D/g, ""),
+            phone: participantData.phone.replace(/\D/g, ""),
+            status: "PENDING",
+            paymentMethod: "INFINITE_PAY",
+            wantsShirt: shirtSelection.wantsShirt,
+            shirtSize: shirtSelection.shirtSize,
+            batchId: batch?.id ?? null,
+            dynamicFormData: sanitizedDynamic
+              ? (sanitizedDynamic as Prisma.InputJsonValue)
+              : undefined,
+          },
+        });
+        return { regId: created.id, baseValue: value } as const;
+      })
+    );
+
+    if ("error" in outcome) {
+      return NextResponse.json({ error: outcome.error }, { status: 400 });
     }
+    const { regId, baseValue } = outcome;
 
     try {
       const checkout = await createInfinitePayCheckoutForRegistration({

@@ -23,6 +23,7 @@ function EventCard({
   };
 
   const spotsLeft = event.capacity - event.currentRegistrations;
+  const batchesClosed = !!event.batchesClosed;
 
   return (
     <Link
@@ -51,6 +52,7 @@ function EventCard({
             </span>
           ) : (
             <span className="shrink-0 bg-blue-100 text-blue-700 text-xs font-semibold px-2 py-1 rounded-full">
+              {event.activeBatch ? `${event.activeBatch.name} · ` : ""}
               {event.price.toLocaleString("pt-BR", {
                 style: "currency",
                 currency: "BRL",
@@ -89,6 +91,8 @@ function EventCard({
             <span className="text-xs text-gray-400">Inscrições encerradas</span>
           ) : spotsLeft <= 0 ? (
             <span className="text-xs text-red-500 font-medium">Esgotado</span>
+          ) : batchesClosed ? (
+            <span className="text-xs text-gray-400">Inscrições encerradas</span>
           ) : (
             <span className="text-xs text-green-600 font-medium">
               Inscrições abertas

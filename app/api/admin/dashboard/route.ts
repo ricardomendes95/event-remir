@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
           where: { status: "CONFIRMED" },
           select: {
             wantsShirt: true,
+            batch: { select: { price: true, priceWithShirt: true } },
             event: { select: { price: true, shirtConfig: true } },
           },
         }),
@@ -70,7 +71,8 @@ export async function GET(request: NextRequest) {
         sum +
         resolveBaseValue(
           { price: Number(r.event.price), shirtConfig: r.event.shirtConfig },
-          r.wantsShirt ?? false
+          r.wantsShirt ?? false,
+          r.batch
         ),
       0
     );

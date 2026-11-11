@@ -6,6 +6,7 @@ import {
   type EventWithStats,
 } from "../repositories";
 import { EventCreateSchema, EventUpdateSchema } from "../schemas/eventSchemas";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 
 export class EventController extends BaseController {
   async getEvents(request: NextRequest) {
@@ -82,7 +83,7 @@ export class EventController extends BaseController {
         }
         return this.success(event, "Evento encontrado");
       } else {
-        const event = await eventRepository.findById(id);
+        const event = await eventRepository.findByIdWithBatches(id);
         if (!event) {
           return this.notFound("Evento não encontrado");
         }
@@ -135,9 +136,12 @@ export class EventController extends BaseController {
         return this.conflict("Já existe um evento com este slug");
       }
 
+      // Lotes são persistidos em tabela própria (não fazem parte do Event)
+      const { batches, ...eventFields } = validatedData;
+
       // Converter strings de data para objetos Date
       const eventData = {
-        ...validatedData,
+        ...eventFields,
         startDate: new Date(validatedData.startDate),
         endDate: new Date(validatedData.endDate),
         registrationStartDate: new Date(validatedData.registrationStartDate),
@@ -158,7 +162,11 @@ export class EventController extends BaseController {
             : validatedData.dynamicFormFields ?? null,
       };
 
-      const event = await eventRepository.create(eventData);
+      const event = await eventRepository.createWithBatches(
+        eventData,
+        batches ?? [],
+        !!eventData.shirtConfig?.enabled
+      );
 
       return this.created(event, "Evento criado com sucesso");
     } catch (error) {
@@ -240,9 +248,69 @@ export class EventController extends BaseController {
       }
 
 
+      // Lotes: undefined = não mexe; array = substitui o conjunto
+      const { batches: incomingBatches, ...eventFields } = validatedData;
+      const finalShirtEnabled =
+        !finalIsFree &&
+        (validatedData.shirtConfig !== undefined
+          ? !!validatedData.shirtConfig?.enabled
+          : !!(existingEvent.shirtConfig as { enabled?: boolean } | null)
+              ?.enabled);
+
+      if (incomingBatches && incomingBatches.length > 0 && finalIsFree) {
+        return this.unprocessableEntity(
+          "Lotes só são permitidos em eventos pagos",
+          [{ field: "batches", message: "Evento gratuito não tem lotes" }]
+        );
+      }
+
+      const currentBatches = await withPrismaRetry(() =>
+        prisma.eventBatch.findMany({
+          where: { eventId: id },
+          include: { _count: { select: { registrations: true } } },
+        })
+      );
+
+      if (incomingBatches) {
+        const foreignId = incomingBatches.find(
+          (b) => b.id && !currentBatches.some((c) => c.id === b.id)
+        );
+        if (foreignId) {
+          return this.unprocessableEntity("Lote inválido para este evento", [
+            { field: "batches", message: "Lote não pertence ao evento" },
+          ]);
+        }
+        const removedWithRegistrations = currentBatches.find(
+          (c) =>
+            c._count.registrations > 0 &&
+            !incomingBatches.some((b) => b.id === c.id)
+        );
+        if (removedWithRegistrations) {
+          return this.unprocessableEntity(
+            `O lote "${removedWithRegistrations.name}" já tem inscrições e não pode ser removido. Desative-o.`,
+            [{ field: "batches", message: "Lote com inscrições" }]
+          );
+        }
+      }
+
+      // Com camisa habilitada, todo lote (novo ou já existente) precisa de
+      // valor com camisa maior que o valor do lote.
+      if (finalShirtEnabled) {
+        const finalBatches = incomingBatches ?? currentBatches;
+        const invalid = finalBatches.find(
+          (b) => b.priceWithShirt == null || b.priceWithShirt <= b.price
+        );
+        if (invalid) {
+          return this.unprocessableEntity(
+            "Em cada lote, o valor com camisa deve ser informado e maior que o valor do lote",
+            [{ field: "batches", message: "Valor com camisa inválido no lote" }]
+          );
+        }
+      }
+
       // Converter strings de data para objetos Date quando presentes
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const updateData: any = { ...validatedData };
+      const updateData: any = { ...eventFields };
       if (updateData.startDate)
         updateData.startDate = new Date(updateData.startDate);
       if (updateData.endDate) updateData.endDate = new Date(updateData.endDate);
@@ -264,7 +332,12 @@ export class EventController extends BaseController {
         updateData.dynamicFormFields = null;
       }
 
-      const updatedEvent = await eventRepository.update(id, updateData);
+      const updatedEvent = await eventRepository.updateWithBatches(
+        id,
+        updateData,
+        incomingBatches,
+        finalShirtEnabled
+      );
 
       return this.success(updatedEvent, "Evento atualizado com sucesso");
     } catch (error) {

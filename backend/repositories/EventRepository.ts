@@ -1,6 +1,37 @@
-import { prisma } from "../../lib/prisma";
+import { prisma, withPrismaRetry } from "../../lib/prisma";
 import { BaseRepository } from "./BaseRepository";
-import type { Registration as PrismaRegistration } from "@prisma/client";
+import type {
+  EventBatch,
+  Prisma,
+  Registration as PrismaRegistration,
+} from "@prisma/client";
+import type { EventBatchInput } from "../schemas/eventSchemas";
+import { OCCUPYING_STATUSES } from "../utils/eventBatches";
+import {
+  countOccupiedSlots,
+  getEventBatchState,
+} from "../services/eventBatchService";
+
+const batchesInclude = {
+  batches: { orderBy: [{ priority: "asc" as const }, { startDate: "asc" as const }] },
+};
+
+function toBatchData(
+  b: EventBatchInput,
+  withShirt: boolean
+): Omit<Prisma.EventBatchUncheckedCreateInput, "eventId" | "id"> {
+  return {
+    name: b.name,
+    startDate: new Date(b.startDate),
+    endDate: new Date(b.endDate),
+    quota: b.quota ?? null,
+    priority: b.priority ?? 0,
+    price: b.price,
+    // priceWithShirt só tem sentido quando o evento oferece camisa
+    priceWithShirt: withShirt ? b.priceWithShirt ?? null : null,
+    isActive: b.isActive ?? true,
+  };
+}
 
 // Redefining types manually to match actual schema
 export interface Event {
@@ -33,6 +64,7 @@ export interface EventWithStats extends Event {
     registrations: number;
   };
   registrations?: Registration[];
+  batches?: EventBatch[];
 }
 
 export class EventRepository extends BaseRepository<Event> {
@@ -116,6 +148,7 @@ export class EventRepository extends BaseRepository<Event> {
       return await prisma.event.findMany({
         ...options,
         include: {
+          ...batchesInclude,
           _count: {
             select: {
               registrations: {
@@ -194,7 +227,10 @@ export class EventRepository extends BaseRepository<Event> {
       const checkedInRegistrations = event.registrations.filter(
         (r: { checkedInAt: Date | null }) => r.checkedInAt !== null
       ).length;
-      const availableSpots = event.maxParticipants - confirmedRegistrations;
+      const occupied = event.registrations.filter((r: { status: string }) =>
+        (OCCUPYING_STATUSES as readonly string[]).includes(r.status)
+      ).length;
+      const availableSpots = Math.max(event.maxParticipants - occupied, 0);
 
       return {
         totalRegistrations,
@@ -217,15 +253,6 @@ export class EventRepository extends BaseRepository<Event> {
           registrationStartDate: true,
           registrationEndDate: true,
           maxParticipants: true,
-          _count: {
-            select: {
-              registrations: {
-                where: {
-                  status: "CONFIRMED",
-                },
-              },
-            },
-          },
         },
       });
 
@@ -235,13 +262,89 @@ export class EventRepository extends BaseRepository<Event> {
       const isWithinRegistrationPeriod =
         now >= event.registrationStartDate && now <= event.registrationEndDate;
 
-      const hasAvailableSpots =
-        event._count.registrations < event.maxParticipants;
+      const occupied = await countOccupiedSlots(prisma, eventId);
+      const hasAvailableSpots = occupied < event.maxParticipants;
 
-      return isWithinRegistrationPeriod && hasAvailableSpots;
+      // Evento com lotes só abre se houver um lote vigente
+      const batchState = await getEventBatchState(prisma, eventId);
+      const hasOpenBatch = !batchState.hasBatches || !!batchState.activeBatch;
+
+      return isWithinRegistrationPeriod && hasAvailableSpots && hasOpenBatch;
     } catch (error) {
       console.error("Error checking if registration is open:", error);
       throw new Error("Erro ao verificar se inscrições estão abertas");
+    }
+  }
+
+  async findByIdWithBatches(id: string): Promise<EventWithStats | null> {
+    try {
+      return await withPrismaRetry(() =>
+        prisma.event.findUnique({ where: { id }, include: batchesInclude })
+      );
+    } catch (error) {
+      console.error("Error finding event with batches:", error);
+      throw new Error("Erro ao buscar evento");
+    }
+  }
+
+  async createWithBatches(
+    data: Record<string, unknown>,
+    batches: EventBatchInput[],
+    withShirt: boolean
+  ): Promise<Event> {
+    try {
+      return await withPrismaRetry(() =>
+        prisma.event.create({
+          data: {
+            ...(data as Prisma.EventUncheckedCreateInput),
+            batches: { create: batches.map((b) => toBatchData(b, withShirt)) },
+          },
+          include: batchesInclude,
+        })
+      );
+    } catch (error) {
+      console.error("Error creating event with batches:", error);
+      throw new Error("Erro ao criar registro");
+    }
+  }
+
+  /**
+   * Atualiza o evento e, quando `batches` é informado, sincroniza os lotes na
+   * mesma transação (upsert por id; os ausentes são removidos).
+   */
+  async updateWithBatches(
+    id: string,
+    data: Record<string, unknown>,
+    batches: EventBatchInput[] | undefined,
+    withShirt: boolean
+  ): Promise<Event> {
+    try {
+      return await withPrismaRetry(() =>
+        prisma.$transaction(async (tx) => {
+          if (batches) {
+            const keepIds = batches.flatMap((b) => (b.id ? [b.id] : []));
+            await tx.eventBatch.deleteMany({
+              where: { eventId: id, id: { notIn: keepIds } },
+            });
+            for (const b of batches) {
+              const batchData = toBatchData(b, withShirt);
+              if (b.id) {
+                await tx.eventBatch.update({ where: { id: b.id }, data: batchData });
+              } else {
+                await tx.eventBatch.create({ data: { ...batchData, eventId: id } });
+              }
+            }
+          }
+          return tx.event.update({
+            where: { id },
+            data: data as Prisma.EventUncheckedUpdateInput,
+            include: batchesInclude,
+          });
+        })
+      );
+    } catch (error) {
+      console.error("Error updating event with batches:", error);
+      throw new Error("Erro ao atualizar registro");
     }
   }
 

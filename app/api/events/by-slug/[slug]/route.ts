@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
+import { buildPublicBatchView } from "@/backend/services/eventBatchService";
+import { OCCUPYING_STATUSES } from "@/backend/utils/eventBatches";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug: string }> },
 ) {
   try {
     const { slug } = await params;
@@ -13,19 +15,26 @@ export async function GET(
         where: { slug },
         include: {
           registrations: {
-            where: { status: "CONFIRMED" },
-            select: { id: true },
+            where: { status: { in: [...OCCUPYING_STATUSES] } },
+            select: { id: true, batchId: true },
           },
+          batches: true,
         },
-      })
+      }),
     );
 
     if (!event) {
       return NextResponse.json(
         { error: "Evento não encontrado" },
-        { status: 404 }
+        { status: 404 },
       );
     }
+
+    const pricing = buildPublicBatchView(
+      event,
+      event.batches,
+      event.registrations,
+    );
 
     const eventResponse = {
       id: event.id,
@@ -36,14 +45,16 @@ export async function GET(
       location: event.location,
       capacity: event.maxParticipants,
       currentRegistrations: event.registrations.length,
-      price: Number(event.price),
+      price: pricing.price,
+      activeBatch: pricing.activeBatch,
+      batchesClosed: pricing.batchesClosed,
       bannerUrl: event.bannerUrl,
       isActive: event.isActive,
       isFree: event.isFree,
       formMode: event.formMode,
       dynamicFormFields: event.dynamicFormFields,
       fixedFieldsConfig: event.fixedFieldsConfig,
-      shirtConfig: event.shirtConfig,
+      shirtConfig: pricing.shirtConfig,
       registrationEndDate: event.registrationEndDate.toISOString(),
       createdAt: event.createdAt.toISOString(),
       updatedAt: event.updatedAt.toISOString(),
@@ -54,7 +65,7 @@ export async function GET(
     console.error("Erro ao buscar evento por slug:", error);
     return NextResponse.json(
       { error: "Erro interno do servidor" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

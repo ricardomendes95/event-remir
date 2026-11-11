@@ -789,6 +789,11 @@ export default function EventRegistrationModal({
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-800">
                     Você vai pagar
+                    {event.activeBatch && (
+                      <span className="block text-sm font-normal text-gray-600">
+                        {event.activeBatch.name}
+                      </span>
+                    )}
                   </span>
                   <span className="text-2xl font-extrabold text-blue-700">
                     {formatCurrency(

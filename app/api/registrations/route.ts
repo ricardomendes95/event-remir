@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getEventBatchState } from "@/backend/services/eventBatchService";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { zodErrorResponse } from "@/backend/utils/validationResponse";
@@ -51,6 +52,7 @@ export async function GET(request: NextRequest) {
         prisma.registration.findMany({
           where,
           include: {
+            batch: { select: { id: true, name: true } },
             event: {
               select: {
                 id: true,
@@ -170,6 +172,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A inscrição manual entra no lote vigente (sem lote vigente, fica sem lote)
+    const batchState = await withPrismaRetry(() =>
+      getEventBatchState(prisma, eventId)
+    );
+
     // Criar inscrição
     const registration = await withPrismaRetry(() =>
       prisma.registration.create({
@@ -187,6 +194,7 @@ export async function POST(request: NextRequest) {
           notes: notes ?? null,
           wantsShirt: shirtSelection.wantsShirt,
           shirtSize: shirtSelection.shirtSize,
+          batchId: batchState.activeBatch?.id ?? null,
           ...(dynamicFormData
             ? { dynamicFormData: dynamicFormData as Prisma.InputJsonValue }
             : {}),

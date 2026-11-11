@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     const registration = await prisma.registration.findFirst({
       where: registrationId ? { id: registrationId } : { paymentId: paymentId },
       include: {
+        batch: { select: { price: true, priceWithShirt: true } },
         event: {
           select: {
             title: true,
@@ -49,7 +50,8 @@ export async function POST(request: NextRequest) {
         price: Number(registration.event.price),
         shirtConfig: registration.event.shirtConfig,
       },
-      registration.wantsShirt ?? false
+      registration.wantsShirt ?? false,
+      registration.batch
     );
 
     // Formatear resposta

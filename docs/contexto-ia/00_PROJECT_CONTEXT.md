@@ -116,7 +116,16 @@ Detalhe completo e autoritativo em `docs/FLUXO_INSCRICAO.md`.
 - Formulário dinâmico: cliente valida (AntD), servidor **revalida e sanitiza**
   (`validateDynamicFormData`); só o objeto sanitizado é persistido.
 - Gates de disponibilidade sempre revalidados no servidor: `isActive`, janela
-  (`registrationStartDate`–`registrationEndDate`), vagas (`maxParticipants`).
+  (`registrationStartDate`–`registrationEndDate`), vagas (`maxParticipants`) e,
+  em evento com lotes, lote vigente.
+- **Vagas** (globais e por lote) contam só inscrições `PENDING` + `CONFIRMED`;
+  `CANCELLED`/`PAYMENT_FAILED` liberam a vaga (`OCCUPYING_STATUSES`).
+- **Lotes** (`EventBatch`, opcionais, só em evento pago): o lote vigente
+  (`resolveActiveBatch`: ativo + período + vaga; menor `priority` vence) define o
+  preço — `resolveBaseValue(event, wantsShirt, batch)`. A inscrição guarda o
+  `batchId`; webhook e relatórios usam o lote da inscrição; ao continuar
+  pagamento cobra-se o lote vigente e o `batchId` é atualizado. Evento sem lotes
+  segue com preço único. Detalhe em `docs/FLUXO_INSCRICAO.md`.
 - Webhook InfinitePay não tem assinatura/HMAC (limitação do produto): validação
   = `order_nsu` corresponde a `Registration` real + `paid_amount` cobre o valor
   recalculado. Não inventar secret.

@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
             },
           },
           wantsShirt: true,
+          batch: { select: { price: true, priceWithShirt: true } },
           paymentMethod: true,
         },
       });
@@ -109,7 +110,11 @@ export async function GET(request: NextRequest) {
       let nonManualTotal = 0;
 
       for (const reg of confirmedRegistrations) {
-        const revenue = resolveBaseValue(reg.event, reg.wantsShirt ?? false);
+        const revenue = resolveBaseValue(
+          reg.event,
+          reg.wantsShirt ?? false,
+          reg.batch
+        );
 
         total += revenue;
         if (reg.paymentMethod !== "MANUAL") {
