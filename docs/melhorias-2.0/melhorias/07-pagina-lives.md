@@ -94,3 +94,5 @@ Três abordagens, combináveis:
 ## Ajuste pós-entrega (2026-11-11)
 
 A seção "Transmissões anteriores" (só lives, via `search` com 100 unidades de cota) virou **"Últimos vídeos e transmissões"**: os 5 vídeos mais recentes do canal — lives encerradas e vídeos comuns — lidos da playlist de uploads (`playlistItems.list`, 1 unidade), sem repetir a live em andamento nem as agendadas. No celular aparecem em blocos lado a lado com rolagem lateral; no computador, em grade (3 colunas no tablet, 5 no desktop), com botão de play compacto.
+
+Próximas transmissões: o canal tem transmissões agendadas antigas (2017–2022) que nunca começaram e o YouTube continua listando como "upcoming". A busca passou a trazer até 25 agendadas e a página mostra só as 5 primeiras com data de hoje em diante (fuso de Brasília); agendadas sem horário são descartadas.

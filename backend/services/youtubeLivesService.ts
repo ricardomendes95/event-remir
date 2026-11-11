@@ -10,6 +10,10 @@ const LIVE_TTL_MS = 30 * 60 * 1000;
 const LISTS_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_MAX = 5;
 const UPCOMING_MAX = 5;
+// O canal tem transmissões agendadas antigas que nunca começaram: buscamos
+// mais e mostramos só as de hoje em diante.
+const UPCOMING_FETCH = 25;
+const TIME_ZONE = "America/Sao_Paulo";
 
 export interface LiveVideo {
   id: string;
@@ -230,7 +234,7 @@ export async function getLivesData(): Promise<LivesData> {
       cached("live", LIVE_TTL_MS, () => search(channelId, "live", 1, key)),
       cached("upcoming", LISTS_TTL_MS, async () =>
         addScheduledStart(
-          await search(channelId, "upcoming", UPCOMING_MAX, key),
+          await search(channelId, "upcoming", UPCOMING_FETCH, key),
           key,
         ),
       ),
@@ -238,7 +242,15 @@ export async function getLivesData(): Promise<LivesData> {
         recentUploads(channelId, RECENT_MAX, key),
       ),
     ]);
-    // Fora da lista: a live em andamento e as transmissões agendadas.
+    // Só agendadas para hoje ou depois (data de Brasília), filtrado a cada
+    // resposta para não depender da validade do cache.
+    const dayOf = (iso: string) =>
+      new Date(iso).toLocaleDateString("en-CA", { timeZone: TIME_ZONE });
+    const today = dayOf(new Date().toISOString());
+    const nextUpcoming = upcoming
+      .filter((v) => v.scheduledStart !== null && dayOf(v.scheduledStart) >= today)
+      .slice(0, UPCOMING_MAX);
+    // Fora da lista de recentes: a live em andamento e as transmissões agendadas.
     const shownElsewhere = new Set([...live, ...upcoming].map((v) => v.id));
     const recent = uploads
       .filter((v) => !shownElsewhere.has(v.id))
@@ -246,7 +258,7 @@ export async function getLivesData(): Promise<LivesData> {
     return {
       channelId,
       live: live[0] ?? null,
-      upcoming,
+      upcoming: nextUpcoming,
       recent,
       fallback: null,
     };
