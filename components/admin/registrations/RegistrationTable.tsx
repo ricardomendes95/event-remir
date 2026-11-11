@@ -16,6 +16,7 @@ import {
   Dropdown,
   Empty,
   Alert,
+  Grid,
 } from "antd";
 import type { MenuProps } from "antd";
 
@@ -99,6 +100,10 @@ export default function RegistrationTable({
   readOnly = false,
   canManage = false,
 }: RegistrationTableProps) {
+  // No celular a coluna de ações fixa à direita espremia o nome do participante
+  const screens = Grid.useBreakpoint();
+  const isDesktop = !!screens.md;
+
   // Função para formatar CPF
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
@@ -120,6 +125,7 @@ export default function RegistrationTable({
       title: "Participante",
       dataIndex: "name",
       key: "name",
+      width: 230,
       sorter: (a, b) => a.name.localeCompare(b.name),
       render: (text, record) => (
         <div>
@@ -291,7 +297,7 @@ export default function RegistrationTable({
       title: "Ações",
       key: "actions",
       width: 270,
-      fixed: "right",
+      fixed: isDesktop ? "right" : undefined,
       render: (_, record) => {
         const cancelled = record.status === "CANCELLED";
         const menuItems: MenuProps["items"] = [

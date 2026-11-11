@@ -44,7 +44,12 @@ Schema `Order` (ADR-001) + `Registration.orderId` + `Event.allowBatchRegistratio
 
 **Decisões (Ricardo):** ADR-001 aceito; recomendações dos RFCs aceitas em bloco (ADR-003); executar tudo sem esperar aprovação a cada etapa, na ordem do roadmap, com a auditoria (req. 6) por último — antes dela, levantar a data do último evento em produção e ensinar a exportar o extrato.
 
-**Validação final (parcial, 2026-11-11):** inscrição em grupo percorrida em navegador de celular (390×844) no banco local, com InfinitePay simulada. O pedido de 3 pessoas (R$ 50 + R$ 80 com camisa M + R$ 50) enviou `order_nsu = ord_…`, 3 itens em centavos (5000/8000/5000), comprador com telefone `+5581999990000` e URLs de retorno/webhook corretas; o webhook simulado (amount 18000) confirmou as 3 inscrições e a tela "Pagamento Aprovado" listou o grupo com total R$ 180,00. Faltam: o vídeo de evidência (projeto `event-remir` criado no gravador, roteiro ainda não escrito), as telas do admin no celular, o aviso de desenvolvimento "There may be circular references" ao digitar o CPF (só no modo dev) e medir a nova regra da auditoria no extrato real.
+**Validação final (2026-11-11):** fluxo público e admin percorridos em navegador de celular (390×844), build de produção local, banco local e InfinitePay simulada.
+- Inscrição em grupo: pedido de 3 pessoas (R$ 50 + R$ 80 com camisa M + R$ 50) enviou `order_nsu = ord_…`, 3 itens em centavos (5000/8000/5000), comprador com `+5581999990000` e URLs de retorno/webhook corretas; o webhook simulado (amount 18000) confirmou as 3 inscrições; tela de sucesso e comprovantes individuais conferidos.
+- Admin: painel no evento ativo, menu em gaveta, inscrições (filtros, etiqueta de grupo), financeiro (bruto R$ 900,00 = inscrições R$ 750,00 + camisas R$ 150,00) e auditoria com extrato fictício (5 conferidos, 1 sem inscrição, 2 movimentações).
+- Correções feitas durante o teste: frase do contador de encerramento, valor do comprovante em formato brasileiro, tela de inscrições abrindo no evento ativo, filtro de lote habilitado, cartões e tabela de inscrições legíveis no celular, desempate da auditoria pelo horário exato.
+- Vídeos de evidência: `inscricao-grupo.mp4` (77 s) e `admin-evento.mp4` (66 s).
+- Pendências: medir a regra revisada da auditoria no extrato real (leitura de produção bloqueada pela permissão automática); aviso "There may be circular references" no modo de desenvolvimento ao digitar o CPF; `prisma db push` no Supabase antes do deploy.
 
 **Plano de ação** (branch `feat/melhorias-2-0`, um commit por melhoria, schema aplicado só no banco local; produção recebe `db push` no deploy):
 
