@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadImage } from "../../../lib/cloudinary";
 import { verifyToken } from "../../../backend/utils/jwt";
+import { canAccessPath } from "../../../lib/permissions";
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,8 +22,8 @@ export async function POST(request: NextRequest) {
     try {
       const decoded = verifyToken(token);
 
-      // Verificar se é admin
-      if (decoded.role !== "ADMIN" && decoded.role !== "SUPER_ADMIN") {
+      // Perfis com permissão de upload (imagens de eventos)
+      if (!canAccessPath("/api/upload", "POST", decoded.role)) {
         return NextResponse.json(
           {
             success: false,

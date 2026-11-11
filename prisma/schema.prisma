@@ -129,4 +129,6 @@ enum EventFormMode {
 enum AdminRole {
   ADMIN
   SUPER_ADMIN
+  CHECKIN
+  SUPPORT
 }

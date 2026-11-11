@@ -68,6 +68,10 @@ interface RegistrationTableProps {
   onPrint?: () => void;
   isPrinting?: boolean;
   printDisabled?: boolean;
+  /** false para perfis sem acesso a valores financeiros (ADR-002) */
+  showValues?: boolean;
+  /** true para perfil CHECKIN: sem criar/editar/excluir/imprimir */
+  readOnly?: boolean;
 }
 
 export default function RegistrationTable({
@@ -82,6 +86,8 @@ export default function RegistrationTable({
   onPrint,
   isPrinting = false,
   printDisabled = false,
+  showValues = true,
+  readOnly = false,
 }: RegistrationTableProps) {
   // Função para formatar CPF
   const formatCPF = (value: string) => {
@@ -131,9 +137,11 @@ export default function RegistrationTable({
       render: (event) => (
         <div>
           <div className="font-medium">{event.title}</div>
-          <div className="text-sm text-gray-500">
-            R$ {event.price.toFixed(2)}
-          </div>
+          {showValues && event.price != null && (
+            <div className="text-sm text-gray-500">
+              R$ {event.price.toFixed(2)}
+            </div>
+          )}
         </div>
       ),
     },
@@ -257,6 +265,10 @@ export default function RegistrationTable({
     },
   ];
 
+  const visibleColumns = readOnly
+    ? columns.filter((column) => column.key !== "actions")
+    : columns;
+
   return (
     <Card>
       <Row
@@ -272,32 +284,36 @@ export default function RegistrationTable({
           <Badge count={pagination.total} showZero color="#1890ff" />
         </div>
         <Space>
-          <Tooltip
-            title={printDisabled ? "Selecione um evento específico para imprimir" : "Imprimir lista de inscrições"}
-          >
+          {showValues && (
+            <Tooltip
+              title={printDisabled ? "Selecione um evento específico para imprimir" : "Imprimir lista de inscrições"}
+            >
+              <Button
+                icon={<PrinterOutlined />}
+                onClick={onPrint}
+                loading={isPrinting}
+                disabled={printDisabled}
+                size="large"
+              >
+                Imprimir Lista
+              </Button>
+            </Tooltip>
+          )}
+          {!readOnly && (
             <Button
-              icon={<PrinterOutlined />}
-              onClick={onPrint}
-              loading={isPrinting}
-              disabled={printDisabled}
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={onNewRegistration}
               size="large"
             >
-              Imprimir Lista
+              Nova Inscrição Manual
             </Button>
-          </Tooltip>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={onNewRegistration}
-            size="large"
-          >
-            Nova Inscrição Manual
-          </Button>
+          )}
         </Space>
       </Row>
 
       <Table
-        columns={columns}
+        columns={visibleColumns}
         dataSource={registrations}
         rowKey="id"
         loading={loading}

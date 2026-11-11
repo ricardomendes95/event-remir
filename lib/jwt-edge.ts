@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { JWTPayload } from "../backend/types/auth";
+import type { AdminRole } from "./permissions";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret-key";
 const secret = new TextEncoder().encode(JWT_SECRET);
@@ -11,7 +12,7 @@ export async function verifyTokenEdge(token: string): Promise<JWTPayload> {
     return {
       id: payload.id as string,
       email: payload.email as string,
-      role: payload.role as "ADMIN" | "SUPER_ADMIN",
+      role: payload.role as AdminRole,
       iat: payload.iat as number,
       exp: payload.exp as number,
     };

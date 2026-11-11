@@ -10,6 +10,7 @@ import {
   LoginSchema,
   type LoginData,
 } from "../../../backend/schemas/authSchemas";
+import { homePathForRole } from "../../../lib/permissions";
 
 const { Title, Text } = Typography;
 
@@ -75,8 +76,8 @@ export default function AdminLoginPage() {
       // Salva o token no localStorage
       localStorage.setItem("token", data.data.token);
 
-      // Redireciona para o dashboard admin
-      router.push("/admin");
+      // Redireciona para a tela inicial do perfil (CHECKIN → /checkin)
+      router.push(homePathForRole(data.data.user?.role));
     } catch (err) {
       console.error("Erro no login:", err);
       setError(err instanceof Error ? err.message : "Erro desconhecido");

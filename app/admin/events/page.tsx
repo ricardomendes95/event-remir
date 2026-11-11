@@ -20,6 +20,8 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
 import { EventModal } from "../../../components/admin";
+import { useAuth } from "../../../hooks/useAuth";
+import { canAccessPath } from "../../../lib/permissions";
 import Image from "next/image";
 
 interface Event {
@@ -42,6 +44,9 @@ interface Event {
 }
 
 export default function EventsPage() {
+  const { user } = useAuth();
+  // SUPPORT pode criar/editar eventos, mas não excluir (ADR-002)
+  const canDelete = canAccessPath("/api/events", "DELETE", user?.role);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -258,16 +263,18 @@ export default function EventsPage() {
               onClick={() => handleEdit(record)}
             />
           </Tooltip>
-          <Popconfirm
-            title="Tem certeza que deseja deletar este evento?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
-            <Tooltip title="Deletar">
-              <Button type="text" danger icon={<DeleteOutlined />} />
-            </Tooltip>
-          </Popconfirm>
+          {canDelete && (
+            <Popconfirm
+              title="Tem certeza que deseja deletar este evento?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Sim"
+              cancelText="Não"
+            >
+              <Tooltip title="Deletar">
+                <Button type="text" danger icon={<DeleteOutlined />} />
+              </Tooltip>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },

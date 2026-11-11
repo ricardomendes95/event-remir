@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
+import { canViewFinancialValues } from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,6 +66,25 @@ export async function GET(request: NextRequest) {
           ]);
         }
       });
+
+    // CHECKIN/SUPPORT não veem receita (ADR-002) — nem calculamos
+    const showFinancials = canViewFinancialValues(
+      request.headers.get("x-user-role")
+    );
+
+    if (!showFinancials) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          total: totalCount,
+          confirmed: confirmedCount,
+          pending: pendingCount,
+          cancelled: cancelledCount,
+          totalRevenue: null,
+          nonManualRevenue: null,
+        },
+      });
+    }
 
     // Calcular receita total e receita não-manual usando helper de retry.
     // Receita bruta por inscrição = valor base do evento (com camisa, se o

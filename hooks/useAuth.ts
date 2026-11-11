@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import type { AdminRole } from "@/lib/permissions";
 
 interface UserInfo {
   id: string;
   email: string;
-  role: "ADMIN" | "SUPER_ADMIN";
+  role: AdminRole;
   name?: string;
 }
 

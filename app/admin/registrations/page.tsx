@@ -22,6 +22,8 @@ import {
 import RegistrationsPrintReport from "../../../components/admin/RegistrationsPrintReport";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 import type { EventFormMode } from "@/types/event";
+import { useAuth } from "@/hooks/useAuth";
+import { canViewFinancialValues } from "@/lib/permissions";
 
 const { Title, Text } = Typography;
 
@@ -111,6 +113,10 @@ interface PrintData {
 }
 
 export default function RegistrationsPage() {
+  const { user } = useAuth();
+  // Perfil define o que aparece (ADR-002): CHECKIN é somente leitura, sem valores
+  const showValues = canViewFinancialValues(user?.role);
+  const readOnly = user?.role === "CHECKIN";
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
@@ -633,7 +639,7 @@ export default function RegistrationsPage() {
       </div>
 
       {/* Estatísticas */}
-      <RegistrationStats stats={stats} />
+      <RegistrationStats stats={stats} showValues={showValues} />
 
       {/* Filtros e Busca */}
       <RegistrationFilters
@@ -663,6 +669,8 @@ export default function RegistrationsPage() {
         onPrint={handlePrint}
         isPrinting={isPrinting}
         printDisabled={!eventFilter || eventFilter === "ALL"}
+        showValues={showValues}
+        readOnly={readOnly}
       />
 
       {/* Modal de Criar/Editar Inscrição */}
@@ -673,6 +681,7 @@ export default function RegistrationsPage() {
         form={form}
         onCancel={() => setIsModalVisible(false)}
         onSave={handleSaveRegistration}
+        showValues={showValues}
       />
 
       {/* Modal de Preview de Impressão */}

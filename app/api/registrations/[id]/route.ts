@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateShirtSelection } from "@/backend/utils/shirtPricing";
+import { sanitizeRegistrationForRole } from "@/backend/utils/registrationSerializer";
 
 interface Params {
   id: string;
@@ -35,7 +36,11 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: registration,
+      // CHECKIN/SUPPORT não veem valores financeiros (ADR-002)
+      data: sanitizeRegistrationForRole(
+        registration,
+        request.headers.get("x-user-role")
+      ),
     });
   } catch (error) {
     console.error("Erro ao buscar inscrição:", error);

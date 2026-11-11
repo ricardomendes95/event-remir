@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "../utils/jwt";
 import { JWTPayload } from "../types/auth";
+import { isAdminRole } from "@/lib/permissions";
 
 export interface AuthenticatedRequest extends NextRequest {
   user?: JWTPayload;
@@ -59,6 +60,28 @@ export function authMiddleware(
       );
     }
   };
+}
+
+/** Exige apenas usuário autenticado com role válido (qualquer perfil). */
+export function requireAuthenticated(
+  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+) {
+  return authMiddleware(async (req: AuthenticatedRequest) => {
+    if (!req.user || !isAdminRole(req.user.role)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FORBIDDEN",
+            message: "Acesso negado.",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
+    return await handler(req);
+  });
 }
 
 export function requireAdmin(

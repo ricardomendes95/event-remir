@@ -23,15 +23,23 @@ import {
 import { User, ApiResponse, UserListResponse } from "../../types/user";
 import UserModal from "./UserModal";
 import { ChangePasswordModal } from "./ChangePasswordModal";
+import { AdminRole, ROLE_LABELS, isAdminRole } from "@/lib/permissions";
 
 const { Title } = Typography;
 const { Option } = Select;
+
+const ROLE_TAG_COLORS: Record<string, string> = {
+  SUPER_ADMIN: "purple",
+  ADMIN: "blue",
+  CHECKIN: "cyan",
+  SUPPORT: "green",
+};
 
 interface UserFormData {
   name: string;
   email: string;
   password?: string;
-  role: "ADMIN" | "SUPER_ADMIN";
+  role: AdminRole;
   isActive: boolean;
 }
 
@@ -50,7 +58,7 @@ export const UserManagement: React.FC = () => {
 
   // Filtros e paginação
   const [searchInput, setSearchInput] = useState("");
-  const [roleFilter, setRoleFilter] = useState<"ADMIN" | "SUPER_ADMIN" | "">(
+  const [roleFilter, setRoleFilter] = useState<AdminRole | "">(
     ""
   );
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "">(
@@ -271,8 +279,8 @@ export const UserManagement: React.FC = () => {
       dataIndex: "role",
       key: "role",
       render: (role: string) => (
-        <Tag color={role === "SUPER_ADMIN" ? "purple" : "blue"}>
-          {role === "SUPER_ADMIN" ? "Super Admin" : "Admin"}
+        <Tag color={ROLE_TAG_COLORS[role] ?? "blue"}>
+          {isAdminRole(role) ? ROLE_LABELS[role] : role}
         </Tag>
       ),
     },
@@ -371,6 +379,8 @@ export const UserManagement: React.FC = () => {
         >
           <Option value="ADMIN">Admin</Option>
           <Option value="SUPER_ADMIN">Super Admin</Option>
+          <Option value="CHECKIN">Check-in</Option>
+          <Option value="SUPPORT">Suporte</Option>
         </Select>
 
         <Select

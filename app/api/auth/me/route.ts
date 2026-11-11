@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "../../../../backend/middlewares/authMiddleware";
+import { requireAuthenticated } from "../../../../backend/middlewares/authMiddleware";
 import { adminRepository } from "../../../../backend/repositories";
 
-export const GET = requireAdmin(async (req) => {
+// Qualquer perfil autenticado (inclusive CHECKIN/SUPPORT) pode ver o próprio perfil
+export const GET = requireAuthenticated(async (req) => {
   try {
     if (!req.user) {
       return NextResponse.json(

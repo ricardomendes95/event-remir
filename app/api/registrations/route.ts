@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { validateShirtSelection } from "@/backend/utils/shirtPricing";
+import { sanitizeRegistrationsForRole } from "@/backend/utils/registrationSerializer";
 
 export async function GET(request: NextRequest) {
   try {
@@ -64,10 +65,16 @@ export async function GET(request: NextRequest) {
       ])
     );
 
+    // CHECKIN/SUPPORT não veem valores financeiros (ADR-002)
+    const items = sanitizeRegistrationsForRole(
+      registrations,
+      request.headers.get("x-user-role")
+    );
+
     return NextResponse.json({
       success: true,
       data: {
-        items: registrations,
+        items,
         pagination: {
           page,
           limit,

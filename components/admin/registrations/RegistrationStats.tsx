@@ -14,12 +14,18 @@ interface RegistrationStatsProps {
     confirmed: number;
     pending: number;
     cancelled: number;
-    totalRevenue: number;
-    nonManualRevenue: number;
+    totalRevenue: number | null;
+    nonManualRevenue: number | null;
   };
+  /** false para perfis sem acesso a valores financeiros (ADR-002) */
+  showValues?: boolean;
 }
 
-export default function RegistrationStats({ stats }: RegistrationStatsProps) {
+export default function RegistrationStats({
+  stats,
+  showValues = true,
+}: RegistrationStatsProps) {
+  const showRevenue = showValues && stats.totalRevenue != null;
   return (
     <div
       className="mb-6"
@@ -65,32 +71,36 @@ export default function RegistrationStats({ stats }: RegistrationStatsProps) {
             />
           </Card>
         </div>
-        <div style={{ minWidth: "178px", flex: "1" }}>
-          <Card>
-            <Statistic
-              title="Inscritos no Site"
-              value={stats.nonManualRevenue.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-              precision={2}
-              valueStyle={{ color: "#1890ff" }}
-            />
-          </Card>
-        </div>
-        <div style={{ minWidth: "178px", flex: "1" }}>
-          <Card>
-            <Statistic
-              title="Receita Total"
-              value={stats.totalRevenue.toLocaleString("pt-BR", {
-                style: "currency",
-                currency: "BRL",
-              })}
-              precision={2}
-              valueStyle={{ color: "#1890ff" }}
-            />
-          </Card>
-        </div>
+        {showRevenue && (
+          <div style={{ minWidth: "178px", flex: "1" }}>
+            <Card>
+              <Statistic
+                title="Inscritos no Site"
+                value={(stats.nonManualRevenue ?? 0).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+                precision={2}
+                valueStyle={{ color: "#1890ff" }}
+              />
+            </Card>
+          </div>
+        )}
+        {showRevenue && (
+          <div style={{ minWidth: "178px", flex: "1" }}>
+            <Card>
+              <Statistic
+                title="Receita Total"
+                value={(stats.totalRevenue ?? 0).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+                precision={2}
+                valueStyle={{ color: "#1890ff" }}
+              />
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

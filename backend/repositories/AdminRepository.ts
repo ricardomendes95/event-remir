@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma";
 import { BaseRepository } from "./BaseRepository";
+import type { AdminRole } from "@/lib/permissions";
 
 // Tipos baseados no schema Prisma atualizado
 export interface Admin {
@@ -7,7 +8,7 @@ export interface Admin {
   name: string;
   email: string;
   password: string;
-  role: "SUPER_ADMIN" | "ADMIN";
+  role: AdminRole;
   isActive: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
@@ -56,11 +57,11 @@ export class AdminRepository extends BaseRepository<Admin> {
   async findAllSafe(options?: {
     skip?: number;
     take?: number;
-    role?: "SUPER_ADMIN" | "ADMIN";
+    role?: AdminRole;
     isActive?: boolean;
   }): Promise<SafeAdmin[]> {
     try {
-      const where: { role?: "SUPER_ADMIN" | "ADMIN"; isActive?: boolean } = {};
+      const where: { role?: AdminRole; isActive?: boolean } = {};
 
       if (options?.role) {
         where.role = options.role;
@@ -98,7 +99,7 @@ export class AdminRepository extends BaseRepository<Admin> {
     name: string;
     email: string;
     password: string;
-    role?: "SUPER_ADMIN" | "ADMIN";
+    role?: AdminRole;
   }): Promise<SafeAdmin> {
     try {
       const admin = await prisma.admin.create({
@@ -179,7 +180,7 @@ export class AdminRepository extends BaseRepository<Admin> {
 
   async updateRole(
     id: string,
-    role: "SUPER_ADMIN" | "ADMIN"
+    role: AdminRole
   ): Promise<SafeAdmin> {
     try {
       return await prisma.admin.update({
@@ -287,11 +288,11 @@ export class AdminRepository extends BaseRepository<Admin> {
   }
 
   async countAdmins(filters?: {
-    role?: "SUPER_ADMIN" | "ADMIN";
+    role?: AdminRole;
     isActive?: boolean;
   }): Promise<number> {
     try {
-      const where: { role?: "SUPER_ADMIN" | "ADMIN"; isActive?: boolean } = {};
+      const where: { role?: AdminRole; isActive?: boolean } = {};
 
       if (filters?.role) {
         where.role = filters.role;
@@ -314,7 +315,7 @@ export class AdminRepository extends BaseRepository<Admin> {
     limit: number;
     search?: string;
     searchFields?: string[];
-    role?: "SUPER_ADMIN" | "ADMIN";
+    role?: AdminRole;
     isActive?: boolean;
   }): Promise<{
     data: SafeAdmin[];
@@ -338,7 +339,7 @@ export class AdminRepository extends BaseRepository<Admin> {
 
       // Construir where clause
       type WhereClause = {
-        role?: "SUPER_ADMIN" | "ADMIN";
+        role?: AdminRole;
         isActive?: boolean;
         OR?: Array<{
           [key: string]: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { AdminRole, ROLE_LABELS } from "@/lib/permissions";
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -284,6 +285,28 @@ export abstract class BaseController {
       throw new Error(
         "Acesso negado - privilégios de administrador necessários"
       );
+    }
+
+    return user;
+  }
+
+  protected requireRole(
+    request: NextRequest,
+    roles: AdminRole[]
+  ): {
+    id: string;
+    email: string;
+    role: string;
+  } {
+    const user = this.extractUserFromRequest(request);
+
+    if (!user) {
+      throw new Error("Usuário não autenticado");
+    }
+
+    if (!roles.includes(user.role as AdminRole)) {
+      const allowed = roles.map((role) => ROLE_LABELS[role]).join(", ");
+      throw new Error(`Acesso negado - perfis permitidos: ${allowed}`);
     }
 
     return user;

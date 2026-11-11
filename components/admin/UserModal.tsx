@@ -5,6 +5,7 @@ import { Modal, Form, Input, Select, Button, Row, Col, Switch } from "antd";
 import type { FormInstance } from "antd";
 import { z } from "zod";
 import { User } from "../../types/user";
+import type { AdminRole } from "@/lib/permissions";
 
 const { Option } = Select;
 
@@ -19,7 +20,7 @@ const userSchema = z.object({
     .string()
     .min(6, "Senha deve ter pelo menos 6 caracteres")
     .max(100, "Senha deve ter no máximo 100 caracteres"),
-  role: z.enum(["ADMIN", "SUPER_ADMIN"]).default("ADMIN"),
+  role: z.enum(["ADMIN", "SUPER_ADMIN", "CHECKIN", "SUPPORT"]).default("ADMIN"),
   isActive: z.boolean().default(true),
 });
 
@@ -30,7 +31,7 @@ const updateUserSchema = z.object({
     .max(100, "Nome deve ter no máximo 100 caracteres")
     .optional(),
   email: z.string().email("Email inválido").toLowerCase().optional(),
-  role: z.enum(["ADMIN", "SUPER_ADMIN"]).optional(),
+  role: z.enum(["ADMIN", "SUPER_ADMIN", "CHECKIN", "SUPPORT"]).optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -38,7 +39,7 @@ interface UserFormData {
   name: string;
   email: string;
   password?: string;
-  role: "ADMIN" | "SUPER_ADMIN";
+  role: AdminRole;
   isActive: boolean;
 }
 
@@ -135,6 +136,8 @@ export default function UserModal({
               <Select placeholder="Selecione a função" size="large">
                 <Option value="ADMIN">Admin</Option>
                 <Option value="SUPER_ADMIN">Super Admin</Option>
+                <Option value="CHECKIN">Check-in</Option>
+                <Option value="SUPPORT">Suporte</Option>
               </Select>
             </Form.Item>
           </Col>

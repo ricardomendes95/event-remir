@@ -1,9 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
+import { canViewFinancialValues } from "@/lib/permissions";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const showFinancials = canViewFinancialValues(
+      request.headers.get("x-user-role")
+    );
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
@@ -75,7 +79,7 @@ export async function GET() {
       id: e.id,
       title: e.title,
       startDate: e.startDate.toISOString(),
-      price: Number(e.price),
+      price: showFinancials ? Number(e.price) : null,
       isFree: e.isFree,
       maxParticipants: e.maxParticipants,
       confirmedCount: e._count.registrations,
@@ -99,7 +103,10 @@ export async function GET() {
       data: {
         kpis: {
           totalRegistrations,
-          confirmedRevenue: Math.round(confirmedRevenue * 100) / 100,
+          // CHECKIN/SUPPORT não veem receita (ADR-002)
+          confirmedRevenue: showFinancials
+            ? Math.round(confirmedRevenue * 100) / 100
+            : null,
           activeEvents: activeEventsCount,
           last7DaysRegistrations: last7DaysCount,
         },

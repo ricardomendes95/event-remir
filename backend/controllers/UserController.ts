@@ -7,6 +7,7 @@ import {
   changePasswordSchema,
 } from "../schemas";
 import { ZodError } from "zod";
+import type { AdminRole } from "@/lib/permissions";
 
 export class UserController {
   private adminRepository: AdminRepository;
@@ -15,9 +16,29 @@ export class UserController {
     this.adminRepository = new AdminRepository();
   }
 
+  // Gestão de usuários é exclusiva de SUPER_ADMIN (segunda camada além do middleware)
+  private requireSuperAdmin(req: NextRequest): NextResponse | null {
+    const role = req.headers.get("x-user-role");
+
+    if (role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Acesso negado - privilégios de super administrador necessários",
+        },
+        { status: 403 }
+      );
+    }
+
+    return null;
+  }
+
   // Listar todos os usuários
   async getUsers(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const url = new URL(req.url);
       const page = parseInt(url.searchParams.get("page") || "1");
       const limit = parseInt(url.searchParams.get("limit") || "10");
@@ -46,6 +67,9 @@ export class UserController {
   // Buscar usuário por ID
   async getUserById(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const url = new URL(req.url);
       const pathSegments = url.pathname.split("/");
       const id = pathSegments[pathSegments.length - 1];
@@ -82,6 +106,9 @@ export class UserController {
   // Criar novo usuário
   async createUser(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const body = await req.json();
 
       // Validar dados com Zod
@@ -147,6 +174,9 @@ export class UserController {
   // Atualizar usuário
   async updateUser(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const url = new URL(req.url);
       const pathSegments = url.pathname.split("/");
       const id = pathSegments[pathSegments.length - 1];
@@ -189,7 +219,7 @@ export class UserController {
       type UpdateData = {
         name?: string;
         email?: string;
-        role?: "ADMIN" | "SUPER_ADMIN";
+        role?: AdminRole;
         isActive?: boolean;
       };
 
@@ -237,6 +267,9 @@ export class UserController {
   // Alterar senha do usuário
   async changePassword(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const url = new URL(req.url);
       const pathSegments = url.pathname.split("/");
       const id = pathSegments[pathSegments.indexOf("change-password") - 1];
@@ -295,6 +328,9 @@ export class UserController {
   // Deletar usuário
   async deleteUser(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const url = new URL(req.url);
       const pathSegments = url.pathname.split("/");
       const id = pathSegments[pathSegments.length - 1];
@@ -334,6 +370,9 @@ export class UserController {
   // Toggle status do usuário (ativar/desativar)
   async toggleUserStatus(req: NextRequest): Promise<NextResponse> {
     try {
+      const denied = this.requireSuperAdmin(req);
+      if (denied) return denied;
+
       const url = new URL(req.url);
       const pathSegments = url.pathname.split("/");
       const id = pathSegments[pathSegments.indexOf("toggle-status") - 1];

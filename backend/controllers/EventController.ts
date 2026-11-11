@@ -122,7 +122,7 @@ export class EventController extends BaseController {
 
   async createEvent(request: NextRequest) {
     try {
-      this.requireAdmin(request);
+      this.requireRole(request, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
 
       const body = await this.getRequestBody(request);
       const validatedData = EventCreateSchema.parse(body);
@@ -171,7 +171,7 @@ export class EventController extends BaseController {
     { params }: { params: { id: string } }
   ) {
     try {
-      this.requireAdmin(request);
+      this.requireRole(request, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
 
       const { id } = params;
       const body = await this.getRequestBody(request);
@@ -308,7 +308,7 @@ export class EventController extends BaseController {
     { params }: { params: { id: string } }
   ) {
     try {
-      this.requireAdmin(request);
+      this.requireRole(request, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
 
       const { id } = params;
 
@@ -366,7 +366,7 @@ export class EventController extends BaseController {
     { params }: { params: { id: string } }
   ) {
     try {
-      this.requireAdmin(request);
+      this.requireRole(request, ["SUPER_ADMIN", "ADMIN", "SUPPORT"]);
 
       const { id } = params;
 

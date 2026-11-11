@@ -11,6 +11,7 @@ import {
 } from "@ant-design/icons";
 import type { MenuProps } from "antd";
 import { useAuth } from "../../hooks/useAuth";
+import { canAccessPath } from "../../lib/permissions";
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -44,6 +45,9 @@ export default function AdminHeader({ adminName }: AdminHeaderProps) {
 
   // Verifica se não está na home do admin
   const isNotAdminHome = pathname !== "/admin";
+
+  // SUPPORT não tem acesso ao check-in
+  const canCheckin = !user || canAccessPath("/checkin", "GET", user.role);
 
   const handleLogout = async () => {
     try {
@@ -159,38 +163,42 @@ export default function AdminHeader({ adminName }: AdminHeaderProps) {
         }}
       >
         {/* Botão Check-in */}
-        <Button
-          type="primary"
-          icon={<QrcodeOutlined />}
-          onClick={() => router.push("/checkin")}
-          size="middle"
-          style={{
-            backgroundColor: "#2563eb",
-            borderColor: "#2563eb",
-            color: "white",
-            fontWeight: 500,
-            display: screenWidth >= 640 ? "flex" : "none",
-            alignItems: "center",
-          }}
-        >
-          {screenWidth >= 768 && (
-            <span style={{ marginLeft: "4px" }}>Check-in</span>
-          )}
-        </Button>
+        {canCheckin && (
+          <Button
+            type="primary"
+            icon={<QrcodeOutlined />}
+            onClick={() => router.push("/checkin")}
+            size="middle"
+            style={{
+              backgroundColor: "#2563eb",
+              borderColor: "#2563eb",
+              color: "white",
+              fontWeight: 500,
+              display: screenWidth >= 640 ? "flex" : "none",
+              alignItems: "center",
+            }}
+          >
+            {screenWidth >= 768 && (
+              <span style={{ marginLeft: "4px" }}>Check-in</span>
+            )}
+          </Button>
+        )}
 
         {/* Versão mobile do botão Check-in */}
-        <Button
-          type="primary"
-          icon={<QrcodeOutlined />}
-          onClick={() => router.push("/checkin")}
-          size="middle"
-          style={{
-            backgroundColor: "#2563eb",
-            borderColor: "#2563eb",
-            color: "white",
-            display: screenWidth < 640 ? "inline-flex" : "none",
-          }}
-        />
+        {canCheckin && (
+          <Button
+            type="primary"
+            icon={<QrcodeOutlined />}
+            onClick={() => router.push("/checkin")}
+            size="middle"
+            style={{
+              backgroundColor: "#2563eb",
+              borderColor: "#2563eb",
+              color: "white",
+              display: screenWidth < 640 ? "inline-flex" : "none",
+            }}
+          />
+        )}
 
         {/* Nome do usuário - oculto em mobile muito pequeno */}
         <Text

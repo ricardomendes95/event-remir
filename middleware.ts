@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyTokenEdge } from "./lib/jwt-edge";
+import { canAccessPath } from "./lib/permissions";
 
 // Rotas que requerem autenticação de admin
 const adminRoutes = [
@@ -87,11 +88,10 @@ export async function middleware(request: NextRequest) {
       // Verificar se o token é válido
       const decoded = await verifyTokenEdge(token);
 
-      // Verificar se tem permissão de admin para rotas admin
+      // Verificar permissão por rota × método × perfil (lib/permissions.ts)
       if (
         isAdminRoute &&
-        decoded.role !== "ADMIN" &&
-        decoded.role !== "SUPER_ADMIN"
+        !canAccessPath(pathname, request.method, decoded.role)
       ) {
         // Se é uma rota de página, redirecionar para acesso negado
         if (!pathname.startsWith("/api/")) {

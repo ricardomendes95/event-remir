@@ -94,6 +94,8 @@ interface RegistrationModalProps {
   form: FormInstance;
   onCancel: () => void;
   onSave: (values: RegistrationFormData) => void;
+  /** false para perfis sem acesso a valores financeiros (ADR-002) */
+  showValues?: boolean;
 }
 
 export default function RegistrationModal({
@@ -103,6 +105,7 @@ export default function RegistrationModal({
   form,
   onCancel,
   onSave,
+  showValues = true,
 }: RegistrationModalProps) {
   const watchedEventId = Form.useWatch("eventId", form);
   const effectiveEventId =
@@ -210,7 +213,11 @@ export default function RegistrationModal({
                   .map((event) => (
                     <Option key={event.id} value={event.id}>
                       {event.title}
-                      {event.isFree ? " — Gratuito" : ` — R$ ${event.price.toFixed(2)}`}
+                      {event.isFree
+                        ? " — Gratuito"
+                        : showValues
+                          ? ` — R$ ${event.price.toFixed(2)}`
+                          : ""}
                     </Option>
                   ))}
               </Select>
@@ -357,10 +364,14 @@ export default function RegistrationModal({
                   }}
                 >
                   <Radio value={false}>
-                    Sem camisa (R$ {selectedEvent?.price.toFixed(2)})
+                    {showValues
+                      ? `Sem camisa (R$ ${selectedEvent?.price.toFixed(2)})`
+                      : "Sem camisa"}
                   </Radio>
                   <Radio value={true}>
-                    Com camisa (R$ {shirtConfig.priceWithShirt.toFixed(2)})
+                    {showValues
+                      ? `Com camisa (R$ ${shirtConfig.priceWithShirt.toFixed(2)})`
+                      : "Com camisa"}
                   </Radio>
                 </Radio.Group>
               </Form.Item>

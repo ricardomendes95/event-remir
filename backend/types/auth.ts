@@ -1,15 +1,17 @@
+import type { AdminRole } from "@/lib/permissions";
+
 export interface AuthUser {
   id: string;
   email: string;
   name: string;
-  role: "ADMIN" | "SUPER_ADMIN";
+  role: AdminRole;
 }
 
 export interface JWTPayload {
   id: string;
   email: string;
   name?: string;
-  role: "ADMIN" | "SUPER_ADMIN";
+  role: AdminRole;
   iat?: number;
   exp?: number;
 }

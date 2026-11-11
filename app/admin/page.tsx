@@ -19,11 +19,14 @@ import {
   CalendarOutlined,
   DollarOutlined,
   EyeOutlined,
+  QrcodeOutlined,
   RiseOutlined,
   SettingOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../hooks/useAuth";
+import { canAccessPath, canViewFinancialValues } from "../../lib/permissions";
 import dayjs from "dayjs";
 import "dayjs/locale/pt-br";
 
@@ -123,6 +126,11 @@ const NAV_ITEMS = [
     label: "Usuários",
     icon: <SettingOutlined className="text-purple-500" />,
   },
+  {
+    path: "/checkin",
+    label: "Check-in",
+    icon: <QrcodeOutlined className="text-cyan-500" />,
+  },
 ];
 
 const upcomingColumns: ColumnsType<UpcomingEvent> = [
@@ -217,6 +225,7 @@ const recentColumns: ColumnsType<RecentRegistration> = [
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [pvData, setPvData] = useState<PageViewData | null>(null);
@@ -249,7 +258,17 @@ export default function AdminDashboard() {
       .finally(() => setPvLoading(false));
   }, [pvPeriod]);
 
-  if (loading) {
+  // Perfil define o que aparece (ADR-002): navegação, receita e analytics
+  const role = user?.role;
+  const showFinancials = canViewFinancialValues(role);
+  const navItems = NAV_ITEMS.filter((item) =>
+    canAccessPath(item.path, "GET", role)
+  );
+  const eventColumns = showFinancials
+    ? upcomingColumns
+    : upcomingColumns.filter((column) => column.key !== "price");
+
+  if (loading || authLoading) {
     return (
       <div
         style={{
@@ -274,7 +293,7 @@ export default function AdminDashboard() {
       </div>
       {/* Navegação */}
       <Row gutter={[12, 12]} className="mb-6">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <Col key={item.path} xs={12} sm={6}>
             <Card
               size="small"
@@ -301,18 +320,20 @@ export default function AdminDashboard() {
             />
           </Card>
         </Col>
-        <Col xs={12} sm={12} md={6}>
-          <Card>
-            <Statistic
-              title="Receita Confirmada"
-              value={data?.kpis.confirmedRevenue ?? 0}
-              precision={2}
-              prefix={<DollarOutlined style={{ color: "#52c41a" }} />}
-              valueStyle={{ color: "#52c41a" }}
-              suffix="R$"
-            />
-          </Card>
-        </Col>
+        {showFinancials && (
+          <Col xs={12} sm={12} md={6}>
+            <Card>
+              <Statistic
+                title="Receita Confirmada"
+                value={data?.kpis.confirmedRevenue ?? 0}
+                precision={2}
+                prefix={<DollarOutlined style={{ color: "#52c41a" }} />}
+                valueStyle={{ color: "#52c41a" }}
+                suffix="R$"
+              />
+            </Card>
+          </Col>
+        )}
         <Col xs={12} sm={12} md={6}>
           <Card>
             <Statistic
@@ -340,7 +361,7 @@ export default function AdminDashboard() {
         <Col xs={24} lg={14}>
           <Card title="Próximos Eventos">
             <Table
-              columns={upcomingColumns}
+              columns={eventColumns}
               dataSource={data?.upcomingEvents ?? []}
               rowKey="id"
               size="small"
@@ -364,6 +385,7 @@ export default function AdminDashboard() {
       </Row>
 
       {/* Visualizações de Página */}
+      {showFinancials && (
       <Row gutter={[16, 16]} className="mb-6">
         <Col xs={24} sm={8}>
           <Card
@@ -416,7 +438,7 @@ export default function AdminDashboard() {
           </Card>
         </Col>
       </Row>
-
+      )}
     </div>
   );
 }
