@@ -5,7 +5,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
 import { StructuredData } from "@/components/StructuredData";
-import { PageTracker } from "@/components/PageTracker";
+import { PrivacyConsent } from "@/components/PrivacyConsent";
 import { AntdProvider } from "@/components/AntdProvider";
 
 const geistSans = Geist({
@@ -106,12 +106,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased flex flex-col min-h-screen`}
       >
         <StructuredData />
-        <PageTracker />
         <AntdProvider>
           <SectionRefsProvider>
             <Header />
             <div className="mt-16 lg:mt-20 flex-1">{children}</div>
             <Footer />
+            <PrivacyConsent />
           </SectionRefsProvider>
         </AntdProvider>
       </body>

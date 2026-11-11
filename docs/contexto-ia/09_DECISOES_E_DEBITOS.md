@@ -31,7 +31,7 @@ Restos deliberados: ver D-13.
 | D-06 | **Cores hardcoded** em `ui/Button` e seções da home (`#015C91` etc.) | Inconsistência visual, refactor caro | Migrar para tokens de `globals.css` ao tocar cada componente |
 | D-07 | **`app/home/page.tsx` duplica `app/page.tsx`** (mesmas seções, rota `/home` redundante) | Manutenção dupla, SEO difuso | Remover `/home` ou redirecionar para `/` |
 | D-08 | **CORS aberto** (`vercel.json` com headers permissivos globais) | Superfície desnecessária | Restringir aos domínios reais quando houver janela |
-| D-09 | **`PageView` coleta geolocalização** sem política de privacidade visível | Risco LGPD | Decisão P-05 (2026-07-22): **manter a coleta e documentar** — criar página de política de privacidade no site (tarefa pendente) |
+| D-09 | **`PageView` coleta geolocalização** | Risco LGPD | Decisão P-05 (2026-07-22): manter a coleta e documentar. **Atendido em 2026-11-11**: política em `/privacidade` e banner `PrivacyConsent` — analytics e geolocalização só rodam após "Aceitar"; "Recusar" não coleta nada. Retenção: indefinida por decisão do mantenedor (2026-11-11), informada na política; exclusão sob pedido do titular |
 | D-10 | **Sem histórico de migrations** (`prisma db push` direto na produção) | Mudanças de schema arriscadas | Considerar `prisma migrate` quando o schema estabilizar |
 | D-11 | **Matcher do middleware por lista de prefixos** — segurança por opt-in | Toda rota nova fora da lista nasce pública (causa do D-01) | Avaliar inverter o modelo (matcher amplo + allowlist pública explícita) |
 | D-12 | **Sem Prettier** — formatação por convenção implícita | Diffs ruidosos | Adicionar Prettier com config padrão (decisão barata) |

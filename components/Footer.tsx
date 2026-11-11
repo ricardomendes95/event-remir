@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { Container } from "./home/Container";
+import Link from "next/link";
 import { MapPin, Phone, Mail } from "lucide-react";
+import { ConsentPreferencesButton } from "./ConsentPreferencesButton";
 
 // Footer Component
 export const Footer = () => {
@@ -75,6 +77,12 @@ export const Footer = () => {
           <p className="text-gray-400">
             © 2025 Igreja Remir. Todos os direitos reservados.
           </p>
+          <div className="mt-3 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-300">
+            <Link href="/privacidade" className="underline hover:text-white">
+              Política de Privacidade
+            </Link>
+            <ConsentPreferencesButton className="hover:text-white" />
+          </div>
         </div>
       </Container>
     </footer>

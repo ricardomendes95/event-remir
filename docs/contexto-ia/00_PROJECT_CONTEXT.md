@@ -72,7 +72,8 @@ priorizar, nesta ordem:
 
 ### Infra
 - **Analytics próprio**: modelo `PageView` (sessionId, geo, referrer) via
-  `PageTracker`/`usePageTracking` — sem Google Analytics.
+  `PageTracker`/`usePageTracking` — sem Google Analytics. Só coleta após
+  consentimento LGPD (`PrivacyConsent`); política pública em `/privacidade`.
 - **Cron** (`vercel.json`): `/api/cron/ping` a cada 6 dias mantém o Supabase
   free tier ativo. Região `gru1`, `maxDuration` 60s.
 

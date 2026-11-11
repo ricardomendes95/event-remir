@@ -20,7 +20,9 @@ há identidade visual própria (páginas públicas institucionais).
 | `MoneyInput` | Entrada de valores monetários BRL | Todo campo de dinheiro | Números não monetários (usar InputNumber) |
 | `RichTextEditor` (+`LineHeight`) | Editor Tiptap p/ descrição de eventos | Texto rico no admin | Campos de texto simples |
 | `CountdownTimer` | Contagem regressiva de evento | Destaque de urgência em evento | — |
-| `PageTracker` | Dispara analytics de page view | Já aplicado globalmente | Não duplicar por página |
+| `PageTracker` | Dispara analytics de page view | Montado só por `PrivacyConsent` após consentimento | Nunca montar direto no layout ou por página |
+| `PrivacyConsent` | Banner LGPD (Aceitar/Recusar) e gate do analytics | Já aplicado globalmente em `app/layout.tsx` | Estado em `lib/consent.ts` (`localStorage`); não criar outro banner |
+| `ConsentPreferencesButton` | Reabre o banner de consentimento | Rodapé e `/privacidade` | — |
 | `StructuredData` | JSON-LD para SEO | Páginas públicas indexáveis | Admin |
 | `SearchComprovante` | Busca pública de inscrição por CPF | Home/página de evento | Buscas do admin (têm filtros próprios) |
 | `RegistrationProofModal` | Comprovante com QR code | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante |
