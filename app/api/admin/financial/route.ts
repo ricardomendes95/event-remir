@@ -1,379 +1,198 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { resolveBaseValue } from "@/backend/utils/shirtPricing";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
+import { canViewFinancialValues } from "@/lib/permissions";
+import {
+  buildFinancialSummary,
+  buildRows,
+  type BreakdownRegistration,
+  type FinancialSummary,
+} from "@/backend/utils/revenueBreakdown";
 
-interface EventGroup {
-  eventId: string;
-  eventTitle: string;
-  eventPrice: number;
-  eventDate: string;
-  registrations: Array<{
-    id: string;
-    status: string;
-    paymentMethod: string;
-    /** Receita desta inscrição (com camisa, se aplicável). */
-    amount: number;
-    event: {
-      price: number;
-    };
-  }>;
-}
-
-interface DailyGroup {
-  date: string;
-  revenue: number;
-  registrations: number;
-  infinitePayRevenue: number;
-  manualRevenue: number;
+function parseRange(startDate: string | null, endDate: string | null) {
+  if (!startDate || !endDate) return null;
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  end.setHours(23, 59, 59, 999);
+  return { gte: start, lte: end };
 }
 
 export async function GET(request: NextRequest) {
   try {
+    if (!canViewFinancialValues(request.headers.get("x-user-role"))) {
+      return NextResponse.json(
+        { success: false, error: "Acesso negado" },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
     const eventId = searchParams.get("eventId");
     const format = searchParams.get("format");
+    const range = parseRange(
+      searchParams.get("startDate"),
+      searchParams.get("endDate")
+    );
+    const eventScope = eventId && eventId !== "ALL" ? eventId : null;
 
-    // Construir filtros de data
-    const dateFilter: Prisma.RegistrationWhereInput = {};
-    if (startDate && endDate) {
-      const endDateWithTime = new Date(endDate);
-      endDateWithTime.setHours(23, 59, 59, 999);
-
-      dateFilter.createdAt = {
-        gte: new Date(startDate),
-        lte: endDateWithTime,
-      };
-    }
-
-    // Construir filtros de evento
-    const eventFilter: Prisma.RegistrationWhereInput = {};
-    if (eventId && eventId !== "ALL") {
-      eventFilter.eventId = eventId;
-    }
-
-    // Combinar filtros
-    const whereClause = {
-      ...dateFilter,
-      ...eventFilter,
+    const registrationWhere: Prisma.RegistrationWhereInput = {
+      ...(range ? { createdAt: range } : {}),
+      ...(eventScope ? { eventId: eventScope } : {}),
+    };
+    const shirtOrderWhere: Prisma.OrderWhereInput = {
+      type: "SHIRT_ONLY",
+      status: "CONFIRMED",
+      ...(range ? { createdAt: range } : {}),
+      ...(eventScope ? { eventId: eventScope } : {}),
     };
 
-    // Buscar todas as inscrições com dados dos eventos
-    const registrations = await withPrismaRetry(() =>
-      prisma.registration.findMany({
-        where: whereClause,
-        include: {
-          batch: { select: { price: true, priceWithShirt: true } },
-          event: {
+    const [registrations, shirtOrders, eventInfo] = await withPrismaRetry(
+      async () =>
+        Promise.all([
+          prisma.registration.findMany({
+            where: registrationWhere,
             select: {
               id: true,
-              title: true,
-              price: true,
-              startDate: true,
-              shirtConfig: true,
+              name: true,
+              status: true,
+              paymentMethod: true,
+              manualPaymentType: true,
+              cashResponsible: true,
+              wantsShirt: true,
+              orderId: true,
+              paymentDetails: true,
+              createdAt: true,
+              event: {
+                select: {
+                  id: true,
+                  title: true,
+                  price: true,
+                  startDate: true,
+                  shirtConfig: true,
+                },
+              },
+              batch: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  priceWithShirt: true,
+                },
+              },
+              refundRequests: {
+                where: { resolution: "REFUNDED" },
+                select: { refundedAmount: true, refundedAt: true },
+              },
             },
-          },
-        },
-      })
+          }),
+          prisma.order.findMany({
+            where: shirtOrderWhere,
+            select: {
+              id: true,
+              eventId: true,
+              totalValue: true,
+              paymentDetails: true,
+            },
+          }),
+          eventScope
+            ? prisma.event.findUnique({
+                where: { id: eventScope },
+                select: { id: true, title: true, startDate: true },
+              })
+            : Promise.resolve(null),
+        ])
     );
 
-    // Usa o paymentMethod REAL gravado na inscrição.
-    // "InfinitePay" = pagamento online via gateway (inclui o legado Mercado Pago,
-    // que não é mais usado); "Manual" = inscrição feita pelo admin.
-    const isInfinitePay = (pm: string) =>
-      pm === "INFINITE_PAY" || pm === "MERCADO_PAGO";
-    const registrationsWithPaymentMethod = registrations.map((reg) => ({
-      ...reg,
-      paymentMethod: reg.paymentMethod as string,
+    const items: BreakdownRegistration[] = registrations.map((r) => ({
+      id: r.id,
+      name: r.name,
+      status: r.status,
+      paymentMethod: r.paymentMethod,
+      manualPaymentType: r.manualPaymentType,
+      cashResponsible: r.cashResponsible,
+      wantsShirt: r.wantsShirt,
+      orderId: r.orderId,
+      paymentDetails: r.paymentDetails,
+      createdAt: r.createdAt,
+      event: {
+        id: r.event.id,
+        title: r.event.title,
+        price: Number(r.event.price),
+        shirtConfig: r.event.shirtConfig,
+      },
+      batch: r.batch,
+      refunds: r.refundRequests
+        .filter((q) => (q.refundedAmount ?? 0) > 0)
+        .map((q) => ({
+          amount: q.refundedAmount ?? 0,
+          refundedAt: q.refundedAt,
+        })),
     }));
 
-    // Receita por inscrição: considera o valor com camisa quando aplicável.
-    const revenueOf = (r: {
-      event: { price: number | Prisma.Decimal; shirtConfig?: unknown };
-      wantsShirt?: boolean | null;
-      batch?: { price: number; priceWithShirt: number | null } | null;
-    }) =>
-      resolveBaseValue(
-        { price: Number(r.event.price), shirtConfig: r.event.shirtConfig },
-        r.wantsShirt ?? false,
-        r.batch
-      );
-
-    // Calcular estatísticas gerais
-    const totalRegistrations = registrationsWithPaymentMethod.length;
-    const confirmedRegistrations = registrationsWithPaymentMethod.filter(
-      (r) => r.status === "CONFIRMED"
-    ).length;
-    const pendingRegistrations = registrationsWithPaymentMethod.filter(
-      (r) => r.status === "PENDING"
-    ).length;
-    const cancelledRegistrations = registrationsWithPaymentMethod.filter(
-      (r) => r.status === "CANCELLED"
-    ).length;
-
-    // Estatísticas por método de pagamento
-    const infinitePayRegistrations = registrationsWithPaymentMethod.filter(
-      (r) => isInfinitePay(r.paymentMethod)
-    );
-    const manualRegistrations = registrationsWithPaymentMethod.filter(
-      (r) => r.paymentMethod === "MANUAL"
-    );
-
-    const totalRevenue = registrationsWithPaymentMethod.reduce(
-      (sum, r) => sum + revenueOf(r),
-      0
-    );
-    const confirmedRevenue = registrationsWithPaymentMethod
-      .filter((r) => r.status === "CONFIRMED")
-      .reduce((sum, r) => sum + revenueOf(r), 0);
-    const pendingRevenue = registrationsWithPaymentMethod
-      .filter((r) => r.status === "PENDING")
-      .reduce((sum, r) => sum + revenueOf(r), 0);
-
-    // Receitas por método de pagamento
-    const infinitePayTotalRevenue = infinitePayRegistrations.reduce(
-      (sum, r) => sum + revenueOf(r),
-      0
-    );
-    const infinitePayConfirmedRevenue = infinitePayRegistrations
-      .filter((r) => r.status === "CONFIRMED")
-      .reduce((sum, r) => sum + revenueOf(r), 0);
-
-    const manualTotalRevenue = manualRegistrations.reduce(
-      (sum, r) => sum + revenueOf(r),
-      0
-    );
-    const manualConfirmedRevenue = manualRegistrations
-      .filter((r) => r.status === "CONFIRMED")
-      .reduce((sum, r) => sum + revenueOf(r), 0);
-
-    // Quebra do Manual por sub-método. Legado sem sub-método vai em UNSPECIFIED.
-    type ManualBucket = "PIX" | "CASH" | "CARD" | "UNSPECIFIED";
-    const manualBreakdown = {} as Record<
-      ManualBucket,
-      { registrations: number; totalRevenue: number; confirmedRevenue: number }
-    >;
-    for (const bucket of ["PIX", "CASH", "CARD", "UNSPECIFIED"] as const) {
-      const inBucket = manualRegistrations.filter(
-        (r) => (r.manualPaymentType ?? "UNSPECIFIED") === bucket
-      );
-      manualBreakdown[bucket] = {
-        registrations: inBucket.length,
-        totalRevenue: inBucket.reduce((sum, r) => sum + revenueOf(r), 0),
-        confirmedRevenue: inBucket
-          .filter((r) => r.status === "CONFIRMED")
-          .reduce((sum, r) => sum + revenueOf(r), 0),
-      };
-    }
-
-    // Quem está com o dinheiro em espécie (apenas pagamentos em Dinheiro).
-    const responsibleMap = new Map<
-      string,
-      { name: string; registrations: number; totalRevenue: number; confirmedRevenue: number }
-    >();
-    for (const r of manualRegistrations) {
-      if (r.manualPaymentType !== "CASH") continue;
-      const name = r.cashResponsible?.trim() || "Sem responsável informado";
-      const entry = responsibleMap.get(name) ?? {
-        name,
-        registrations: 0,
-        totalRevenue: 0,
-        confirmedRevenue: 0,
-      };
-      entry.registrations += 1;
-      entry.totalRevenue += revenueOf(r);
-      if (r.status === "CONFIRMED") entry.confirmedRevenue += revenueOf(r);
-      responsibleMap.set(name, entry);
-    }
-    const cashResponsibles = Array.from(responsibleMap.values()).sort(
-      (a, b) => b.confirmedRevenue - a.confirmedRevenue
-    );
-
-    // Agrupar por evento
-    const eventGroups = registrationsWithPaymentMethod.reduce(
-      (groups, registration) => {
-        const eventId = registration.event.id;
-        if (!groups[eventId]) {
-          groups[eventId] = {
-            eventId,
-            eventTitle: registration.event.title,
-            eventPrice: Number(registration.event.price),
-            eventDate: registration.event.startDate.toISOString(),
-            registrations: [],
-          };
-        }
-        groups[eventId].registrations.push({
-          id: registration.id,
-          status: registration.status,
-          paymentMethod: registration.paymentMethod,
-          amount: revenueOf(registration),
-          event: {
-            price: Number(registration.event.price),
-          },
-        });
-        return groups;
-      },
-      {} as Record<string, EventGroup>
-    );
-
-    // Calcular estatísticas por evento
-    const eventBreakdown = Object.values(eventGroups).map(
-      (group: EventGroup) => {
-        const totalRegs = group.registrations.length;
-        const confirmedRegs = group.registrations.filter(
-          (r) => r.status === "CONFIRMED"
-        ).length;
-        const pendingRegs = group.registrations.filter(
-          (r) => r.status === "PENDING"
-        ).length;
-        const cancelledRegs = group.registrations.filter(
-          (r) => r.status === "CANCELLED"
-        ).length;
-
-        // Por método de pagamento
-        const infinitePayRegs = group.registrations.filter(
-          (r) => isInfinitePay(r.paymentMethod)
-        ).length;
-        const manualRegs = group.registrations.filter(
-          (r) => r.paymentMethod === "MANUAL"
-        ).length;
-
-        const infinitePayConfirmed = group.registrations.filter(
-          (r) => isInfinitePay(r.paymentMethod) && r.status === "CONFIRMED"
-        ).length;
-        const manualConfirmed = group.registrations.filter(
-          (r) => r.paymentMethod === "MANUAL" && r.status === "CONFIRMED"
-        ).length;
-
-        // Receitas somando o valor de cada inscrição (com camisa, se houver)
-        const sumAmount = (
-          pred: (r: EventGroup["registrations"][number]) => boolean
-        ) =>
-          group.registrations
-            .filter(pred)
-            .reduce((s, r) => s + r.amount, 0);
-
-        return {
-          eventId: group.eventId,
-          eventTitle: group.eventTitle,
-          eventPrice: group.eventPrice,
-          eventDate: group.eventDate,
-          totalRegistrations: totalRegs,
-          confirmedRegistrations: confirmedRegs,
-          pendingRegistrations: pendingRegs,
-          cancelledRegistrations: cancelledRegs,
-          totalRevenue: sumAmount(() => true),
-          confirmedRevenue: sumAmount((r) => r.status === "CONFIRMED"),
-          pendingRevenue: sumAmount((r) => r.status === "PENDING"),
-          // Por método de pagamento
-          infinitePayRegistrations: infinitePayRegs,
-          manualRegistrations: manualRegs,
-          infinitePayConfirmedRegistrations: infinitePayConfirmed,
-          manualConfirmedRegistrations: manualConfirmed,
-          infinitePayRevenue: sumAmount(
-            (r) => isInfinitePay(r.paymentMethod)
-          ),
-          manualRevenue: sumAmount((r) => r.paymentMethod === "MANUAL"),
-          infinitePayConfirmedRevenue: sumAmount(
-            (r) => isInfinitePay(r.paymentMethod) && r.status === "CONFIRMED"
-          ),
-          manualConfirmedRevenue: sumAmount(
-            (r) => r.paymentMethod === "MANUAL" && r.status === "CONFIRMED"
-          ),
-        };
-      }
-    );
-
-    // Agrupar por dia (para gráfico de receita diária)
-    const dailyGroups = registrationsWithPaymentMethod.reduce(
-      (groups, registration) => {
-        const dateKey = registration.createdAt.toISOString().split("T")[0];
-        if (!groups[dateKey]) {
-          groups[dateKey] = {
-            date: dateKey,
-            revenue: 0,
-            registrations: 0,
-            infinitePayRevenue: 0,
-            manualRevenue: 0,
-          };
-        }
-        const amount = revenueOf(registration);
-        groups[dateKey].revenue += amount;
-        groups[dateKey].registrations += 1;
-
-        if (isInfinitePay(registration.paymentMethod)) {
-          groups[dateKey].infinitePayRevenue += amount;
-        } else {
-          groups[dateKey].manualRevenue += amount;
-        }
-
-        return groups;
-      },
-      {} as Record<string, DailyGroup>
-    );
-
-    const dailyRevenue = Object.values(dailyGroups).sort(
-      (a: DailyGroup, b: DailyGroup) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-
-    const responseData = {
-      totalRevenue,
-      confirmedRevenue,
-      pendingRevenue,
-      totalRegistrations,
-      confirmedRegistrations,
-      pendingRegistrations,
-      cancelledRegistrations,
-      // Por método de pagamento
-      infinitePayTotalRevenue,
-      infinitePayConfirmedRevenue,
-      infinitePayRegistrations: infinitePayRegistrations.length,
-      manualTotalRevenue,
-      manualConfirmedRevenue,
-      manualRegistrations: manualRegistrations.length,
-      manualBreakdown,
-      cashResponsibles,
-      eventBreakdown,
-      dailyRevenue,
-    };
-
-    // Se format=export, retornar dados formatados para exportação
     if (format === "export") {
-      const exportData = {
-        summary: responseData,
-        detailedRegistrations: registrationsWithPaymentMethod.map((reg) => ({
-          id: reg.id,
-          eventTitle: reg.event.title,
-          participantName: reg.name,
-          participantEmail: reg.email,
-          participantCPF: reg.cpf,
-          participantPhone: reg.phone,
-          status: reg.status,
-          paymentMethod: reg.paymentMethod,
-          manualPaymentType: reg.manualPaymentType,
-          cashResponsible: reg.cashResponsible,
-          notes: reg.notes,
-          eventPrice: reg.event.price,
-          amountPaid: revenueOf(reg),
-          wantsShirt: reg.wantsShirt ?? false,
-          shirtSize: reg.shirtSize ?? null,
-          registrationDate: reg.createdAt.toISOString(),
-          eventDate: reg.event.startDate.toISOString(),
-        })),
-      };
-
+      const eventTitles = new Map(items.map((i) => [i.event.id, i.event.title]));
+      const rows = buildRows(items).filter((row) => row.counted);
       return NextResponse.json({
         success: true,
-        data: exportData,
+        data: {
+          summary: buildFinancialSummary(items, shirtOrders),
+          rows,
+          shirtOrders: shirtOrders.map((o) => ({
+            id: o.id,
+            eventTitle: eventTitles.get(o.eventId) ?? "",
+            amount: o.totalValue,
+          })),
+        },
       });
     }
 
+    const eventGroups = new Map<string, BreakdownRegistration[]>();
+    for (const item of items) {
+      const group = eventGroups.get(item.event.id) ?? [];
+      group.push(item);
+      eventGroups.set(item.event.id, group);
+    }
+    const eventDates = new Map(
+      registrations.map((r) => [r.event.id, r.event.startDate.toISOString()])
+    );
+
+    const compact = (s: FinancialSummary) => ({
+      confirmedRegistrations: s.confirmedRegistrations,
+      pendingRegistrations: s.pendingRegistrations,
+      pendingAmount: s.pendingAmount,
+      gross: s.gross,
+      shirtRevenue: s.shirtRevenue,
+      fees: s.fees,
+      refunds: s.refunds.amount,
+      net: s.net,
+    });
+
+    const byEvent = Array.from(eventGroups.entries())
+      .map(([id, group]) => ({
+        eventId: id,
+        eventTitle: group[0].event.title,
+        eventDate: eventDates.get(id) ?? null,
+        ...compact(
+          buildFinancialSummary(
+            group,
+            shirtOrders.filter((o) => o.eventId === id)
+          )
+        ),
+      }))
+      .sort((a, b) => b.gross - a.gross);
+
     return NextResponse.json({
       success: true,
-      data: responseData,
+      data: {
+        scope: {
+          eventId: eventScope,
+          eventTitle: eventInfo?.title ?? null,
+          eventDate: eventInfo?.startDate.toISOString() ?? null,
+        },
+        summary: buildFinancialSummary(items, shirtOrders),
+        byEvent,
+      },
     });
   } catch (error) {
     console.error("Erro ao buscar dados financeiros:", error);

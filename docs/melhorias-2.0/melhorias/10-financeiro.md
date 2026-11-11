@@ -1,6 +1,6 @@
 # Requisito 10 — Financeiro como prestação de contas
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: ✅ Implementado (aguardando aprovação do Ricardo)
 - **Ordem no roadmap**: 8ª — depois dos reqs. 1 e 3; ideal após 6 e 12
 - **Requisito original**: `../requisitos.md` (item 10)
 - **RFC escrito em**: 2026-07-24
@@ -88,15 +88,39 @@ Transformar `/admin/financial` em **prestação de contas por evento**, apresent
 
 - [x] Análise técnica completa (2026-07-24)
 - [x] Regra de decomposição inscrição × camisa definida (D4, com limitação declarada p/ históricos)
-- [ ] Q13 confirmada
-- [ ] Endpoints agregadores (fonte única `revenueBreakdown`)
-- [ ] Dashboard com indicadores + textos prontos
-- [ ] Impressão (`@media print`)
-- [ ] CSV atualizado
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Q13 confirmada (ADR-003)
+- [x] Endpoints agregadores (fonte única `revenueBreakdown`)
+- [x] Dashboard com indicadores + textos prontos
+- [x] Impressão (`@media print`)
+- [x] CSV atualizado
+- [x] Testes (API local; validação visual mobile pendente)
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+### Implementado (2026-11-11)
+
+- `backend/utils/revenueBreakdown.ts` (função pura, fonte única): decomposição inscrição × camisa (`total − preço base do lote/evento`, Q13), forma de pagamento (InfinitePay × Manual PIX/Dinheiro/Cartão/não informado), canal do checkout (Pix, crédito à vista, parcelado, não identificado), taxa estimada pela referência de `paymentFees`, responsáveis do dinheiro, lotes, estornos e camisa avulsa (`Order` `SHIRT_ONLY` confirmada).
+- `app/api/admin/financial/route.ts` reescrita: resumo + `byEvent`; `format=export` devolve linhas já calculadas. Guard `canViewFinancialValues` além do middleware.
+- `components/admin/financial/` (`FinancialSummaryTab`, `FinancialPrintReport`, `financialCsv`, `types`) e `app/admin/financial/page.tsx` com `Tabs` (pronto para a aba Auditoria do req. 6).
+
+### Regras de contagem (desvios/decisões do RFC)
+
+- **Receita** = inscrições `CONFIRMED` + `CANCELLED` com estorno concluído; estorno entra como saída. Pedidos em grupo não são somados à parte (a receita é a soma das inscrições); `Order.paidAmountCents`/`paymentDetails.paidAmount` aparecem só como "Registrado pela InfinitePay" (conferência, pedido contado uma vez).
+- **Taxas**: estimativa pela referência (parcelado usa o piso 6,09%); o RFC dizia manter a receita bruta e não mexer em taxas — o bruto continua, e taxas/líquido são acrescentados como estimativa declarada nos critérios.
+- Estornos pertencem às inscrições do recorte (não filtrados por data do estorno).
+- Canceladas após pagamento online sem estorno ficam fora dos totais e geram aviso na tela.
+- Período: ao escolher um evento o período vira "todo o período" (editável); sem evento, último mês.
+- CSV: removidos e-mail, CPF e telefone (relatório para a liderança); vírgula decimal sem "R$" para somar no Excel; linha por inscrição contabilizada, camisas avulsas e bloco de resumo ao final.
+- Gráfico/tabela de receita diária e cards antigos removidos (receita "total" misturava pendentes e canceladas).
+- `/api/registrations/stats`, `export-admin` e dashboard continuam com seu próprio cálculo via `resolveBaseValue` (receita confirmada bruta); não migrados.
+
+### Testes (servidor local, evento de teste removido ao final)
+
+Esperado × obtido: bruto 780,00 × 780,00; inscrições 640,00 × 640,00; camisas 140,00 × 140,00 (inclui 30,00 avulsa); taxas 16,32 × 16,32; estornos 100,00 × 100,00; líquido 663,68 × 663,68; confirmados 7 (3 com camisa / 4 sem) × idem; pendências 1 / 100,00 × idem; InfinitePay registrado 570,00 × 570,00; dinheiro (Maria) 120,00 × 120,00; lote 1 = 3 inscr./320,00; CSV: soma das linhas = 780,00, taxas 16,32, estornos 100,00. CHECKIN/SUPPORT: 403 na API e redirecionamento na página; sem login: 401.
+
+### Pendências
+
+- Validação visual (375px e impressão A4) não feita em navegador.
+- Taxas reais dependem do extrato (req. 6).

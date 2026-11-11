@@ -10,6 +10,12 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 
 ---
 
+## 2026-11-11 — Req. 10 (financeiro)
+
+`/admin/financial` virou prestação de contas por evento: bruto, taxas (estimativa), estornos e líquido; por forma de pagamento e canal do checkout; dinheiro com responsáveis; camisa separada (Q13); lotes; estornos; impressão A4 e CSV coerente, tudo de `backend/utils/revenueBreakdown`. Página em abas, pronta para a "Auditoria" (req. 6). Totais conferidos manualmente na API local; validação visual mobile/impressão pendente. Detalhes em `melhorias/10-financeiro.md`.
+
+---
+
 ## 2026-11-11 — Req. 9 (tela de inscrições)
 
 Carregamento só após escolher o evento (lembrado na sessão), filtros server-side (status, lote, pagamento, individual/grupo, busca), `paymentDate` derivada no servidor, Drawer de detalhes com linha do tempo, comprovante individual reutilizando a impressão pública (SUPPORT pode, Q12), botões Cancelar/Reativar (ADMIN+) com indicador de estorno em aberto, `export-admin`/impressão/estatísticas com os campos do req. 1 e remoção da rota/modal manual órfãos. Testado por perfil no servidor local; validação visual em 375px fica pendente. Detalhes em `melhorias/09-tela-inscricoes.md`.
