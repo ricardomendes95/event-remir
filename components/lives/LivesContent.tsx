@@ -15,7 +15,7 @@ interface LivesData {
   channelId: string;
   live: LiveVideo | null;
   upcoming: LiveVideo[];
-  completed: LiveVideo[];
+  recent: LiveVideo[];
   fallback: "embed" | null;
 }
 
@@ -123,7 +123,7 @@ export const LivesContent = () => {
     );
   }
 
-  const { live, upcoming, completed } = data;
+  const { live, upcoming, recent } = data;
 
   return (
     <div className="space-y-10">
@@ -149,7 +149,7 @@ export const LivesContent = () => {
           </h2>
           <p className="text-gray-600">
             Quando a próxima transmissão começar, ela aparecerá aqui. Enquanto
-            isso, assista às anteriores abaixo ou acompanhe o nosso canal.
+            isso, assista aos últimos vídeos abaixo ou acompanhe o nosso canal.
           </p>
           <ChannelLink>Seguir o canal no YouTube</ChannelLink>
         </section>
@@ -192,21 +192,26 @@ export const LivesContent = () => {
         </section>
       )}
 
-      {completed.length > 0 && (
+      {recent.length > 0 && (
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-gray-900">
-            Transmissões anteriores
+            Últimos vídeos e transmissões
           </h2>
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {completed.map((video) => (
-              <li key={video.id} className="space-y-2">
+          {/* Celular: blocos lado a lado com rolagem lateral; telas maiores: grade. */}
+          <ul className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-5">
+            {recent.map((video) => (
+              <li
+                key={video.id}
+                className="w-[75%] shrink-0 snap-start space-y-2 sm:w-[45%] md:w-auto"
+              >
                 <LiveFacade
                   src={embedUrl(video.id)}
                   title={video.title}
                   thumbnail={video.thumbnail}
                   label="Assistir"
+                  compact
                 />
-                <p className="text-sm font-medium text-gray-900">
+                <p className="line-clamp-2 text-sm font-medium text-gray-900">
                   {video.title}
                 </p>
                 <p className="text-xs text-gray-500">

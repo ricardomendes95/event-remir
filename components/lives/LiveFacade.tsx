@@ -7,6 +7,8 @@ interface LiveFacadeProps {
   title: string;
   thumbnail?: string | null;
   label: string;
+  /** Blocos pequenos (lista de vídeos): só o ícone, menor. */
+  compact?: boolean;
 }
 
 // Só carrega o player (e os cookies do YouTube) depois do toque do usuário.
@@ -15,6 +17,7 @@ export const LiveFacade = ({
   title,
   thumbnail,
   label,
+  compact = false,
 }: LiveFacadeProps) => {
   const [loaded, setLoaded] = useState(false);
 
@@ -46,10 +49,16 @@ export const LiveFacade = ({
             />
           )}
           <span className="relative flex flex-col items-center gap-2 px-4 text-center text-white">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#015C91] shadow-lg transition-transform group-hover:scale-105">
-              <Play size={28} fill="currentColor" />
+            <span
+              className={`flex items-center justify-center rounded-full bg-[#015C91] shadow-lg transition-transform group-hover:scale-105 ${
+                compact ? "h-11 w-11" : "h-16 w-16"
+              }`}
+            >
+              <Play size={compact ? 20 : 28} fill="currentColor" />
             </span>
-            <span className="text-base font-semibold drop-shadow">{label}</span>
+            {!compact && (
+              <span className="text-base font-semibold drop-shadow">{label}</span>
+            )}
           </span>
         </button>
       )}

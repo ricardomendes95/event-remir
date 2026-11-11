@@ -90,3 +90,7 @@ Três abordagens, combináveis:
 **Testes**: `/api/lives` sem chave retorna `fallback: "embed"`; com servidor mock (live, 2 próximas ordenadas por horário, 2 anteriores) retorna tudo e a 2ª requisição não gera chamadas (cache: 4 chamadas no total); a chave não aparece em resposta nem log; `/lives` e `/sitemap.xml` 200; tsc/lint/build ok.
 
 **Pendências**: criar a API key (opcional) e configurar na Vercel; testar no celular/3G com live real; o fallback não distingue "sem live" (o YouTube mostra o aviso dele).
+
+## Ajuste pós-entrega (2026-11-11)
+
+A seção "Transmissões anteriores" (só lives, via `search` com 100 unidades de cota) virou **"Últimos vídeos e transmissões"**: os 5 vídeos mais recentes do canal — lives encerradas e vídeos comuns — lidos da playlist de uploads (`playlistItems.list`, 1 unidade), sem repetir a live em andamento nem as agendadas. No celular aparecem em blocos lado a lado com rolagem lateral; no computador, em grade (3 colunas no tablet, 5 no desktop), com botão de play compacto.

@@ -8,7 +8,7 @@ export const CHANNEL_HANDLE_URL =
 
 const LIVE_TTL_MS = 30 * 60 * 1000;
 const LISTS_TTL_MS = 6 * 60 * 60 * 1000;
-const COMPLETED_MAX = 6;
+const RECENT_MAX = 5;
 const UPCOMING_MAX = 5;
 
 export interface LiveVideo {
@@ -23,7 +23,8 @@ export interface LivesData {
   channelId: string;
   live: LiveVideo | null;
   upcoming: LiveVideo[];
-  completed: LiveVideo[];
+  /** Últimos vídeos publicados no canal (lives encerradas e vídeos comuns). */
+  recent: LiveVideo[];
   fallback: "embed" | null;
 }
 
@@ -90,7 +91,7 @@ function toVideo(item: SearchItem): LiveVideo | null {
 
 async function search(
   channelId: string,
-  eventType: "live" | "upcoming" | "completed",
+  eventType: "live" | "upcoming",
   maxResults: number,
   key: string,
 ): Promise<LiveVideo[]> {
@@ -102,14 +103,59 @@ async function search(
       eventType,
       type: "video",
       maxResults: String(maxResults),
-      ...(eventType === "completed"
-        ? { order: "date" }
-        : {}),
     },
     key,
   );
   return (data.items ?? [])
     .map(toVideo)
+    .filter((v): v is LiveVideo => v !== null);
+}
+
+interface PlaylistItem {
+  snippet?: {
+    title?: string;
+    publishedAt?: string;
+    thumbnails?: Record<string, { url?: string }>;
+    resourceId?: { videoId?: string };
+  };
+  contentDetails?: { videoPublishedAt?: string };
+}
+
+// Uploads do canal (playlist "UU…"): playlistItems.list custa 1 unidade e traz
+// lives encerradas e vídeos comuns, do mais novo para o mais antigo.
+async function recentUploads(
+  channelId: string,
+  maxResults: number,
+  key: string,
+): Promise<LiveVideo[]> {
+  const data = await callApi<{ items?: PlaylistItem[] }>(
+    "playlistItems",
+    {
+      part: "snippet,contentDetails",
+      playlistId: `UU${channelId.slice(2)}`,
+      // Folga para descartar privados e transmissões ainda não iniciadas.
+      maxResults: String(maxResults + 10),
+    },
+    key,
+  );
+  return (data.items ?? [])
+    .map((item): LiveVideo | null => {
+      const id = item.snippet?.resourceId?.videoId;
+      const title = item.snippet?.title ?? "";
+      if (!id || title === "Private video" || title === "Deleted video") {
+        return null;
+      }
+      const thumbs = item.snippet?.thumbnails;
+      return {
+        id,
+        title,
+        thumbnail:
+          thumbs?.medium?.url ?? thumbs?.high?.url ?? thumbs?.default?.url ?? null,
+        publishedAt:
+          item.contentDetails?.videoPublishedAt ?? item.snippet?.publishedAt ?? null,
+        scheduledStart: null,
+      };
+    })
     .filter((v): v is LiveVideo => v !== null);
 }
 
@@ -174,13 +220,13 @@ export async function getLivesData(): Promise<LivesData> {
     channelId,
     live: null,
     upcoming: [],
-    completed: [],
+    recent: [],
     fallback: "embed",
   };
   if (!key) return fallbackData;
 
   try {
-    const [live, upcoming, completed] = await Promise.all([
+    const [live, upcoming, uploads] = await Promise.all([
       cached("live", LIVE_TTL_MS, () => search(channelId, "live", 1, key)),
       cached("upcoming", LISTS_TTL_MS, async () =>
         addScheduledStart(
@@ -188,15 +234,20 @@ export async function getLivesData(): Promise<LivesData> {
           key,
         ),
       ),
-      cached("completed", LISTS_TTL_MS, () =>
-        search(channelId, "completed", COMPLETED_MAX, key),
+      cached("recent", LISTS_TTL_MS, () =>
+        recentUploads(channelId, RECENT_MAX, key),
       ),
     ]);
+    // Fora da lista: a live em andamento e as transmissões agendadas.
+    const shownElsewhere = new Set([...live, ...upcoming].map((v) => v.id));
+    const recent = uploads
+      .filter((v) => !shownElsewhere.has(v.id))
+      .slice(0, RECENT_MAX);
     return {
       channelId,
       live: live[0] ?? null,
       upcoming,
-      completed,
+      recent,
       fallback: null,
     };
   } catch (error) {
