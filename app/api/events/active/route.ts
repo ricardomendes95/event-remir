@@ -48,6 +48,7 @@ export async function GET() {
       isActive: activeEvent.isActive,
       isFree: activeEvent.isFree,
       formMode: activeEvent.formMode,
+      allowBatchRegistration: activeEvent.allowBatchRegistration,
       dynamicFormFields: activeEvent.dynamicFormFields,
       fixedFieldsConfig: activeEvent.fixedFieldsConfig,
       registrationEndDate: activeEvent.registrationEndDate.toISOString(),

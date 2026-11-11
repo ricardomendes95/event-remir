@@ -21,6 +21,17 @@ export async function POST(request: NextRequest) {
       },
       include: {
         batch: { select: { price: true, priceWithShirt: true } },
+        order: {
+          select: {
+            id: true,
+            status: true,
+            totalValue: true,
+            registrations: {
+              orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+              select: { id: true, name: true },
+            },
+          },
+        },
         event: {
           select: {
             title: true,
@@ -53,9 +64,28 @@ export async function POST(request: NextRequest) {
       registration.batch
     );
 
+    // Contexto de compra em grupo (Opção C do RFC): só o primeiro nome dos
+    // demais participantes — sem CPF, e-mail ou telefone de terceiros.
+    const order = registration.order
+      ? {
+          id: registration.order.id,
+          status: registration.order.status,
+          totalValue: registration.order.totalValue,
+          participantsCount: registration.order.registrations.length,
+          otherParticipants: registration.order.registrations
+            .filter((r) => r.id !== registration.id)
+            .map((r) => r.name.trim().split(/\s+/)[0]),
+          canLeave:
+            registration.order.status === "PENDING" &&
+            registration.status === "PENDING",
+        }
+      : null;
+
     // Formatear resposta
     const response = {
       id: registration.id,
+      orderId: registration.orderId,
+      order,
       name: registration.name,
       email: registration.email,
       cpf: registration.cpf,

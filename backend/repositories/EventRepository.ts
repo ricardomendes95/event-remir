@@ -53,6 +53,7 @@ export interface Event {
   bannerUrl: string | null;
   paymentConfig: unknown | null;
   shirtConfig: unknown | null;
+  allowBatchRegistration: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

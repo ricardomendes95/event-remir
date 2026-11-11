@@ -1,6 +1,6 @@
 # Requisito 2 — Inscrição em lote (várias inscrições, um pagamento)
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação) — **depende do ADR-001 aprovado**
+- **Status**: 🚧 Backend implementado e testado localmente (2026-11-11); frontend pendente
 - **Ordem no roadmap**: 4ª
 - **Requisito original**: `../requisitos.md` (item 2)
 - **RFC escrito em**: 2026-07-24
@@ -60,17 +60,77 @@ Matriz completa na seção 20 do RFC (unitários, integração, webhook, concorr
 ## Checklist
 
 - [x] ADR-001 detalhado (proposta em `../decisoes.md`)
-- [ ] ADR-001 **aprovado pelo Ricardo**
+- [x] ADR-001 **aprovado pelo Ricardo** (2026-11-11)
 - [x] Análise técnica completa (RFC rev. 2 + este wrapper)
-- [ ] Q6 respondida
-- [ ] Schema (`Order` conforme ADR-001) + `db push`
-- [ ] Backend (create-batch-preference, create-free-batch, webhook, continuar pagamento, leave-order)
+- [x] Q6 respondida (incluir `leave-order`, ADR-003)
+- [x] Schema (`Order` conforme ADR-001) + `db push` (só banco local)
+- [x] Backend (create-batch-preference, create-free-batch, webhook, continuar pagamento, leave-order)
 - [ ] Frontend (extensão inline do modal, comprovante consolidado, alerta de grupo)
-- [ ] Compatibilidade `order_nsu` legado verificada
-- [ ] Testes (seção 20 do RFC + `../testes.md`)
+- [x] Compatibilidade `order_nsu` legado verificada (webhook individual testado; ramo legado intocado)
+- [~] Testes de backend feitos (ver abaixo); E2E mobile e `../testes.md` dependem do frontend
 - [ ] Documentação atualizada (`docs/FLUXO_INSCRICAO.md`, RFC marcado como implementado)
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+### Progresso
+
+Backend das Fases 0–4, 5 (continuar pagamento), 6 (`leave-order`) e 8 (flag) do RFC. Frontend (Fase 7) e toggle da flag no `EventModal` ficam para a próxima etapa. Sem commit.
+
+**Desvios do RFC**
+
+- **Salvaguarda 9.7**: o RFC compara `transactionNsu` do webhook com `Order.paymentId`, mas o `transaction_nsu` só existe depois do pagamento (não dá para gravá-lo ao criar o link). A comparação é feita com o **`amount` do webhook** (valor do link que geramos) contra o total atual recalculado: diferente → pedido não é confirmado, grava `stale_payment_received` em `paymentDetails.history[]` e responde 200. Sem `amount` no payload, vale `paymentId == null` (link invalidado por saída). `Order.paymentId` guarda o `order_nsu` do link vigente e vira `null` quando o link é invalidado.
+- Confirmação usa o lote **gravado em cada inscrição** (como o webhook individual), não o vigente.
+- Rota de continuar pagamento: `POST /api/payments/update-batch-preference` (nome do RFC). Só aceita pedido `PENDING` (o webhook InfinitePay nunca gera `PAYMENT_FAILED`).
+- `Registration.order` sem `onDelete: Cascade` (o RFC previa Cascade): apagar um pedido não deve apagar inscrições; hoje nada apaga `Order` (só a exclusão do evento, que cascateia pelo `Event`).
+- CPF com inscrição `PENDING` individual (sem pedido) também bloqueia o participante (409, `CPF_PENDING_INDIVIDUAL`); o RFC só previa "pendente em outro pedido". `CANCELLED`/`PAYMENT_FAILED` é reaproveitada (UPDATE), como no individual.
+- Validação por participante extraída para `backend/services/registrationValidation.ts` (Fase 1); o fluxo individual **não** foi migrado para ela (não tocado de propósito).
+- `create-preference`/`create-free` individuais seguem sem lock (só os endpoints de lote travam o evento). Isso significa que um individual concorrente com um lote ainda pode estourar a última vaga; retroaplicar o lock ao individual é melhoria independente.
+- Respostas de erro das rotas novas seguem o envelope `{ success:false, error, errors? }`; as rotas individuais legadas continuam como estavam.
+
+### Arquivos alterados
+
+`prisma/schema.prisma` (`Order`, `OrderType`, `Registration.orderId`, `Event.allowBatchRegistration`); novos `backend/schemas/batchRegistrationSchemas.ts`, `backend/services/registrationValidation.ts`, `backend/services/batchRegistrationService.ts`; `backend/services/payment/infinitePayService.ts` (`createInfinitePayCheckoutForOrder`, helpers de `ord_`); `backend/services/eventBatchService.ts` (`countBatchOccupied`); `backend/utils/validationResponse.ts`; `backend/schemas/eventSchemas.ts` e `index.ts`; `backend/repositories/EventRepository.ts`; novas rotas `app/api/payments/create-batch-preference`, `app/api/payments/update-batch-preference`, `app/api/registrations/create-free-batch`, `app/api/registrations/[id]/leave-order`; editadas `app/api/payments/webhook/infinitepay`, `app/api/payments/status`, `app/api/registrations/get-by-id`, `app/api/registrations/search-by-cpf`, `app/api/events/{active,by-slug/[slug],list-active}` (expõem `allowBatchRegistration`); `middleware.ts` (rotas públicas); `types/event.ts`; docs (`FLUXO_INSCRICAO.md`, `00_PROJECT_CONTEXT.md`, este arquivo, `progresso.md`).
+
+### Contrato das rotas para o frontend
+
+Todas retornam `{ success, data | error, errors? }`. Erros por participante: `errors: [{ index, field, message, code? }]` (`index` = posição em `participants`; `field` relativo ao participante, ex. `cpf`, `shirtSize`, `dynamicFormData.<idDoCampo>`). `code`: `INVALID_FIELD`, `INVALID_CPF`, `CPF_DUPLICATED_IN_BATCH`, `CPF_ALREADY_REGISTERED`, `CPF_PENDING_INDIVIDUAL`, `CPF_IN_OTHER_ORDER`. Valores nunca vêm do cliente. CPF pode ir formatado (o servidor normaliza). Máximo de 10 participantes; o 1º é o Responsável pela compra.
+
+- `POST /api/payments/create-batch-preference` (público) — body: `{ eventId, participants: [{ name, email, cpf, phone, wantsShirt?, shirtSize?, dynamicFormData? }] }`.
+  - 201: `{ success:true, data:{ gateway:"INFINITE_PAY", orderId, checkoutUrl, totalValue, batchName|null, registrations:[{ id, name, value }] } }` (redirecionar para `checkoutUrl`).
+  - 422 validação (inclui CPF repetido no lote) · 409 CPF já inscrito/pendente, vagas insuficientes (global ou do lote), lotado · 403 flag `allowBatchRegistration` desligada · 400 evento inativo/gratuito/fora da janela/sem lote vigente · 404 evento · 502 gateway indisponível: `{ success:false, error, data:{ orderId } }` (pedido já criado: usar `update-batch-preference`).
+- `POST /api/registrations/create-free-batch` (público) — body: `{ eventId, participants: [{ name, cpf, email?, phone?, dynamicFormData? }] }` (email/telefone/dinâmico conforme `fixedFieldsConfig`/`formMode`).
+  - 201: `{ success:true, data:{ eventTitle, registrations:[{ id, name, status:"CONFIRMED" }] } }`. Mesmos erros (evento pago → 400).
+- `POST /api/payments/update-batch-preference` (público) — body: `{ orderId }`.
+  - 200: `{ success:true, data:{ gateway, orderId, checkoutUrl, totalValue, participants } }` · 404 · 409 (pedido pago, cancelado ou vazio) · 502.
+- `POST /api/registrations/{registrationId}/leave-order` (público; exige o CPF da própria inscrição) — body: `{ cpf }`.
+  - 200: `{ success:true, data:{ registrationId, orderId, orderCancelled, newOrderTotal, remainingParticipants, individualAmount } }`. Depois, a pessoa segue o fluxo individual de "continuar pagamento" (`create-preference` com o CPF dela).
+  - 403 CPF não confere · 400 sem pedido ou inscrição não pendente · 409 pedido já pago/cancelado.
+- `POST /api/registrations/search-by-cpf` (já existente) — passa a incluir `orderId` e `order: { id, status, totalValue, participantsCount, otherParticipants: [primeiros nomes], canLeave } | null`. Para o alerta do CPF em grupo (continuar o grupo via `update-batch-preference` com `order.id`, ou sair via `leave-order`).
+- `GET /api/payments/status?registrationId=ord_<id>` — aceita o `order_nsu` do retorno do checkout. Devolve o `registration` no formato de sempre (representa o responsável, `status` = status do pedido) e `order: { id, status, totalValue, needsNewLink, participants:[{ id, name, status }] }`.
+- `POST /api/registrations/get-by-id` — aceita `registrationId: "ord_<id>"` (resolve para o responsável); a resposta ganhou `orderId`. Comprovante de cada participante continua por `registrationId` próprio.
+- Eventos públicos (`events/active`, `by-slug`, `list-active`) agora trazem `allowBatchRegistration`. O admin precisa de toggle no `EventModal` (a flag já é aceita em `POST/PUT /api/events`).
+
+### Testes realizados (servidor local, banco local, gateway InfinitePay simulado por endpoint local; dados de teste removidos)
+
+61 verificações, 0 falhas:
+
+- Lote pago de 3 (com/sem camisa): total R$ 330; payload ao gateway com `order_nsu = ord_<id>`, 3 itens em centavos (12000/9000/12000), `customer` do responsável em E.164, URLs de redirect e webhook; 3 inscrições `PENDING` com o mesmo `orderId`; colunas do `Order` preenchidas; CPF só dígitos.
+- Lote com preço de lote (70 + 100 = 170) e `batchId` gravado em todos.
+- Erros: CPF repetido no lote (422, índices), CPF já confirmado (409), CPF em outro pedido pendente (409), campos inválidos por índice (422), mais de 10 (422), nada persistido em caso de erro.
+- Vagas: global insuficiente (409), quota do lote insuficiente (409); duas requisições concorrentes pela última vaga (uma 201, outra 409, sem overbooking).
+- Flag desligada → 403; lote em evento de tipo errado → 400.
+- Webhook: `paid_amount` menor → 422 (segue `PENDING`); confirmação (pedido + 3 inscrições, colunas tipadas); idempotente (2ª entrega no-op); pedido inexistente → 404; link obsoleto (R$ 300 pago após saída que reduziu para R$ 210) → 200 `IGNORED`, pedido segue `PENDING`, evento no `history[]`.
+- Webhook individual legado: valor menor 422, confirmação, idempotência.
+- `leave-order`: CPF errado 403; saída recalcula 300 → 210 → 120; `paymentId` invalidado e `history[]`; último a sair → `CANCELLED`; já individual / pedido confirmado → 400; duas saídas concorrentes → total final consistente.
+- Continuar pagamento: novo link com os 2 participantes restantes (R$ 210) e `paymentId` reposto; pedido cancelado → 409.
+- `payments/status`, `get-by-id` com `ord_`, comprovante individual de participante, `search-by-cpf` com contexto de grupo.
+- Gratuito em lote: 3 `CONFIRMED` (`FREE`, sem `orderId`), já inscrito (409), vagas (409), tipo de evento errado (400).
+- `npx tsc --noEmit`, `npm run lint` (só warnings preexistentes) e `npm run build` limpos.
+
+### Pendências
+
+- **Frontend (Fase 7)**: checkbox/quantidade/accordion no `EventRegistrationModal`, camisa por participante, total, alerta de grupo (`ExistingRegistrationAlert`), comprovante por participante, toggle `allowBatchRegistration` no `EventModal`.
+- Verificar em ambiente real (sandbox InfinitePay) se `amount` do webhook é mesmo o total enviado no link (base da salvaguarda 9.7); a suposição segue o comentário do webhook individual.
+- Concorrência lote × individual na última vaga (individual sem lock) e job de expiração de `PENDING` antigos (RFC seção 17): fora desta entrega.
+- E2E mobile, vídeo de evidência e `../testes.md` após o frontend; RFC só será marcado como implementado depois dele.

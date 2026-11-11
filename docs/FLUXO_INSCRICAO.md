@@ -21,6 +21,7 @@ e o preço:
 | `fixedFieldsConfig` | `Json?` | Se `email`/`phone` são obrigatórios (efeito só em gratuito) |
 | `shirtConfig` | `Json?` | Config do item opcional "camisa" (só em evento pago) |
 | `batches` | `EventBatch[]` | Lotes de inscrição (opcional, só em evento pago) — ver seção "Lotes de inscrição" |
+| `allowBatchRegistration` | `Boolean` (default `false`) | Libera a inscrição de várias pessoas em uma compra — ver "Inscrição em lote" |
 | `maxParticipants`, `registrationStartDate`, `registrationEndDate`, `isActive` | — | Gates de disponibilidade |
 
 Cada inscrição vira uma `Registration`:
@@ -31,6 +32,7 @@ Cada inscrição vira uma `Registration`:
 - `dynamicFormData` (JSON): respostas sanitizadas do formulário dinâmico
 - `wantsShirt` / `shirtSize`: seleção de camisa
 - `batchId` (nullable): lote em que a inscrição foi feita (`null` em evento sem lotes e em inscrições históricas)
+- `orderId` (nullable): pedido (`Order`) em grupo que originou/pagou a inscrição; `null` no fluxo individual e no histórico
 - `notes` (até 500 caracteres), `manualPaymentType` (`PIX | CASH | CARD`) e
   `cashResponsible`: dados **administrativos** (ver "Inscrição manual pelo admin")
 
@@ -223,9 +225,70 @@ só desativado).
   o nome do lote. Nenhum passo novo.
 - **Inscrição manual do admin** recebe o lote vigente (ou fica sem lote); não é
   bloqueada pelo fim dos lotes.
-- Limitação conhecida: a checagem de vagas e a gravação da inscrição rodam numa
-  transação, mas sem lock; duas inscrições simultâneas na última vaga ainda podem
-  passar (mesma classe de corrida do teto global; lock definitivo fica para o req. 2).
+- Limitação conhecida: no fluxo **individual** (`create-preference`), a checagem
+  de vagas e a gravação rodam numa transação, mas sem lock; duas inscrições
+  simultâneas na última vaga ainda podem passar. Os endpoints de **lote** já
+  travam o evento (`SELECT ... FOR UPDATE`) — ver "Inscrição em lote".
+
+## Inscrição em lote (várias inscrições, um pagamento)
+
+Só com `Event.allowBatchRegistration = true` (default `false`; o admin liga por
+evento). O fluxo individual **não muda**: continua com `order_nsu =
+registration.id` e `Registration.orderId = null`. Especificação completa em
+`docs/RFC_INSCRICAO_EM_LOTE.md`; execução em
+`docs/melhorias-2.0/melhorias/02-inscricao-em-lote.md` (inclui o contrato das
+rotas para o frontend).
+
+- **Modelo**: `Order` (tipo `BATCH`) 1:N `Registration` (`orderId`). O `Order`
+  guarda status, `totalValue`, o link vigente (`paymentId`, `checkoutUrl`) e, após
+  o pagamento, colunas tipadas do gateway (`transactionNsu`, `invoiceSlug`,
+  `receiptUrl`, `amountCents`, `paidAmountCents`, `paidAt`). `paymentDetails`
+  guarda o payload do gateway e o `history[]` (saídas, pagamentos obsoletos).
+  Tipos `REGISTRATION`/`SHIRT_ONLY` e `targetRegistrationId` já existem no schema
+  (ADR-001), mas só `BATCH` é usado.
+- **Limite**: `MAX_BATCH_SIZE = 10` participantes por compra (validado no servidor).
+  O 1º participante é o "Responsável pela compra" (dados usados no `customer` do
+  checkout).
+- **Criação pago** (`POST /api/payments/create-batch-preference`): valida evento
+  (ativo, pago, janela, flag) e cada participante (CPF, camisa, dinâmico), com
+  erros agregados por índice; numa única `$transaction` **trava a linha do
+  evento**, confere conflitos de CPF, vagas globais (`maxParticipants`) e a quota
+  do lote vigente (N vagas de uma vez), cria o `Order` e as N inscrições
+  `PENDING`. Todos os participantes usam o **mesmo lote vigente** na criação;
+  total = soma de `resolveBaseValue(event, wantsShirt, lote)`. Só depois chama o
+  gateway: um item por participante, `order_nsu = "ord_" + order.id`.
+- **Criação gratuito** (`POST /api/registrations/create-free-batch`): mesma
+  validação e mesmo lock; cria N inscrições `CONFIRMED` (`FREE`), sem `Order`.
+- **Conflitos de CPF**: repetido no próprio lote (422); já `CONFIRMED` no evento
+  (409); `PENDING` em outro pedido ou `PENDING` individual (409); `CANCELLED` /
+  `PAYMENT_FAILED` é reaproveitada (UPDATE), como no fluxo individual.
+- **Padrão de lock** (primeiro uso no projeto, `lockRow` em
+  `backend/services/batchRegistrationService.ts`): dentro de `$transaction`,
+  `SELECT id FROM events|orders WHERE id = ... FOR UPDATE`. Transações
+  concorrentes na mesma linha esperam; vagas e total nunca são lidos
+  desatualizados. Usado em criação (evento) e em leave-order, continuar e
+  webhook (pedido). `withPrismaRetry` envolve a transação inteira.
+- **Webhook** (`order_nsu` com prefixo `ord_`, tratado em
+  `confirmOrderFromWebhook`; o ramo legado fica intacto): sob lock do pedido é
+  idempotente (`CONFIRMED` → no-op), recusa `paid_amount` menor que o total
+  recalculado (422), grava as colunas tipadas e confirma pedido + inscrições
+  na mesma transação. **Link obsoleto (RFC 9.7)**: se o `amount` do webhook (valor
+  do link que geramos) difere do total atual, o pedido não é confirmado; registra
+  `stale_payment_received` em `paymentDetails.history[]` e responde 200 para
+  conciliação manual.
+- **Continuar pagamento** (`POST /api/payments/update-batch-preference`): pedido
+  `PENDING` gera novo link com os participantes atuais e regrava o `paymentId`.
+- **Sair do pedido** (`POST /api/registrations/{id}/leave-order`, exige o CPF da
+  própria inscrição): sob lock do pedido, a inscrição vira individual
+  (`orderId = null`, segue `PENDING`), o total é recalculado com o lote das
+  remanescentes, o link é invalidado (`paymentId = null`) e a saída vai para o
+  `history[]`. Último participante fora → pedido `CANCELLED`. Só com pedido e
+  inscrição `PENDING`.
+- **Consulta**: `payments/status` e `registrations/get-by-id` aceitam o
+  `order_nsu` `ord_...` (o retorno do checkout o envia) e resolvem para o
+  responsável; cada participante mantém seu próprio comprovante por
+  `registrationId`. `search-by-cpf` devolve `orderId` e `order` (total, quantidade,
+  primeiros nomes dos demais, `canLeave`) — nunca CPF/e-mail/telefone de terceiros.
 
 ## Inscrição manual pelo admin
 

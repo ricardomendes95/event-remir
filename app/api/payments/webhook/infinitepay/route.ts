@@ -4,7 +4,9 @@ import { Prisma } from "@prisma/client";
 import {
   parseInfinitePayWebhook,
   isInfinitePayConfigured,
+  isOrderNsu,
 } from "@/backend/services/payment/infinitePayService";
+import { confirmOrderFromWebhook } from "@/backend/services/batchRegistrationService";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 
 /**
@@ -12,7 +14,8 @@ import { resolveBaseValue } from "@/backend/utils/shirtPricing";
  * dados do pagamento (não há consulta externa). O InfinitePay só notifica
  * pagamentos aprovados, então confirmamos a inscrição correspondente.
  *
- * Conciliação: order_nsu === registration.id.
+ * Conciliação: order_nsu === registration.id (individual) ou "ord_" + order.id
+ * (compra em lote — tratada por confirmOrderFromWebhook).
  * Repasse de taxa: paid_amount pode ser maior que amount (juros pagos pelo cliente).
  */
 export async function POST(request: NextRequest) {
@@ -38,6 +41,11 @@ export async function POST(request: NextRequest) {
         { error: "order_nsu missing" },
         { status: 400 }
       );
+    }
+
+    if (isOrderNsu(parsed.orderNsu)) {
+      const result = await confirmOrderFromWebhook(parsed);
+      return NextResponse.json(result.body, { status: result.status });
     }
 
     // Localiza a inscrição pelo order_nsu (= id) e, como fallback, pelo transaction_nsu.

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
+import {
+  isOrderNsu,
+  parseOrderNsu,
+} from "@/backend/services/payment/infinitePayService";
 
 const searchSchema = z
   .object({
@@ -17,9 +21,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { registrationId, paymentId } = searchSchema.parse(body);
 
+    // order_nsu de compra em lote ("ord_<id>", vindo do retorno do checkout):
+    // resolve para o responsável pela compra (1ª inscrição do pedido).
+    const orderRef = [registrationId, paymentId].find(
+      (v): v is string => !!v && isOrderNsu(v)
+    );
+
     // Buscar inscrição por ID ou paymentId
     const registration = await prisma.registration.findFirst({
-      where: registrationId ? { id: registrationId } : { paymentId: paymentId },
+      where: orderRef
+        ? { orderId: parseOrderNsu(orderRef) }
+        : registrationId
+          ? { id: registrationId }
+          : { paymentId: paymentId },
+      orderBy: orderRef
+        ? [{ createdAt: "asc" }, { id: "asc" }]
+        : undefined,
       include: {
         batch: { select: { price: true, priceWithShirt: true } },
         event: {
@@ -64,6 +81,7 @@ export async function POST(request: NextRequest) {
       status: registration.status,
       paymentId: registration.paymentId,
       paymentMethod: registration.paymentMethod,
+      orderId: registration.orderId,
       dynamicFormData: registration.dynamicFormData,
       registrationDate: registration.createdAt.toISOString(),
       wantsShirt: registration.wantsShirt ?? false,

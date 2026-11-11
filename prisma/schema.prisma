@@ -31,10 +31,12 @@ model Event {
   shirtConfig            Json?
   bannerUrl              String?
   paymentConfig          Json?    @default("{}")
+  allowBatchRegistration Boolean  @default(false)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
   registrations          Registration[]
   batches                EventBatch[]
+  orders                 Order[]
 
   @@map("events")
 }
@@ -82,11 +84,54 @@ model Registration {
   checkedInAt     DateTime?
   batchId         String?
   batch           EventBatch?      @relation(fields: [batchId], references: [id])
+  orderId         String?
+  order           Order?           @relation(fields: [orderId], references: [id])
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
   @@index([batchId])
+  @@index([orderId])
   @@map("registrations")
+}
+
+// Unidade de pagamento (ADR-001). Agrupa N inscrições em um único checkout.
+// order_nsu no gateway = "ord_" + id; o fluxo individual legado segue com
+// order_nsu = registration.id e orderId nulo.
+model Order {
+  id                   String             @id @default(cuid())
+  eventId              String
+  event                Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type                 OrderType          @default(BATCH)
+  status               RegistrationStatus @default(PENDING)
+  paymentMethod        PaymentMethod      @default(INFINITE_PAY)
+  // Referência do link de checkout vigente (null = precisa gerar novo link)
+  paymentId            String?
+  paymentError         String?
+  // Payload bruto do gateway + history[] de eventos (saída de participante etc.)
+  paymentDetails       Json?
+  totalValue           Float
+  transactionNsu       String?
+  invoiceSlug          String?
+  checkoutUrl          String?
+  receiptUrl           String?
+  amountCents          Int?
+  paidAmountCents      Int?
+  paidAt               DateTime?
+  // Só para SHIRT_ONLY: inscrição confirmada que está comprando a camisa
+  targetRegistrationId String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  registrations        Registration[]
+
+  @@index([eventId])
+  @@index([transactionNsu])
+  @@map("orders")
+}
+
+enum OrderType {
+  REGISTRATION
+  BATCH
+  SHIRT_ONLY
 }
 
 enum ManualPaymentType {

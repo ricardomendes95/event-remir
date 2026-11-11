@@ -4,3 +4,4 @@ export * from "./dynamicFormSchemas";
 export * from "./eventSchemas";
 export * from "./registrationSchemas";
 export * from "./userSchemas";
+export * from "./batchRegistrationSchemas";

@@ -117,6 +117,7 @@ export const EventCreateSchema = z
     fixedFieldsConfig: FixedFieldsConfigSchema,
     paymentConfig: PaymentConfigSchema.optional(),
     shirtConfig: ShirtConfigSchema.optional(),
+    allowBatchRegistration: z.boolean().default(false),
     batches: z.array(EventBatchSchema).max(20, "Máximo de 20 lotes").optional(),
   })
   .refine((data) => new Date(data.startDate) < new Date(data.endDate), {

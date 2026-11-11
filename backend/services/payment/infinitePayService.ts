@@ -68,8 +68,66 @@ export async function createInfinitePayCheckoutForRegistration(
   return { checkoutUrl: url, providerRef: params.registrationId };
 }
 
+/** Prefixo do order_nsu de pedidos (Order); o legado usa registration.id puro. */
+export const ORDER_NSU_PREFIX = "ord_";
+
+export function buildOrderNsu(orderId: string): string {
+  return `${ORDER_NSU_PREFIX}${orderId}`;
+}
+
+export function isOrderNsu(orderNsu: string): boolean {
+  return orderNsu.startsWith(ORDER_NSU_PREFIX);
+}
+
+/** Extrai o id do Order de um order_nsu prefixado. */
+export function parseOrderNsu(orderNsu: string): string {
+  return orderNsu.slice(ORDER_NSU_PREFIX.length);
+}
+
+export interface InfinitePayOrderCheckoutParams {
+  orderId: string;
+  eventTitle: string;
+  /** Um item por participante, com o valor já calculado no servidor (em reais). */
+  participants: { name: string; value: number }[];
+  /** Responsável pela compra (primeiro participante). */
+  buyer: {
+    name?: string;
+    email?: string | null;
+    phone?: string | null;
+  };
+}
+
+/**
+ * Cria o checkout InfinitePay de um pedido em lote (order_nsu = "ord_" + id).
+ * A API aceita vários itens por link: um item por participante.
+ */
+export async function createInfinitePayCheckoutForOrder(
+  params: InfinitePayOrderCheckoutParams
+): Promise<InfinitePayCheckoutResult> {
+  const baseUrl = getAppBaseUrl();
+  const orderNsu = buildOrderNsu(params.orderId);
+
+  const { url } = await createInfinitePayCheckout({
+    orderNsu,
+    items: params.participants.map((p) => ({
+      quantity: 1,
+      price: Math.round(p.value * 100),
+      description: `Inscrição - ${params.eventTitle} - ${p.name}`.slice(0, 120),
+    })),
+    redirectUrl: `${baseUrl}/payment/success`,
+    webhookUrl: `${baseUrl}/api/payments/webhook/infinitepay`,
+    customer: {
+      name: params.buyer.name,
+      email: params.buyer.email ?? undefined,
+      phone_number: toBrazilE164(params.buyer.phone),
+    },
+  });
+
+  return { checkoutUrl: url, providerRef: orderNsu };
+}
+
 export interface ParsedInfinitePayWebhook {
-  /** order_nsu — id da Registration. */
+  /** order_nsu — id da Registration (legado) ou "ord_" + id do Order. */
   orderNsu: string;
   transactionNsu?: string;
   invoiceSlug?: string;

@@ -41,6 +41,7 @@ export async function GET() {
         isActive: event.isActive,
         isFree: event.isFree,
         formMode: event.formMode,
+        allowBatchRegistration: event.allowBatchRegistration,
         dynamicFormFields: event.dynamicFormFields,
         registrationEndDate: event.registrationEndDate.toISOString(),
         createdAt: event.createdAt.toISOString(),

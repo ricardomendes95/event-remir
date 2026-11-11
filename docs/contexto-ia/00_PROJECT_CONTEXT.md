@@ -126,6 +126,15 @@ Detalhe completo e autoritativo em `docs/FLUXO_INSCRICAO.md`.
   `batchId`; webhook e relatórios usam o lote da inscrição; ao continuar
   pagamento cobra-se o lote vigente e o `batchId` é atualizado. Evento sem lotes
   segue com preço único. Detalhe em `docs/FLUXO_INSCRICAO.md`.
+- **Inscrição em lote** (`Event.allowBatchRegistration`, default `false`): até
+  `MAX_BATCH_SIZE = 10` participantes em uma compra, um pagamento. `Order` 1:N
+  `Registration` (`orderId`); `order_nsu = "ord_" + order.id` (o individual segue
+  `registration.id`, intocado). Rotas: `create-batch-preference`,
+  `create-free-batch`, `update-batch-preference`, `registrations/{id}/leave-order`.
+  Vagas (global e quota do lote) são checadas para N participantes dentro de
+  `$transaction` com lock (`lockRow`, `FOR UPDATE`). Webhook `ord_` é idempotente,
+  valida o total recalculado e recusa link obsoleto. Detalhe em
+  `docs/FLUXO_INSCRICAO.md`.
 - Webhook InfinitePay não tem assinatura/HMAC (limitação do produto): validação
   = `order_nsu` corresponde a `Registration` real + `paid_amount` cobre o valor
   recalculado. Não inventar secret.

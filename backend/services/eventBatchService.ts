@@ -29,6 +29,16 @@ export async function countOccupiedSlots(
   });
 }
 
+/** Inscrições PENDING + CONFIRMED de um lote (para checar a quota de N vagas). */
+export async function countBatchOccupied(
+  db: Db,
+  batchId: string,
+): Promise<number> {
+  return db.registration.count({
+    where: { batchId, status: { in: [...OCCUPYING_STATUSES] } },
+  });
+}
+
 /** Lote vigente do evento, contando vagas por lote só de PENDING + CONFIRMED. */
 export async function getEventBatchState(
   db: Db,

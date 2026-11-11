@@ -22,6 +22,8 @@ export interface Event {
   isActive: boolean;
   isFree: boolean;
   formMode: EventFormMode;
+  /** Permite inscrever várias pessoas em uma compra (create-batch-preference / create-free-batch). */
+  allowBatchRegistration?: boolean;
   dynamicFormFields?: unknown;
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
   shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };

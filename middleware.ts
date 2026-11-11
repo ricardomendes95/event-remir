@@ -31,6 +31,11 @@ export async function middleware(request: NextRequest) {
     "/api/registrations/search-by-cpf",
     "/api/registrations/get-by-id",
     "/api/registrations/create-free",
+    // Inscrição em lote: fluxo do participante, mesma superfície do individual.
+    // Valores recalculados no servidor; respostas sem CPF/e-mail de terceiros.
+    "/api/registrations/create-free-batch",
+    "/api/payments/create-batch-preference",
+    "/api/payments/update-batch-preference",
     "/payment/success",
     "/payment/failure",
     "/payment/pending",
@@ -39,9 +44,13 @@ export async function middleware(request: NextRequest) {
 
   // Verificar rotas dinâmicas públicas
   const isBySlugRoute = pathname.match(/^\/api\/events\/by-slug\/[^\/]+$/);
+  // Sair de pedido em grupo: público, mas exige o CPF da própria inscrição
+  const isLeaveOrderRoute = pathname.match(
+    /^\/api\/registrations\/[^\/]+\/leave-order$/
+  );
 
   // Se for rota pública, deixar passar
-  if (isPublicRoute || isBySlugRoute) {
+  if (isPublicRoute || isBySlugRoute || isLeaveOrderRoute) {
     return NextResponse.next();
   }
 

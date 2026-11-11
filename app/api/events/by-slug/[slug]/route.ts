@@ -52,6 +52,7 @@ export async function GET(
       isActive: event.isActive,
       isFree: event.isFree,
       formMode: event.formMode,
+      allowBatchRegistration: event.allowBatchRegistration,
       dynamicFormFields: event.dynamicFormFields,
       fixedFieldsConfig: event.fixedFieldsConfig,
       shirtConfig: pricing.shirtConfig,
