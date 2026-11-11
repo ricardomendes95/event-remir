@@ -53,6 +53,8 @@ interface Registration {
   };
 }
 
+const EVENT_STORAGE_KEY = "admin.registrations.eventId";
+
 interface Event {
   id: string;
   title: string;
@@ -85,7 +87,7 @@ export default function CheckinPage() {
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<string>(""); // Iniciar vazio para forçar seleção
+  const [selectedEvent, setSelectedEvent] = useState<string>("");
   const [searchText, setSearchText] = useState("");
   const [searchInput, setSearchInput] = useState(""); // input do usuário
   const [isExporting, setIsExporting] = useState(false);
@@ -115,7 +117,27 @@ export default function CheckinPage() {
       const data = await response.json();
 
       if (data.success) {
-        setEvents(data.data.items || []);
+        const items: Event[] = data.data.items || [];
+        setEvents(items);
+        // Mesmo evento do painel/inscrições nesta sessão; sem escolha anterior,
+        // o evento ativo mais recente (check-in em até dois toques).
+        let saved: string | null = null;
+        try {
+          saved = sessionStorage.getItem(EVENT_STORAGE_KEY);
+        } catch {
+          // sessionStorage indisponível
+        }
+        setSelectedEvent((current) => {
+          if (current) return current;
+          if (saved && items.some((e) => e.id === saved)) return saved;
+          const latestActive = items
+            .filter((e) => e.isActive)
+            .sort(
+              (a, b) =>
+                new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+            )[0];
+          return latestActive?.id ?? "";
+        });
       }
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -767,7 +789,14 @@ export default function CheckinPage() {
               <Select
                 placeholder="Selecione um evento"
                 value={selectedEvent || undefined}
-                onChange={setSelectedEvent}
+                onChange={(eventId: string) => {
+                  setSelectedEvent(eventId);
+                  try {
+                    sessionStorage.setItem(EVENT_STORAGE_KEY, eventId);
+                  } catch {
+                    // sessionStorage indisponível
+                  }
+                }}
                 style={{ width: "100%" }}
                 size="large"
                 status={!selectedEvent ? "error" : undefined}

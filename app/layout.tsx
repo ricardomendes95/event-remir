@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Header } from "@/components/Header";
+import { PublicChrome } from "@/components/PublicChrome";
 import { Footer } from "@/components/Footer";
 import { SectionRefsProvider } from "@/contexts/SectionRefsContext";
 import { StructuredData } from "@/components/StructuredData";
@@ -108,9 +108,7 @@ export default function RootLayout({
         <StructuredData />
         <AntdProvider>
           <SectionRefsProvider>
-            <Header />
-            <div className="mt-16 lg:mt-20 flex-1">{children}</div>
-            <Footer />
+            <PublicChrome footer={<Footer />}>{children}</PublicChrome>
             <PrivacyConsent />
           </SectionRefsProvider>
         </AntdProvider>

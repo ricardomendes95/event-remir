@@ -618,6 +618,7 @@ export function RegistrationProofModal({
           rows={4}
           maxLength={500}
           showCount
+          style={{ marginBottom: 24 }}
         />
       </Modal>
     </Modal>
