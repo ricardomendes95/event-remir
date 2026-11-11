@@ -25,7 +25,7 @@ há identidade visual própria (páginas públicas institucionais).
 | `ConsentPreferencesButton` | Reabre o banner de consentimento | Rodapé e `/privacidade` | — |
 | `StructuredData` | JSON-LD para SEO | Páginas públicas indexáveis | Admin |
 | `SearchComprovante` | Busca pública de inscrição por CPF | Home/página de evento | Buscas do admin (têm filtros próprios) |
-| `RegistrationProofModal` | Comprovante com QR code; inclui "Solicitar cancelamento" / "Desistir do cancelamento" (inscrição confirmada) | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante; a impressão vive em `lib/registrationProofPrint.ts` e é reusada pela ação "Imprimir comprovante" do admin |
+| `RegistrationProofModal` | Comprovante com QR code; inclui "Solicitar cancelamento" / "Desistir do cancelamento" e o `ShirtPurchaseCard` (inscrição confirmada) | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante; a impressão vive em `lib/registrationProofPrint.ts` e é reusada pela ação "Imprimir comprovante" do admin |
 | `AutoShowProofModal` | Abre o comprovante automaticamente pós-fluxo | Retornos de fluxo de inscrição | — |
 | `PaymentResultPage` | Corpo das páginas `/payment/*` | Páginas de retorno de gateway | — |
 | `EmbeddedBrowserWarningModal` | Aviso p/ navegador embutido (Instagram etc.) | Junto de `redirectToPayment` | Nunca chamar isolado sem contexto de redirect |
@@ -48,6 +48,7 @@ há identidade visual própria (páginas públicas institucionais).
 | `ExistingRegistrationAlert` | Alerta de CPF já inscrito + ações (comprovante/continuar); em pedido em grupo pendente oferece continuar o grupo ou sair (Opção C) | Par obrigatório do `useCpfVerification` |
 | `BatchParticipantsSection` | Checkbox "Inscrever mais pessoas", quantidade e cartões recolhíveis (um formulário por pessoa, reaproveita `RegistrationForm`/`DynamicFormRenderer`) | Só no `EventRegistrationModal`, com `allowBatchRegistration` |
 | `BatchOrderSummary` | Etapa de pagamento do grupo: pessoas, camisa por pessoa e total | Só compra em grupo paga |
+| `ShirtPurchaseCard` | Cartão "Quer a camisa?" do comprovante: escolha de tamanho e ida ao pagamento (ou continuar pagamento pendente) | Só dentro do `RegistrationProofModal`, com `shirtPurchase.available` |
 | `GroupProofModal` | Comprovante consolidado da compra em grupo; abre o `RegistrationProofModal` de cada pessoa | Pós-compra em grupo (paga ou gratuita) |
 
 ## Domínio `admin` (`components/admin`)

@@ -56,7 +56,13 @@ interface Event {
     phone?: { required: boolean };
   };
   paymentConfig?: PaymentConfig;
-  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
+  shirtConfig?: {
+    enabled: boolean;
+    priceWithShirt: number;
+    sizes: string[];
+    /** Prazo (ISO) para compra posterior da camisa; vazio = sem prazo. */
+    purchaseDeadline?: string | null;
+  };
   batches?: {
     id: string;
     name: string;
@@ -136,11 +142,18 @@ export default function EventModal({
           priceWithShirt: b.priceWithShirt,
           isActive: b.isActive,
         })),
-        shirtConfig: editingEvent.shirtConfig ?? {
-          enabled: false,
-          priceWithShirt: 0,
-          sizes: [],
-        },
+        shirtConfig: editingEvent.shirtConfig
+          ? {
+              ...editingEvent.shirtConfig,
+              purchaseDeadline: editingEvent.shirtConfig.purchaseDeadline
+                ? dayjs(editingEvent.shirtConfig.purchaseDeadline)
+                : undefined,
+            }
+          : {
+              enabled: false,
+              priceWithShirt: 0,
+              sizes: [],
+            },
       });
       clearErrors();
     } else if (visible && !editingEvent) {
@@ -197,6 +210,9 @@ export default function EventModal({
                 sizes: (values.shirtConfig.sizes ?? [])
                   .map((s) => (s ?? "").toString().trim())
                   .filter(Boolean),
+                purchaseDeadline: values.shirtConfig.purchaseDeadline
+                  ? dayjs(values.shirtConfig.purchaseDeadline).toISOString()
+                  : null,
               }
             : undefined,
         batches: isFreeVal
@@ -755,6 +771,20 @@ export default function EventModal({
                       </div>
                     )}
                   </Form.List>
+
+                  <Form.Item
+                    name={["shirtConfig", "purchaseDeadline"]}
+                    label="Prazo para comprar a camisa depois (opcional)"
+                    tooltip="Quem já está inscrito pode comprar só a camisa pelo comprovante. Após este prazo o botão deixa de aparecer. Vazio = sem prazo."
+                    className="mt-4 mb-0"
+                  >
+                    <DatePicker
+                      showTime
+                      format="DD/MM/YYYY HH:mm"
+                      placeholder="Sem prazo"
+                      className="w-full"
+                    />
+                  </Form.Item>
                 </>
               )}
             </div>

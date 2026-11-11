@@ -26,7 +26,13 @@ export interface Event {
   allowBatchRegistration?: boolean;
   dynamicFormFields?: unknown;
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
-  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
+  shirtConfig?: {
+    enabled: boolean;
+    priceWithShirt: number;
+    sizes: string[];
+    /** Prazo (ISO) para compra posterior da camisa; vazio = sem prazo. */
+    purchaseDeadline?: string | null;
+  };
   registrationEndDate?: string;
   /** Lote vigente; `price` e `shirtConfig` já vêm com os valores do lote. */
   activeBatch?: ActiveBatch | null;

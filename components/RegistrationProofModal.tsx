@@ -5,6 +5,10 @@ import { z } from "zod";
 import QRCode from "qrcode";
 import Image from "next/image";
 import {
+  ShirtPurchaseCard,
+  type ShirtPurchaseOffer,
+} from "@/components/registration/ShirtPurchaseCard";
+import {
   formatProofCPF,
   getProofAmountPaid,
   getProofShirtText,
@@ -32,6 +36,8 @@ interface RegistrationProof {
   shirtSize?: string | null;
   /** Indica se o evento oferece camisa (para exibir a linha no comprovante). */
   eventHasShirt?: boolean;
+  /** Oferta de compra posterior da camisa (null = indisponível). */
+  shirtPurchase?: ShirtPurchaseOffer | null;
   /** Pedido de cancelamento mais recente do próprio participante. */
   refundRequest?: {
     status: "OPEN" | "IN_CONTACT" | "RESOLVED";
@@ -425,6 +431,15 @@ export function RegistrationProofModal({
                 )}
               </div>
             </div>
+
+            {registration.status === "CONFIRMED" &&
+              registration.shirtPurchase?.available && (
+                <ShirtPurchaseCard
+                  registrationId={registration.id}
+                  cpf={registration.cpf}
+                  offer={registration.shirtPurchase}
+                />
+              )}
 
             {registration.status === "CONFIRMED" &&
               (() => {

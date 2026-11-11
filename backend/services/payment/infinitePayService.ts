@@ -87,6 +87,8 @@ export function parseOrderNsu(orderNsu: string): string {
 export interface InfinitePayOrderCheckoutParams {
   orderId: string;
   eventTitle: string;
+  /** Prefixo da descrição do item (padrão "Inscrição"; "Camisa" na compra posterior). */
+  itemLabel?: string;
   /** Um item por participante, com o valor já calculado no servidor (em reais). */
   participants: { name: string; value: number }[];
   /** Responsável pela compra (primeiro participante). */
@@ -112,7 +114,10 @@ export async function createInfinitePayCheckoutForOrder(
     items: params.participants.map((p) => ({
       quantity: 1,
       price: Math.round(p.value * 100),
-      description: `Inscrição - ${params.eventTitle} - ${p.name}`.slice(0, 120),
+      description: `${params.itemLabel ?? "Inscrição"} - ${params.eventTitle} - ${p.name}`.slice(
+        0,
+        120
+      ),
     })),
     redirectUrl: `${baseUrl}/payment/success`,
     webhookUrl: `${baseUrl}/api/payments/webhook/infinitepay`,

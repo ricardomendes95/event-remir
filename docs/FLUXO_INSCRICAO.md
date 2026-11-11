@@ -95,7 +95,7 @@ objeto **sanitizado** é persistido em `dynamicFormData` — nunca o payload cru
 
 ## 4. Opção de camisa
 
-Configurada em `shirtConfig` (`ShirtConfigSchema`): `{ enabled, priceWithShirt, sizes[] }`.
+Configurada em `shirtConfig` (`ShirtConfigSchema`): `{ enabled, priceWithShirt, sizes[], purchaseDeadline? }`.
 
 Regras de configuração (validadas em `EventCreateSchema`):
 
@@ -329,6 +329,36 @@ continua igual quando o checkbox fica desmarcado ou o evento não tem a flag.
 - **Admin**: toggle "Inscrição em grupo" no `EventModal`; a tabela de inscrições
   mostra a tag "Grupo" (responsável ou "Resp.: nome") — `GET /api/registrations`
   inclui `order`.
+
+## Compra posterior da camisa
+
+Inscrito **confirmado** sem camisa compra só a camisa depois, sem novo cadastro.
+
+- **Porta de entrada**: comprovante (busca por CPF). `search-by-cpf` e `get-by-id`
+  devolvem `shirtPurchase` (`available`, `price`, `sizes`, `deadline`, `pending`)
+  só quando a inscrição está `CONFIRMED`, o evento tem camisa, `wantsShirt = false`
+  e o prazo não venceu; senão `null` e o cartão não aparece
+  (`ShirtPurchaseCard` no `RegistrationProofModal`).
+- **Valor** (sempre no servidor, `resolveShirtOnlyValue`): `priceWithShirt − price`
+  do **lote gravado na inscrição** (ou do evento, sem lote). O cliente não envia valor.
+- **Prazo opcional**: `shirtConfig.purchaseDeadline` (campo no `EventModal`, editável
+  mesmo com inscrições). Vencido, o cartão some e a rota recusa (400).
+- **Compra** (`POST /api/payments/create-shirt-preference`, pública, body
+  `{ registrationId, cpf, shirtSize }`): confere CPF (403), inscrição confirmada,
+  camisa habilitada, sem camisa (409), prazo e tamanho (422). Sob o lock do evento
+  cria `Order { type: SHIRT_ONLY, targetRegistrationId, paymentDetails.shirtSize }`
+  ou **reaproveita o pedido de camisa PENDING** (nunca dois abertos) e gera novo
+  link (`order_nsu = "ord_" + order.id`, item único "Camisa - evento - Tam. X").
+  Pedido pendente aparece no comprovante como "Continuar pagamento da camisa".
+- **Webhook** (`confirmShirtOrder`, em `batchRegistrationService`): idempotente;
+  confere `amount` do link e valor pago contra o recálculo (menor → 422; link
+  obsoleto, inscrição não confirmada ou que já tem camisa → registrado como
+  `stale_payment_received` para conciliação manual). Confirmado: `Order CONFIRMED`
+  + `wantsShirt = true` e `shirtSize` na inscrição. O pagamento original não muda.
+- **Retorno do checkout** (`/payment/success`): `payments/status` e `get-by-id`
+  resolvem `ord_…` de camisa para a inscrição-alvo.
+- **Financeiro**: a camisa entra em "Camisas" pelo pedido; a inscrição que comprou
+  depois conta como "sem camisa" no financeiro para não duplicar o valor.
 
 ## Inscrição manual pelo admin
 

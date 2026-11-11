@@ -136,6 +136,12 @@ Detalhe completo e autoritativo em `docs/FLUXO_INSCRICAO.md`.
   `$transaction` com lock (`lockRow`, `FOR UPDATE`). Webhook `ord_` é idempotente,
   valida o total recalculado e recusa link obsoleto. Detalhe em
   `docs/FLUXO_INSCRICAO.md`.
+- **Compra posterior da camisa**: inscrito confirmado compra só a camisa pelo
+  comprovante. `Order` `SHIRT_ONLY` + `targetRegistrationId`, rota pública
+  `create-shirt-preference` (CPF + id da inscrição), valor = `priceWithShirt − price`
+  do lote da inscrição, prazo opcional `shirtConfig.purchaseDeadline`; o webhook
+  `ord_` grava `wantsShirt`/`shirtSize` na inscrição. Detalhe em
+  `docs/FLUXO_INSCRICAO.md`.
 - **Cancelamento e estorno** (`RefundRequest`): estorno é **manual** no app da
   InfinitePay (não existe API); o sistema registra pedido, contato e conclusão.
   Participante pede pelo comprovante (`POST|DELETE registrations/{id}/refund-request`,

@@ -83,3 +83,30 @@ export function validateShirtSelection(
 
   return { ok: true, wantsShirt: true, shirtSize: size };
 }
+
+/**
+ * Valor da camisa comprada depois da inscrição: a diferença entre o preço com
+ * camisa e o preço sem camisa do lote da inscrição (ou do evento, sem lote).
+ * Mesmo valor que o participante teria pago se tivesse escolhido a camisa
+ * na inscrição. 0 quando o evento não oferece camisa.
+ */
+export function resolveShirtOnlyValue(
+  event: { price: number; shirtConfig?: unknown },
+  batch?: BatchPricing | null
+): number {
+  if (!getShirtConfig(event)) return 0;
+  const diff =
+    resolveBaseValue(event, true, batch) - resolveBaseValue(event, false, batch);
+  return Math.max(0, Math.round(diff * 100) / 100);
+}
+
+/** Compra posterior aberta: camisa habilitada e prazo (se houver) não vencido. */
+export function isShirtPurchaseOpen(
+  event: { shirtConfig?: unknown },
+  now: Date = new Date()
+): boolean {
+  const shirt = getShirtConfig(event);
+  if (!shirt) return false;
+  if (!shirt.purchaseDeadline) return true;
+  return now.getTime() <= new Date(shirt.purchaseDeadline).getTime();
+}

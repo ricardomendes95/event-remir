@@ -31,6 +31,31 @@ async function getOrderStatus(orderNsu: string) {
     );
   }
 
+  // Camisa avulsa: o retorno é da inscrição-alvo, sem contexto de grupo.
+  if (order.type === "SHIRT_ONLY") {
+    const target = order.targetRegistrationId
+      ? await withPrismaRetry(() =>
+          prisma.registration.findUnique({
+            where: { id: order.targetRegistrationId! },
+            select: { id: true, name: true, email: true },
+          })
+        )
+      : null;
+    return NextResponse.json({
+      success: true,
+      status:
+        order.status === "CONFIRMED" ? "approved" : order.status.toLowerCase(),
+      shirtOrder: true,
+      registration: {
+        id: target?.id ?? order.id,
+        name: target?.name ?? "",
+        email: target?.email ?? null,
+        event: order.event.title,
+        status: order.status,
+      },
+    });
+  }
+
   // `registration` mantém o formato do fluxo individual (representa o
   // responsável pela compra) para a tela de retorno existente.
   const buyer = order.registrations[0];

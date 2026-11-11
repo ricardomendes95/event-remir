@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 import { getParticipantRefundView } from "@/backend/services/refundService";
+import { getShirtPurchaseView } from "@/backend/services/shirtPurchaseService";
 
 const searchSchema = z.object({
   cpf: z.string().min(11, "CPF deve ter 11 dígitos").max(11, "CPF inválido"),
@@ -83,6 +84,16 @@ export async function POST(request: NextRequest) {
       : null;
 
     const refundRequest = await getParticipantRefundView(registration.id);
+    const shirtPurchase = await getShirtPurchaseView({
+      id: registration.id,
+      status: registration.status,
+      wantsShirt: registration.wantsShirt,
+      batch: registration.batch,
+      event: {
+        price: Number(registration.event.price),
+        shirtConfig: registration.event.shirtConfig,
+      },
+    });
 
     // Formatear resposta
     const response = {
@@ -103,6 +114,7 @@ export async function POST(request: NextRequest) {
       )?.enabled,
       amountPaid,
       refundRequest,
+      shirtPurchase,
       event: {
         title: registration.event.title,
         price: Number(registration.event.price),

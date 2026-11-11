@@ -153,7 +153,13 @@ export interface EventFormData {
   bannerUrl?: string;
   isActive: boolean;
   paymentConfig?: PaymentConfig;
-  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
+  shirtConfig?: {
+    enabled: boolean;
+    priceWithShirt: number;
+    sizes: string[];
+    /** Prazo (ISO) para compra posterior da camisa; vazio = sem prazo. */
+    purchaseDeadline?: string | null;
+  };
   batches?: BatchFormValue[];
   isFree?: boolean;
   allowBatchRegistration?: boolean;

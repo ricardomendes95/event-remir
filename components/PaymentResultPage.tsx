@@ -32,6 +32,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
     null
   );
   const [order, setOrder] = useState<OrderData | null>(null);
+  const [isShirtOrder, setIsShirtOrder] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -72,6 +73,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
         if (data.success) {
           setRegistration(data.registration);
           setOrder(data.order ?? null);
+          setIsShirtOrder(!!data.shirtOrder);
           setError(null);
 
           // Na tela de sucesso, a confirmação vem do webhook e pode demorar
@@ -167,7 +169,9 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
         icon: <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />,
         status: "success" as const,
         title: "Pagamento Aprovado!",
-        subTitle: order
+        subTitle: isShirtOrder
+          ? "Pagamento da camisa confirmado. Ela já consta no seu comprovante."
+          : order
           ? `As ${order.participants.length} inscrições foram confirmadas com sucesso.`
           : "Sua inscrição foi confirmada com sucesso.",
         extra: [

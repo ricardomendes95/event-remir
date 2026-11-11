@@ -18,7 +18,10 @@ import {
   parseOrderNsu,
   type ParsedInfinitePayWebhook,
 } from "@/backend/services/payment/infinitePayService";
-import { resolveBaseValue } from "@/backend/utils/shirtPricing";
+import {
+  resolveBaseValue,
+  resolveShirtOnlyValue,
+} from "@/backend/utils/shirtPricing";
 import type {
   FreeBatchParticipantInput,
   PaidBatchParticipantInput,
@@ -68,7 +71,7 @@ export function registrationValueCents(
   );
 }
 
-function appendHistory(
+export function appendHistory(
   details: unknown,
   entry: Record<string, unknown>
 ): Prisma.InputJsonValue {
@@ -620,6 +623,150 @@ export async function leaveOrder(
   );
 }
 
+function buildGatewayDetails(parsed: ParsedInfinitePayWebhook, now: Date) {
+  return {
+    gateway: "INFINITE_PAY",
+    orderNsu: parsed.orderNsu,
+    transactionNsu: parsed.transactionNsu ?? null,
+    invoiceSlug: parsed.invoiceSlug ?? null,
+    amount: parsed.amount ?? null,
+    paidAmount: parsed.paidAmount ?? null,
+    installments: parsed.installments ?? null,
+    captureMethod: parsed.captureMethod ?? null,
+    receiptUrl: parsed.receiptUrl ?? null,
+    dateProcessed: now.toISOString(),
+  };
+}
+
+/** Campos do pedido ao confirmar o pagamento (lote e camisa avulsa). */
+function confirmedOrderData(
+  order: { paymentDetails: unknown },
+  parsed: ParsedInfinitePayWebhook,
+  expectedCents: number,
+  gatewayDetails: ReturnType<typeof buildGatewayDetails>,
+  now: Date
+): Prisma.OrderUpdateInput {
+  return {
+    status: "CONFIRMED",
+    paymentMethod: "INFINITE_PAY",
+    paymentId: parsed.transactionNsu ?? parsed.orderNsu,
+    paymentError: null,
+    transactionNsu: parsed.transactionNsu ?? null,
+    invoiceSlug: parsed.invoiceSlug ?? null,
+    receiptUrl: parsed.receiptUrl ?? null,
+    amountCents: parsed.amount ?? expectedCents,
+    paidAmountCents: parsed.paidAmount ?? parsed.amount ?? null,
+    paidAt: now,
+    paymentDetails: appendHistory(
+      { ...(order.paymentDetails as object | null), ...gatewayDetails },
+      { event: "payment_confirmed", at: now.toISOString() }
+    ),
+  };
+}
+
+/**
+ * Pedido SHIRT_ONLY (compra posterior da camisa), já sob o lock do pedido.
+ * Confere o valor contra o recálculo (diferença de preço do lote da inscrição)
+ * e, ao confirmar, grava camisa e tamanho na inscrição-alvo. Não toca no
+ * pagamento original da inscrição.
+ */
+async function confirmShirtOrder(
+  tx: Tx,
+  order: OrderWithRegistrations,
+  parsed: ParsedInfinitePayWebhook
+): Promise<OrderWebhookResult> {
+  const target = order.targetRegistrationId
+    ? await tx.registration.findUnique({
+        where: { id: order.targetRegistrationId },
+        include: { batch: { select: { price: true, priceWithShirt: true } } },
+      })
+    : null;
+  const expectedCents = target
+    ? Math.round(resolveShirtOnlyValue(order.event, target.batch) * 100)
+    : 0;
+  const details = order.paymentDetails as { shirtSize?: unknown } | null;
+  const shirtSize =
+    typeof details?.shirtSize === "string" ? details.shirtSize : null;
+
+  const ignore = async (reason: string) => {
+    console.warn(`⚠️ Pagamento de camisa não aplicado ao pedido ${order.id}: ${reason}`);
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        paymentDetails: appendHistory(order.paymentDetails, {
+          event: "stale_payment_received",
+          reason,
+          at: new Date().toISOString(),
+          orderNsu: parsed.orderNsu,
+          transactionNsu: parsed.transactionNsu ?? null,
+          amountCents: parsed.amount ?? null,
+          paidAmountCents: parsed.paidAmount ?? null,
+          expectedCents,
+        }),
+      },
+    });
+    return {
+      status: 200,
+      body: {
+        received: true,
+        status: "IGNORED",
+        orderId: order.id,
+        message: "Pagamento registrado para conciliação manual",
+      },
+    };
+  };
+
+  if (order.status !== "PENDING") return ignore("order_cancelled");
+  if (!target || !shirtSize || expectedCents <= 0) {
+    return ignore("unsupported_order");
+  }
+  if (target.status !== "CONFIRMED") return ignore("registration_not_confirmed");
+  if (target.wantsShirt) return ignore("already_has_shirt");
+
+  // O `amount` do webhook é o valor do link gerado: se difere do valor atual,
+  // o link é anterior a uma mudança de preço.
+  const staleLink =
+    typeof parsed.amount === "number"
+      ? Math.abs(parsed.amount - expectedCents) > 1
+      : order.paymentId === null;
+  if (staleLink) return ignore("stale_link");
+
+  const paidCents = parsed.paidAmount ?? parsed.amount;
+  if (typeof paidCents === "number" && paidCents + 1 < expectedCents) {
+    console.warn(
+      `⚠️ Valor InfinitePay abaixo do esperado (pago ${paidCents}, esperado ${expectedCents}) para o pedido ${order.id}`
+    );
+    return { status: 422, body: { error: "Valor pago inferior ao esperado" } };
+  }
+
+  const now = new Date();
+  await tx.order.update({
+    where: { id: order.id },
+    data: confirmedOrderData(
+      order,
+      parsed,
+      expectedCents,
+      buildGatewayDetails(parsed, now),
+      now
+    ),
+  });
+  await tx.registration.update({
+    where: { id: target.id },
+    data: { wantsShirt: true, shirtSize },
+  });
+
+  console.log(`✅ Camisa do pedido ${order.id} confirmada via InfinitePay`);
+  return {
+    status: 200,
+    body: {
+      received: true,
+      status: "CONFIRMED",
+      orderId: order.id,
+      registrationId: target.id,
+    },
+  };
+}
+
 export interface OrderWebhookResult {
   status: number;
   body: Record<string, unknown>;
@@ -661,6 +808,10 @@ export async function confirmOrderFromWebhook(
             message: "Já confirmado",
           },
         };
+      }
+
+      if (order.type === "SHIRT_ONLY") {
+        return confirmShirtOrder(tx, order, parsed);
       }
 
       const snapshot = buildOrderSnapshot(order);
@@ -730,38 +881,18 @@ export async function confirmOrderFromWebhook(
       }
 
       const reference = parsed.transactionNsu ?? parsed.orderNsu;
-      const gatewayDetails = {
-        gateway: "INFINITE_PAY",
-        orderNsu: parsed.orderNsu,
-        transactionNsu: parsed.transactionNsu ?? null,
-        invoiceSlug: parsed.invoiceSlug ?? null,
-        amount: parsed.amount ?? null,
-        paidAmount: parsed.paidAmount ?? null,
-        installments: parsed.installments ?? null,
-        captureMethod: parsed.captureMethod ?? null,
-        receiptUrl: parsed.receiptUrl ?? null,
-        dateProcessed: new Date().toISOString(),
-      };
       const now = new Date();
+      const gatewayDetails = buildGatewayDetails(parsed, now);
 
       await tx.order.update({
         where: { id: order.id },
-        data: {
-          status: "CONFIRMED",
-          paymentMethod: "INFINITE_PAY",
-          paymentId: reference,
-          paymentError: null,
-          transactionNsu: parsed.transactionNsu ?? null,
-          invoiceSlug: parsed.invoiceSlug ?? null,
-          receiptUrl: parsed.receiptUrl ?? null,
-          amountCents: parsed.amount ?? snapshot.totalCents,
-          paidAmountCents: parsed.paidAmount ?? parsed.amount ?? null,
-          paidAt: now,
-          paymentDetails: appendHistory(
-            { ...(order.paymentDetails as object | null), ...gatewayDetails },
-            { event: "payment_confirmed", at: now.toISOString() }
-          ),
-        },
+        data: confirmedOrderData(
+          order,
+          parsed,
+          snapshot.totalCents,
+          gatewayDetails,
+          now
+        ),
       });
       await tx.registration.updateMany({
         where: { orderId: order.id, status: { not: "CANCELLED" } },

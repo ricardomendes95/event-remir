@@ -43,6 +43,12 @@ export const ShirtConfigSchema = z.object({
       (sizes) => new Set(sizes).size === sizes.length,
       "Tamanhos devem ser únicos"
     ),
+  // Prazo (opcional) para o inscrito confirmado comprar a camisa depois
+  purchaseDeadline: z
+    .string()
+    .datetime("Prazo para compra da camisa inválido")
+    .nullable()
+    .optional(),
 });
 
 // Lote de inscrição: período, vagas (opcional), prioridade e preço próprio.

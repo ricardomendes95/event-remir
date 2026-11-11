@@ -1,6 +1,6 @@
 # Requisito 5 — Compra posterior da camisa
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação) — depende do ADR-001 aprovado e implementado (req. 2)
+- **Status**: ✅ Implementado em 2026-11-11 (aguardando aprovação final do Ricardo)
 - **Ordem no roadmap**: 9ª
 - **Requisito original**: `../requisitos.md` (item 5)
 - **RFC escrito em**: 2026-07-24
@@ -80,17 +80,40 @@ Por que essa UX: zero telas novas para o público aprender — reusa comprovante
 
 ## Checklist
 
-- [ ] ADR-001 aprovado e req. 2 implementado
+- [x] ADR-001 aprovado e req. 2 implementado
 - [x] Análise de UX proposta (aguardando aprovação do Ricardo)
 - [x] Análise técnica completa (2026-07-24)
-- [ ] Q13/Q14 respondidas
-- [ ] Backend (rota pública, webhook SHIRT_ONLY, retomada)
-- [ ] Frontend (comprovante, modal de tamanho, estados)
-- [ ] Idempotência / anti-duplicidade verificada
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Q13/Q14 respondidas (ADR-003)
+- [x] Backend (rota pública, webhook SHIRT_ONLY, retomada)
+- [x] Frontend (comprovante, modal de tamanho, estados)
+- [x] Idempotência / anti-duplicidade verificada
+- [x] Testes (servidor local)
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+### Implementado (2026-11-11)
+
+- `backend/services/shirtPurchaseService.ts` (novo): `getShirtPurchaseView` (estado do cartão no comprovante) e `createOrReuseShirtOrder` (validações + `Order SHIRT_ONLY` sob lock do evento, reaproveitando pedido pendente).
+- `app/api/payments/create-shirt-preference/route.ts` (nova, pública, em `publicRoutes`) + `backend/schemas/shirtPurchaseSchemas.ts`.
+- `backend/services/batchRegistrationService.ts`: `confirmShirtOrder` no webhook `ord_` (valor, link obsoleto, idempotência, grava camisa na inscrição); helpers de confirmação compartilhados com o lote; `appendHistory` exportado.
+- `backend/utils/shirtPricing.ts`: `resolveShirtOnlyValue`, `isShirtPurchaseOpen`. `ShirtConfigSchema.purchaseDeadline` (opcional) + campo no `EventModal`.
+- `search-by-cpf`/`get-by-id`: `shirtPurchase`; `get-by-id` e `payments/status` resolvem `ord_` de camisa. `PaymentResultPage` com texto próprio.
+- `components/registration/ShirtPurchaseCard.tsx` + integração no `RegistrationProofModal`.
+- `app/api/admin/financial/route.ts`: inscrição com camisa comprada depois conta como "sem camisa" (valor entra só pelo pedido), evitando duplicar.
+
+### Desvios do RFC
+
+- Sem alteração de schema Prisma (como previsto). `infinitePayService`: parâmetro opcional `itemLabel` para reaproveitar `createInfinitePayCheckoutForOrder`.
+- "Origem da camisa" no admin (item 6 do plano) não ganhou rótulo próprio: a receita avulsa aparece em "Camisas" do financeiro; indicador por inscrição fica como pendência.
+- No financeiro, "com camisa" (contagem de produção) não inclui quem comprou depois; a quantidade aparece em "camisas avulsas".
+- `GroupProofModal` não oferece o cartão (cada pessoa abre o próprio comprovante, que oferece).
+
+### Testes (servidor local, gateway mockado, dados removidos ao final)
+
+Compra com lote (62−40 = R$ 22,00, item 2200 centavos) e sem lote (80−50 = R$ 30,00, 3000); `order_nsu = ord_<id>`, customer com telefone E.164, redirect/webhook URLs corretos; sem tamanho 422, tamanho inválido 422, CPF errado 403, já com camisa 409, inscrição pendente 409, após o prazo 400; 4 requisições simultâneas geraram 1 pedido (demais reaproveitaram, tamanho atualizado); webhook: pago menor 422, amount obsoleto ignorado e registrado, correto confirma e grava `wantsShirt`/`shirtSize`, repetição "Já confirmado", valor pago com taxa (2300 > 2200) aceito; após compra o cartão some e segunda compra é bloqueada; `payments/status` e `get-by-id` resolvem `ord_`; financeiro: evento com lote bruto 62,00 (camisa 22,00, 1 avulsa), evento sem lote bruto 210,00 (camisas 60,00 incl. 30,00 avulsa), sem duplicar.
+
+### Pendências
+
+- Validação visual do cartão e do modal de tamanho em 375px/iOS (Instagram) não feita em navegador; checkout real da InfinitePay não chamado.

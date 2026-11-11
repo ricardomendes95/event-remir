@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       ...(eventScope ? { eventId: eventScope } : {}),
     };
 
-    const [registrations, shirtOrders, eventInfo] = await withPrismaRetry(
+    const [registrations, shirtOrders, shirtTargets, eventInfo] = await withPrismaRetry(
       async () =>
         Promise.all([
           prisma.registration.findMany({
@@ -95,6 +95,16 @@ export async function GET(request: NextRequest) {
               paymentDetails: true,
             },
           }),
+          // Inscrições que compraram a camisa depois (qualquer data): o valor
+          // da camisa entra só pelo pedido avulso, nunca duplicado na inscrição.
+          prisma.order.findMany({
+            where: {
+              type: "SHIRT_ONLY",
+              status: "CONFIRMED",
+              ...(eventScope ? { eventId: eventScope } : {}),
+            },
+            select: { targetRegistrationId: true },
+          }),
           eventScope
             ? prisma.event.findUnique({
                 where: { id: eventScope },
@@ -104,6 +114,10 @@ export async function GET(request: NextRequest) {
         ])
     );
 
+    const boughtShirtLater = new Set(
+      shirtTargets.map((o) => o.targetRegistrationId).filter(Boolean)
+    );
+
     const items: BreakdownRegistration[] = registrations.map((r) => ({
       id: r.id,
       name: r.name,
@@ -111,7 +125,7 @@ export async function GET(request: NextRequest) {
       paymentMethod: r.paymentMethod,
       manualPaymentType: r.manualPaymentType,
       cashResponsible: r.cashResponsible,
-      wantsShirt: r.wantsShirt,
+      wantsShirt: boughtShirtLater.has(r.id) ? false : r.wantsShirt,
       orderId: r.orderId,
       paymentDetails: r.paymentDetails,
       createdAt: r.createdAt,

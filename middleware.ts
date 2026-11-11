@@ -36,6 +36,9 @@ export async function middleware(request: NextRequest) {
     "/api/registrations/create-free-batch",
     "/api/payments/create-batch-preference",
     "/api/payments/update-batch-preference",
+    // Compra posterior da camisa: exige o CPF da própria inscrição, valor
+    // recalculado no servidor e resposta só com o link de pagamento.
+    "/api/payments/create-shirt-preference",
     "/payment/success",
     "/payment/failure",
     "/payment/pending",
