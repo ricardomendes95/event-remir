@@ -1,6 +1,6 @@
 # Requisito 7 — Página de transmissões ao vivo
 
-- **Status**: 🔍 RFC pronto (análise de viabilidade concluída; aguardando aprovação + P-03)
+- **Status**: ✅ Implementado (aguardando aprovação e, opcionalmente, a API key)
 - **Ordem no roadmap**: 12ª (última)
 - **Requisito original**: `../requisitos.md` (item 7)
 - **RFC escrito em**: 2026-07-24
@@ -73,14 +73,20 @@ Três abordagens, combináveis:
 
 ## Checklist
 
-- [ ] P-03: channel ID e API key definidos com o Ricardo
+- [x] P-03: canal `@ministerioremir3524` (channel ID `UCfLEWtCNEUdQd0D14_SQpCw`); API key opcional, ainda não criada
 - [x] Análise de viabilidade concluída → **viável; API v3 + cache com fallback embed**
-- [ ] Backend (rota com cache)
-- [ ] Frontend (página pública, mobile testado)
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Backend (rota com cache)
+- [x] Frontend (página pública, mobile testado)
+- [x] Testes (API sem chave e com mock; ver abaixo). Pendente: teste manual no celular com live real
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+**Progresso**: implementado em 2026-11-11. Sem `YOUTUBE_API_KEY` a página mostra o embed `youtube-nocookie.com/embed/live_stream?channel=...` atrás de um "toque para assistir" (facade, sem cookies de terceiros antes do toque). Com chave: live, próximas (com horário via `videos.list`) e 6 anteriores; cache em memória (live 30 min, listas 6 h; em erro serve cache vencido ou cai no embed). Env opcional `YOUTUBE_API_BASE_URL` só para testes com mock.
+
+**Arquivos**: `backend/services/youtubeLivesService.ts`, `app/api/lives/route.ts`, `app/lives/page.tsx`, `components/lives/{LivesContent,LiveFacade}.tsx`, `components/Header.tsx` (link Lives), `app/sitemap.ts`, `app/privacidade/page.tsx` (YouTube), `.env.example` (ignorado pelo git), `docs/DEPLOY_GUIDE.md`, `docs/contexto-ia/{00_PROJECT_CONTEXT,04_COMPONENT_LIBRARY}.md`.
+
+**Testes**: `/api/lives` sem chave retorna `fallback: "embed"`; com servidor mock (live, 2 próximas ordenadas por horário, 2 anteriores) retorna tudo e a 2ª requisição não gera chamadas (cache: 4 chamadas no total); a chave não aparece em resposta nem log; `/lives` e `/sitemap.xml` 200; tsc/lint/build ok.
+
+**Pendências**: criar a API key (opcional) e configurar na Vercel; testar no celular/3G com live real; o fallback não distingue "sem live" (o YouTube mostra o aviso dele).

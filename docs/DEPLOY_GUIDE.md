@@ -90,6 +90,13 @@ DEFAULT_ADMIN_PASSWORD = "senha-segura"
 DEFAULT_ADMIN_NAME = "Administrador"
 ```
 
+#### Para a página de lives (Opcional)
+
+```bash
+YOUTUBE_API_KEY = "chave-da-youtube-data-api-v3"   # sem ela, a página usa o embed simples
+YOUTUBE_CHANNEL_ID = "UCfLEWtCNEUdQd0D14_SQpCw"   # padrão: @ministerioremir3524
+```
+
 #### ⚠️ Para Mercado Pago (Opcional)
 
 ```bash

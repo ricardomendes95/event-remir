@@ -118,6 +118,13 @@ export default function PrivacidadePage() {
               administrativa usa um cookie de login apenas para a equipe da
               igreja.
             </p>
+            <p>
+              <strong>Transmissões (YouTube):</strong> a página de transmissões
+              só carrega o player do YouTube depois que você toca no vídeo. A
+              partir daí, o YouTube (Google) pode usar cookies e coletar dados
+              do seu acesso, conforme a política de privacidade dele. Se você
+              não tocar no vídeo, nada é carregado do YouTube.
+            </p>
           </section>
 
           <section className="space-y-3">

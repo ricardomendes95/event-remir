@@ -38,6 +38,7 @@ export const Header = () => {
     { label: "Pastores", href: "/home#pastors" },
     { label: "Ministérios", href: "/home#ministries" },
     { label: "Eventos", href: "/eventos" },
+    { label: "Lives", href: "/lives" },
     { label: "Localização", href: "/home#location" },
   ];
 
