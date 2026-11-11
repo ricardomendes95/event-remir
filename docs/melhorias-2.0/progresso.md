@@ -44,6 +44,8 @@ Schema `Order` (ADR-001) + `Registration.orderId` + `Event.allowBatchRegistratio
 
 **Decisões (Ricardo):** ADR-001 aceito; recomendações dos RFCs aceitas em bloco (ADR-003); executar tudo sem esperar aprovação a cada etapa, na ordem do roadmap, com a auditoria (req. 6) por último — antes dela, levantar a data do último evento em produção e ensinar a exportar o extrato.
 
+**Validação final (parcial, 2026-11-11):** inscrição em grupo percorrida em navegador de celular (390×844) no banco local, com InfinitePay simulada. O pedido de 3 pessoas (R$ 50 + R$ 80 com camisa M + R$ 50) enviou `order_nsu = ord_…`, 3 itens em centavos (5000/8000/5000), comprador com telefone `+5581999990000` e URLs de retorno/webhook corretas; o webhook simulado (amount 18000) confirmou as 3 inscrições e a tela "Pagamento Aprovado" listou o grupo com total R$ 180,00. Faltam: o vídeo de evidência (projeto `event-remir` criado no gravador, roteiro ainda não escrito), as telas do admin no celular, o aviso de desenvolvimento "There may be circular references" ao digitar o CPF (só no modo dev) e medir a nova regra da auditoria no extrato real.
+
 **Plano de ação** (branch `feat/melhorias-2-0`, um commit por melhoria, schema aplicado só no banco local; produção recebe `db push` no deploy):
 
 1. Req. 1 — cadastro e pagamentos
