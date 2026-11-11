@@ -4,15 +4,21 @@ import React from "react";
 import { Tabs, Typography } from "antd";
 import { BarChartOutlined } from "@ant-design/icons";
 import FinancialSummaryTab from "@/components/admin/financial/FinancialSummaryTab";
+import AuditTab from "@/components/admin/financial/AuditTab";
 
 const { Title, Text } = Typography;
 
-// Abas do Financeiro. A aba "Auditoria" (req. 6) entra aqui como novo item.
+// Abas do Financeiro.
 const TAB_ITEMS = [
   {
     key: "summary",
     label: "Prestação de contas",
     children: <FinancialSummaryTab />,
+  },
+  {
+    key: "audit",
+    label: "Auditoria",
+    children: <AuditTab />,
   },
 ];
 

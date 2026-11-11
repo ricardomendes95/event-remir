@@ -1,6 +1,6 @@
 # Requisito 6 — Auditoria financeira do InfinitePay
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação) — depende do ADR-001 e de amostra real de extrato
+- **Status**: ✅ Implementado (2026-11-11) — aguardando validação visual/aprovação do Ricardo
 - **Ordem no roadmap**: 6ª
 - **Requisito original**: `../requisitos.md` (item 6)
 - **RFC escrito em**: 2026-07-24
@@ -143,19 +143,43 @@ Tela `/admin/financial/audit` (ou aba "Auditoria" no financeiro — alinhar com 
 ## Checklist
 
 - [x] P-04: pesquisa sobre API de transações → **não existe; estratégia = importação de CSV + payment_check**
-- [ ] ADR-001 aprovado (colunas tipadas de transação)
+- [x] ADR-001 aprovado e implementado (`Order` com colunas tipadas)
 - [x] Q10 (amostra real recebida em 2026-11-11) e Q11 respondidas
 - [x] Análise técnica completa e estratégia definida
-- [ ] Schema de importação + `db push`
-- [ ] Backend (parser, conciliação, rotas)
-- [ ] Frontend (tela de auditoria)
-- [ ] Testes com extratos reais (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Schema de importação + `db push` (local)
+- [x] Backend (parser, conciliação, rotas)
+- [x] Frontend (aba "Auditoria" no Financeiro)
+- [x] Testes com fixture sintética + parse da amostra real (contagens); conferência com inscrições reais pendente
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+### Desenho de matching revisado (extrato sem NSU)
+- `externalId` sintético: `sha256(data|hora|tipo|nome normalizado|valor)[0..32]-<ocorrência>`; linhas idênticas ganham ocorrência distinta; reimportar o mesmo arquivo marca tudo como `DUPLICATE` ("Já importado antes").
+- Só `Pix Recebido` é conciliado; `Pix Enviado`, `Depósito de vendas` e outros tipos viram `ACCOUNT_MOVEMENT` ("Movimentação da conta"). Cartão não é conferível linha a linha (a tela explica).
+- Função pura `reconcile(entries, candidates, options)` em `backend/services/audit/reconcile.ts`. `MATCHED` automático só com **um único** candidato que atenda aos três critérios: valor (tolerância R$ 0,05), horário de pagamento (janela de 30 min, comparando com `Order.paidAt` ou `paymentDetails.dateProcessed`; extrato em horário de Brasília, UTC-3) e nome semelhante (Dice por tokens, >= 0,6; primeiro+último nome iguais contam). Candidato com data aproximada (sem data registrada) nunca casa sozinho.
+- Nome e horário batem com um único candidato mas o valor não: `AMOUNT_MISMATCH`. Mais de um candidato ou nome diferente: `UNMATCHED` com até 3 sugestões. Pix igual a um já conferido: `DUPLICATE_PAYMENT`.
+- Pedido em grupo = um candidato (`Order`), nomes de todos os participantes aceitos. Candidatos de cartão (`captureMethod` de crédito) não casam com Pix.
+- Direção inversa calculada na leitura (`findUncovered`): confirmadas no período sem linha vinculada; crédito aparece como "provável cartão". Estornadas ficam fora.
+- Ações manuais: vincular (`RESOLVED_MANUAL`), "Não é inscrição" (`IGNORED`), desfazer; tudo registrado em `matchNote`.
+
+### Arquivos
+- Schema: `prisma/schema.prisma` (`StatementImport`, `StatementEntry`, `StatementEntryKind`, `MatchStatus`).
+- Backend: `backend/utils/csvParser.ts`, `backend/services/audit/{statementParser,nameSimilarity,reconcile,candidates,auditService,routeHelpers}.ts`, `lib/infinitepay.ts` (`checkInfinitePayPayment`), `lib/permissions.ts`.
+- Rotas: `app/api/admin/audit/{import,imports,imports/[id],entries/[id],payment-check}`.
+- Frontend: `components/admin/financial/{AuditTab,auditTypes}`, `app/admin/financial/page.tsx`.
+- Fixture sintética: `docs/melhorias-2.0/fixtures/extrato-infinitepay-sintetico.csv`. Verificação executável: `npx tsx backend/services/audit/reconcile.check.ts` (opcional `AUDIT_REAL_SAMPLE=<csv>` imprime só contagens).
+
+### Testes realizados
+- Verificação da função pura: conferido, centavo extra, nome diferente (sugestão), dois candidatos iguais (sugestão), grupo, duplicidade, movimentações, direção inversa, cartão fora do Pix, data aproximada.
+- Amostra real: 69 linhas lidas (60 Pix recebido, 2 Pix enviado, 7 depósitos), 69 ids únicos.
+- API local com a fixture: importação (3 conferidos, 1 divergente, 5 pendentes, 1 duplicidade, 2 movimentações), reimportação (12 `DUPLICATE`), CSV inválido e arquivo não .csv rejeitados sem importar nada, vincular/ignorar/desfazer, vínculo duplicado (409), `payment_check` com gateway mockado, 403 para CHECKIN/SUPPORT, 401 sem login. Dados de teste removidos.
+
+### Pendências
+- Validação visual (mobile) da aba e conferência com inscrições reais; `db push` no Supabase (aditivo) no deploy.
+- Pix manual (`MANUAL`) não entra como candidato (sem horário de pagamento); aparece como "sem inscrição correspondente"; o vínculo manual a Pix manual ainda não é suportado.
+- Relatório de Vendas com NSU (cartão) continua como evolução futura.
 
 ## Amostra real recebida (2026-11-11)
 
@@ -169,3 +193,13 @@ Arquivo exportado pelo Ricardo do painel InfinitePay (extrato de movimentações
 - Pagamentos com cartão aparecem só agregados em `Depósito de vendas`; não dá para conciliar cartão linha a linha com este arquivo. Se o painel tiver um relatório de **Vendas** com NSU, ele complementa a auditoria de cartão.
 - Valores com centavo extra (`R$ 30,01`, `R$ 60,01`, `R$ 90,02`) aparecem em alguns Pix; tratar como tolerância de até R$ 0,05 no casamento.
 - `Pix Enviado` (saídas) e `Depósito de vendas` não são recebimentos de inscrição: classificar como "movimentação da conta", fora da conciliação.
+
+## Conferência com o extrato real (2026-11-11, só leitura em produção)
+
+Rodada da função `reconcile` com a amostra real contra as inscrições InfinitePay de produção (sem gravar nada):
+
+- 1ª regra (valor + janela de 30 min + nome semelhante): 31 dos 60 Pix recebidos conferidos, 24 pendentes e 5 falsas "duplicidades".
+- Nos 31 conferidos, o horário do extrato e o do webhook coincidem **no mesmo minuto**. Nos pendentes, quase sempre existe uma única inscrição com o mesmo valor no mesmo minuto, paga por outra pessoa (pai/mãe, cônjuge), por isso o nome não batia.
+- Regra revisada: valor igual + horário no mesmo minuto (janela `exactTimeWindowMinutes`, padrão 2 min) + **um único** candidato → conferido, com a nota "Pago por outra pessoa" quando o nome difere. Fora disso, continua sugestão para vínculo manual. Verificações em `reconcile.check.ts` atualizadas.
+- A nova contagem com a regra revisada ainda não foi medida no extrato real (a leitura de produção ficou bloqueada pela permissão automática).
+- Inscrições confirmadas por InfinitePay em produção no período: 67 (58 Pix, 7 cartão, 2 sem método registrado); as de cartão aparecem como "Provável cartão".

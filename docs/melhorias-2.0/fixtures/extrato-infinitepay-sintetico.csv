@@ -1,0 +1,13 @@
+Data,Hora,Tipo de transação,Nome,Detalhe,Valor
+2026-07-10,09:15:02,Pix,Mariana Costa Lima,Recebido,"+R$ 30,00"
+2026-07-10,09:20:30,Pix,Mariana Costa Lima,Recebido,"+R$ 30,00"
+2026-07-10,10:02:11,Pix,Joao P Almeida,Recebido,"+R$ 60,01"
+2026-07-10,11:20:00,Pix,Carlos Eduardo Nunes,Recebido,"+R$ 30,00"
+2026-07-10,12:30:00,Pix,Ana Beatriz Rocha,Recebido,"+R$ 90,00"
+2026-07-11,08:00:10,Pix,Paulo Henrique Souza,Recebido,"+R$ 180,02"
+2026-07-11,15:45:00,Pix,Lucia Ferreira,Recebido,"+R$ 50,00"
+2026-07-11,16:10:00,Pix,Pessoa Desconhecida,Recebido,"+R$ 77,00"
+2026-07-12,10:00:00,Pix,Rafael Teixeira,Recebido,"+R$ 20,00"
+2026-07-12,10:00:00,Pix,Rafael Teixeira,Recebido,"+R$ 20,00"
+2026-07-12,14:30:00,Pix,Fornecedor Exemplo Ltda,Enviado,"-R$ 1.250,00"
+2026-07-13,01:40:00,Depósito de vendas,,Depósito InfinitePay,"+R$ 1.234,56"

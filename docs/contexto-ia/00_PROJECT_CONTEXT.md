@@ -66,7 +66,7 @@ priorizar, nesta ordem:
   via Cloudinary, construtor de formulário dinâmico, config de camisa).
 - Gestão de inscrições (filtros, edição, inscrição manual, exportação,
   relatórios de impressão com listas por tamanho de camisa).
-- Financeiro (`/admin/financial`).
+- Financeiro (`/admin/financial`): aba "Prestação de contas" e aba "Auditoria" (importa o extrato CSV do InfinitePay e confere os recebimentos por Pix com as inscrições; só `ADMIN`/`SUPER_ADMIN`; lógica em `backend/services/audit/`, tabelas `StatementImport`/`StatementEntry`).
 - Solicitações de estorno (`/admin/refund-requests`, só `ADMIN`/`SUPER_ADMIN`).
 - Usuários (`/admin/users`, restrito por papel).
 

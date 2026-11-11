@@ -115,3 +115,55 @@ export async function createInfinitePayCheckout(
 
   return { url: data.url, orderNsu: input.orderNsu };
 }
+
+// Endpoint sobrescrevível por env para smoke tests com gateway mockado.
+const INFINITEPAY_PAYMENT_CHECK_ENDPOINT =
+  process.env.INFINITEPAY_PAYMENT_CHECK_ENDPOINT ||
+  "https://api.checkout.infinitepay.io/payment_check";
+
+export interface InfinitePayPaymentCheckInput {
+  orderNsu: string;
+  transactionNsu: string;
+  slug: string;
+}
+
+export interface InfinitePayPaymentCheckResult {
+  paid: boolean;
+  amount: number | null;
+  paidAmount: number | null;
+  installments: number | null;
+  captureMethod: string | null;
+}
+
+/** Consulta pontual de um pagamento no InfinitePay (usada na auditoria). */
+export async function checkInfinitePayPayment(
+  input: InfinitePayPaymentCheckInput
+): Promise<InfinitePayPaymentCheckResult> {
+  validateInfinitePayConfig();
+
+  const response = await fetch(INFINITEPAY_PAYMENT_CHECK_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      handle: process.env.INFINITEPAY_HANDLE,
+      order_nsu: input.orderNsu,
+      transaction_nsu: input.transactionNsu,
+      slug: input.slug,
+    }),
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Falha ao consultar o InfinitePay (HTTP ${response.status})`);
+  }
+
+  const data = (await response.json()) as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" ? v : null);
+  return {
+    paid: data.paid === true || data.success === true,
+    amount: num(data.amount),
+    paidAmount: num(data.paid_amount),
+    installments: num(data.installments),
+    captureMethod: typeof data.capture_method === "string" ? data.capture_method : null,
+  };
+}

@@ -253,3 +253,63 @@ enum AdminRole {
   CHECKIN
   SUPPORT
 }
+
+// Auditoria InfinitePay (req. 6): importação do extrato CSV exportado do painel.
+// O extrato não tem NSU: externalId é um hash estável da linha (ver statementParser).
+model StatementImport {
+  id           String           @id @default(cuid())
+  fileName     String
+  importedById String
+  importedByName String?
+  periodStart  DateTime?
+  periodEnd    DateTime?
+  totalRows    Int
+  createdAt    DateTime         @default(now())
+  entries      StatementEntry[]
+
+  @@map("statement_imports")
+}
+
+model StatementEntry {
+  id             String             @id @default(cuid())
+  importId       String
+  import         StatementImport    @relation(fields: [importId], references: [id], onDelete: Cascade)
+  externalId     String
+  kind           StatementEntryKind
+  payerName      String?
+  description    String?
+  // Positivo = entrada, negativo = saída
+  amountCents    Int
+  paidAt         DateTime
+  // Linha original; só deve sair em rotas ADMIN+
+  raw            Json
+  matchStatus    MatchStatus        @default(UNMATCHED)
+  registrationId String?
+  orderId        String?
+  matchNote      String?
+  // Possíveis correspondências para vínculo manual (ids + rótulo + pontuação)
+  suggestions    Json?
+  createdAt      DateTime           @default(now())
+
+  @@index([importId])
+  @@index([externalId])
+  @@map("statement_entries")
+}
+
+enum StatementEntryKind {
+  PIX_RECEIVED
+  PIX_SENT
+  SALES_DEPOSIT
+  OTHER
+}
+
+enum MatchStatus {
+  MATCHED
+  AMOUNT_MISMATCH
+  UNMATCHED
+  DUPLICATE
+  DUPLICATE_PAYMENT
+  ACCOUNT_MOVEMENT
+  RESOLVED_MANUAL
+  IGNORED
+}
