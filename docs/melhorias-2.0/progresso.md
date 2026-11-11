@@ -26,7 +26,8 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 8. Req. 4 — foto da camisa
 9. Req. 8 — novo painel administrativo
 10. Req. 7 — página de lives
-11. Req. 6 — auditoria InfinitePay (depende da amostra de extrato)
+11. Req. 6 — auditoria InfinitePay (amostra de extrato recebida)
+12. Validação final: teste ponta a ponta local em viewport mobile, com pagamento simulado (conferir o payload enviado à InfinitePay e simular o webhook), e vídeo de evidência narrado das telas alteradas (sem o checkout da InfinitePay)
 
 ---
 
