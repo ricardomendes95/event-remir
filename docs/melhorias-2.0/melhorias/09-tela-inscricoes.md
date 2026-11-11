@@ -1,6 +1,6 @@
 # Requisito 9 — Melhorias na tela de inscrições
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: ✅ Implementado (aguardando aprovação do Ricardo)
 - **Ordem no roadmap**: 7ª — depois do req. 1 (observação/método manual)
 - **Requisito original**: `../requisitos.md` (item 9)
 - **RFC escrito em**: 2026-07-24
@@ -75,14 +75,31 @@
 
 - [x] Análise técnica completa (2026-07-24)
 - [x] Decisão sobre escopo do "histórico" → linha do tempo derivada, sem tabela de auditoria (D3)
-- [ ] Q12 respondida
-- [ ] Carregamento condicionado à seleção de evento
-- [ ] Ações da tabela (detalhes, data pagamento, histórico, imprimir)
-- [ ] Respeito às permissões por perfil
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Q12 respondida (ADR-003: SUPPORT imprime o comprovante, documento público)
+- [x] Carregamento condicionado à seleção de evento
+- [x] Ações da tabela (detalhes, data pagamento, histórico, imprimir)
+- [x] Respeito às permissões por perfil
+- [x] Testes (ver `../testes.md`)
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+**Implementação (2026-11-11)**
+
+- Gate de evento: sem evento escolhido, nenhuma chamada de inscrições/estatísticas; empty state; último evento lembrado em `sessionStorage`; "Todos os eventos" removido. Eventos carregados com `limit=100`.
+- Filtros (server-side, `backend/utils/registrationFilters.ts`, compartilhado entre listagem e `stats`): status, **lote** (inclui "Sem lote"), **pagamento** (InfinitePay/Manual/Gratuito), **individual/grupo**, busca e "Limpar filtros". Estados de loading, vazio e erro (com "Tentar novamente").
+- `paymentDate` derivada no servidor (`backend/utils/paymentDate.ts`, tolerante a legado; `null` => "—") e exposta em `GET /api/registrations` e `[id]` para todos os perfis, fora de `paymentDetails`.
+- `RegistrationDetailDrawer`: dados completos, lote, grupo/responsável, camisa, pagamento (método, sub-método, responsável, observação conforme perfil), campos dinâmicos e linha do tempo (criada, paga, check-in, solicitações de estorno, última alteração). Histórico de estorno só para ADMIN/SUPER_ADMIN.
+- Comprovante: miolo da impressão extraído para `lib/registrationProofPrint.ts` (usado pelo comprovante público e pela ação "Imprimir comprovante" da linha, que usa a mesma rota pública `get-by-id`) => documento idêntico, inclusive para SUPPORT/CHECKIN (Q12).
+- Req. 12: botão **Cancelar**/**Reativar** por linha (só ADMIN/SUPER_ADMIN; cancelamento gera `RefundRequest` administrativa, reativação exige vaga e mostra o 409 do servidor), tag "Estorno em aberto" na linha e no drawer, card "Estornos em aberto" nas estatísticas. O seletor de status deixou de oferecer Cancelado (usa o botão dedicado) e fica desabilitado em inscrição cancelada; Excluir só para ADMIN+ (antes SUPPORT via 403).
+- Req. 1: `export-admin` e a impressão da lista incluem pagamento (sub-método/responsável) e observação (observação omitida se o perfil não puder ver); `RegistrationStats` mostra contagem de manuais por sub-método e "com observação" (CHECKIN não recebe `withNotes`). `/api/admin/registrations/manual` e `ManualRegistrationModal` removidos (nenhum uso na UI; confirmado por grep) junto com a regra em `lib/permissions.ts`.
+- Mobile: filtros em grid responsivo; tabela com rolagem horizontal e coluna de ações fixa à direita.
+
+**Desvios do RFC**: histórico sem tabela de auditoria (D3, como previsto); detalhes usam o payload da listagem (sem chamada extra a `[id]`); impressão da lista (`export-admin`) continua só ADMIN+ por conter receita.
+
+**Arquivos**: `app/admin/registrations/page.tsx`; `app/api/registrations/{route,[id]/route,stats/route,export-admin/route}.ts`; `backend/utils/{paymentDate,registrationFilters}.ts`; `lib/{registrationProofPrint,registrationPaymentLabel,permissions}.ts`; `components/RegistrationProofModal.tsx`; `components/admin/RegistrationsPrintReport.tsx`; `components/admin/registrations/*` (Table, Filters, Stats, Modal, novo Drawer e `types.ts`).
+
+**Testes (servidor local :3111, super/checkin/suporte)**: filtros (pagamento, grupo, lote, status; valor inválido ignorado); `paymentDate` presente para os 3 perfis e `null` para manual; CHECKIN sem preço/`paymentId`/observação/responsável; SUPPORT com observação e responsável, sem valores; stats sem receita para CHECKIN/SUPPORT e `withNotes` nulo para CHECKIN; `export-admin` 403 para SUPPORT/CHECKIN e com campos novos para admin; cancelar/reativar 403 para SUPPORT, ok para SUPER_ADMIN (RefundRequest ADMIN/OPEN criada e depois WITHDRAWN); `get-by-id` (comprovante) devolve o documento completo. Dados de teste removidos.
+
+**Pendências**: validação visual em navegador (375px: drawer, filtros e tabela) e da janela de impressão; reativação sem vaga (409) só validada por leitura do código.

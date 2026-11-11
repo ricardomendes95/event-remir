@@ -23,6 +23,7 @@ import {
   REGISTRATION_NOTES_MAX_LENGTH,
   type ManualPaymentTypeValue,
 } from "@/backend/schemas/registrationSchemas";
+import type { AdminRegistration as Registration } from "./types";
 
 const { Option } = Select;
 
@@ -62,29 +63,6 @@ interface Event {
   dynamicFormFields?: unknown;
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
   shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
-}
-
-interface Registration {
-  id: string;
-  name: string;
-  email: string | null;
-  cpf: string;
-  phone: string | null;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
-  paymentId?: string;
-  paymentMethod?: string;
-  manualPaymentType?: ManualPaymentTypeValue | null;
-  cashResponsible?: string | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  dynamicFormData?: Record<string, unknown>;
-  event: {
-    id: string;
-    title: string;
-    price: number;
-    startDate: string;
-  };
 }
 
 interface RegistrationFormData {

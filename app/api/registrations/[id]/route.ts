@@ -12,6 +12,7 @@ import {
 } from "@/backend/utils/validationResponse";
 import { sanitizeRegistrationForRole } from "@/backend/utils/registrationSerializer";
 import { canViewFinancialValues } from "@/lib/permissions";
+import { withPaymentDate } from "@/backend/utils/paymentDate";
 import { lockRow } from "@/backend/services/batchRegistrationService";
 import {
   closeRequestsOnReactivation,
@@ -56,7 +57,7 @@ export async function GET(
       success: true,
       // CHECKIN/SUPPORT não veem valores financeiros (ADR-002)
       data: sanitizeRegistrationForRole(
-        registration,
+        withPaymentDate(registration),
         request.headers.get("x-user-role")
       ),
     });

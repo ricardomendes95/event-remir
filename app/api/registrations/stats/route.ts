@@ -1,42 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { buildRegistrationWhere } from "@/backend/utils/registrationFilters";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
-import { canViewFinancialValues } from "@/lib/permissions";
+import {
+  canViewFinancialValues,
+  canViewRegistrationNotes,
+} from "@/lib/permissions";
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
-    const eventId = searchParams.get("eventId");
-    const search = searchParams.get("search");
-
-    // Construir filtros (mesmo filtro usado na listagem)
-    const where: Prisma.RegistrationWhereInput = {};
-
-    if (status && status !== "ALL") {
-      where.status = status as "PENDING" | "CONFIRMED" | "CANCELLED";
-    }
-
-    if (eventId && eventId !== "ALL") {
-      where.eventId = eventId;
-    }
-
-    if (search) {
-      const searchConditions: Prisma.RegistrationWhereInput[] = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
-        { event: { title: { contains: search, mode: "insensitive" } } },
-      ];
-
-      // Só adicionar busca por CPF se houver dígitos
-      const cleanCpf = search.replace(/\D/g, "");
-      if (cleanCpf) {
-        searchConditions.push({ cpf: { contains: cleanCpf } });
-      }
-
-      where.OR = searchConditions;
-    }
+    // Mesmos filtros da listagem, exceto a busca textual
+    const where = buildRegistrationWhere(searchParams, { includeSearch: false });
 
     // Buscar estatísticas usando helper de retry
     const [totalCount, confirmedCount, pendingCount, cancelledCount] =
@@ -68,9 +44,39 @@ export async function GET(request: NextRequest) {
       });
 
     // CHECKIN/SUPPORT não veem receita (ADR-002) — nem calculamos
-    const showFinancials = canViewFinancialValues(
-      request.headers.get("x-user-role")
+    const role = request.headers.get("x-user-role");
+    const showFinancials = canViewFinancialValues(role);
+
+    // Pagamento manual por sub-método (contagem, não é valor) e observações
+    // (CHECKIN não vê observação — ver canViewRegistrationNotes).
+    const [manualGroups, withNotes, openRefunds] = await withPrismaRetry(() =>
+      Promise.all([
+        prisma.registration.groupBy({
+          by: ["manualPaymentType"],
+          where: { ...where, paymentMethod: "MANUAL" },
+          _count: { _all: true },
+        }),
+        canViewRegistrationNotes(role)
+          ? prisma.registration.count({
+              where: { ...where, notes: { not: null } },
+            })
+          : Promise.resolve(null),
+        showFinancials
+          ? prisma.refundRequest.count({
+              where: {
+                status: { in: ["OPEN", "IN_CONTACT"] },
+                registration: where,
+              },
+            })
+          : Promise.resolve(null),
+      ])
     );
+    const manualByType = { PIX: 0, CASH: 0, CARD: 0, NOT_INFORMED: 0 };
+    for (const group of manualGroups) {
+      manualByType[group.manualPaymentType ?? "NOT_INFORMED"] +=
+        group._count._all;
+    }
+    const extras = { manualByType, withNotes, openRefunds };
 
     if (!showFinancials) {
       return NextResponse.json({
@@ -82,6 +88,7 @@ export async function GET(request: NextRequest) {
           cancelled: cancelledCount,
           totalRevenue: null,
           nonManualRevenue: null,
+          ...extras,
         },
       });
     }
@@ -137,6 +144,7 @@ export async function GET(request: NextRequest) {
         cancelled: cancelledCount,
         totalRevenue,
         nonManualRevenue,
+        ...extras,
       },
     });
   } catch (error) {

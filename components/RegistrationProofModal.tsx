@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import { z } from "zod";
 import QRCode from "qrcode";
 import Image from "next/image";
+import {
+  formatProofCPF,
+  getProofAmountPaid,
+  getProofShirtText,
+  openProofPrintWindow,
+} from "@/lib/registrationProofPrint";
 
 interface ProofModalProps {
   open: boolean;
@@ -116,19 +122,9 @@ export function RegistrationProofModal({
     generateQRCode();
   }, [registration]);
 
-  const formatCPF = (value: string) => {
-    const cpf = value.replace(/\D/g, "");
-    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-  };
-
-  // Valor efetivamente pago (com camisa, se escolhida). Cai para o preço do
-  // evento caso a inscrição seja antiga e não tenha o valor calculado.
-  const getAmountPaid = (r: RegistrationProof) =>
-    typeof r.amountPaid === "number" ? r.amountPaid : r.event.price;
-
-  // Texto da camisa para o comprovante.
-  const getShirtText = (r: RegistrationProof) =>
-    r.wantsShirt ? `Sim — Tamanho ${r.shirtSize ?? "—"}` : "Não";
+  const formatCPF = formatProofCPF;
+  const getAmountPaid = getProofAmountPaid;
+  const getShirtText = getProofShirtText;
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -295,11 +291,6 @@ export function RegistrationProofModal({
   const handlePrint = async () => {
     if (!registration) return;
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-
-    const statusConfig = getStatusConfig(registration.status);
-
     // Gerar QR code para impressão se não existir
     let qrCodeDataUrl = qrCodeUrl;
     if (!qrCodeDataUrl && registration.id) {
@@ -317,131 +308,7 @@ export function RegistrationProofModal({
       }
     }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Comprovante de Inscrição</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .title { font-size: 24px; font-weight: bold; color: #1f2937; }
-            .subtitle { font-size: 16px; color: #6b7280; margin-top: 5px; }
-            .content { max-width: 600px; margin: 0 auto; }
-            .section { margin-bottom: 20px; }
-            .section-title { font-size: 18px; font-weight: bold; color: #374151; margin-bottom: 10px; }
-            .info-row { margin-bottom: 8px; }
-            .label { font-weight: bold; color: #4b5563; }
-            .value { color: #1f2937; }
-            .status { 
-              display: inline-block; 
-              padding: 4px 12px; 
-              border-radius: 4px; 
-              font-weight: bold;
-              background-color: ${
-                statusConfig.color === "green"
-                  ? "#10b981"
-                  : statusConfig.color === "orange"
-                  ? "#f59e0b"
-                  : "#ef4444"
-              };
-              color: white;
-            }
-            .footer { text-align: center; margin-top: 40px; font-size: 12px; color: #6b7280; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">Comprovante de Inscrição</div>
-            <div class="subtitle">Event Remir</div>
-          </div>
-          
-          <div class="content">
-            <div class="section">
-              <div class="section-title">Dados do Evento</div>
-              <div class="info-row"><span class="label">Evento:</span> <span class="value">${
-                registration.event.title
-              }</span></div>
-              <div class="info-row"><span class="label">Data:</span> <span class="value">${new Date(
-                registration.event.date
-              ).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</span></div>
-              <div class="info-row"><span class="label">Local:</span> <span class="value">${
-                registration.event.location
-              }</span></div>
-              <div class="info-row"><span class="label">Valor pago:</span> <span class="value">R$ ${getAmountPaid(
-                registration
-              ).toFixed(2)}</span></div>
-              ${
-                registration.eventHasShirt
-                  ? `<div class="info-row"><span class="label">Camisa:</span> <span class="value">${getShirtText(
-                      registration
-                    )}</span></div>`
-                  : ""
-              }
-            </div>
-
-            <div class="section">
-              <div class="section-title">Dados do Participante</div>
-              <div class="info-row"><span class="label">Nome:</span> <span class="value">${registration.name}</span></div>
-              ${registration.email ? `<div class="info-row"><span class="label">E-mail:</span> <span class="value">${registration.email}</span></div>` : ""}
-              <div class="info-row"><span class="label">CPF:</span> <span class="value">${formatCPF(registration.cpf)}</span></div>
-              ${registration.phone ? `<div class="info-row"><span class="label">Telefone:</span> <span class="value">${registration.phone}</span></div>` : ""}
-            </div>
-
-            <div class="section">
-              <div class="section-title">Dados da Inscrição</div>
-              <div class="info-row">
-                <span class="label">ID da Inscrição:</span> 
-                <span class="value">${registration.id}</span>
-              </div>
-              ${
-                qrCodeDataUrl
-                  ? `
-              <div class="info-row" style="text-align: center; margin: 20px 0;">
-                <div style="display: inline-block;">
-                  <img src="${qrCodeDataUrl}" alt="QR Code do ID da Inscrição" style="border: 1px solid #ddd; border-radius: 4px;" />
-                  <div style="font-size: 10px; color: #666; margin-top: 5px;">QR Code para Check-in</div>
-                </div>
-              </div>
-              `
-                  : ""
-              }
-              <div class="info-row"><span class="label">Status:</span> <span class="status">${
-                statusConfig.text
-              }</span></div>
-              <div class="info-row"><span class="label">Data da Inscrição:</span> <span class="value">${new Date(
-                registration.registrationDate
-              ).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</span></div>
-              <div class="info-row"><span class="label">ID do Pagamento:</span> <span class="value">${
-                registration.paymentId
-              }</span></div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p>Comprovante gerado em ${new Date().toLocaleDateString(
-              "pt-BR"
-            )} às ${new Date().toLocaleTimeString("pt-BR")}</p>
-            <p>Event Remir - Sistema de Gestão de Eventos</p>
-          </div>
-        </body>
-      </html>
-    `);
-
-    printWindow.document.close();
-    printWindow.print();
+    openProofPrintWindow(registration, qrCodeDataUrl);
   };
 
   return (

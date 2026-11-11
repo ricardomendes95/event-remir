@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Card, Statistic } from "antd";
+import { Card, Statistic, Tag, Space } from "antd";
 import {
   FileTextOutlined,
   CheckCircleOutlined,
@@ -16,6 +16,12 @@ interface RegistrationStatsProps {
     cancelled: number;
     totalRevenue: number | null;
     nonManualRevenue: number | null;
+    /** Inscrições manuais por sub-método (contagem; não é valor financeiro) */
+    manualByType?: { PIX: number; CASH: number; CARD: number; NOT_INFORMED: number };
+    /** null para CHECKIN (não vê observação) */
+    withNotes?: number | null;
+    /** null para quem não vê valores */
+    openRefunds?: number | null;
   };
   /** false para perfis sem acesso a valores financeiros (ADR-002) */
   showValues?: boolean;
@@ -26,6 +32,9 @@ export default function RegistrationStats({
   showValues = true,
 }: RegistrationStatsProps) {
   const showRevenue = showValues && stats.totalRevenue != null;
+  const manual = stats.manualByType;
+  const hasManual =
+    !!manual && manual.PIX + manual.CASH + manual.CARD + manual.NOT_INFORMED > 0;
   return (
     <div
       className="mb-6"
@@ -101,7 +110,32 @@ export default function RegistrationStats({
             </Card>
           </div>
         )}
+        {stats.openRefunds != null && (
+          <div style={{ minWidth: "178px", flex: "1" }}>
+            <Card>
+              <Statistic
+                title="Estornos em aberto"
+                value={stats.openRefunds}
+                valueStyle={{ color: stats.openRefunds > 0 ? "#fa541c" : undefined }}
+              />
+            </Card>
+          </div>
+        )}
       </div>
+      {hasManual && manual && (
+        <Space size={[8, 8]} wrap className="mt-3" data-testid="manual-breakdown">
+          <span className="text-sm text-gray-500">Pagamentos manuais:</span>
+          <Tag>Pix: {manual.PIX}</Tag>
+          <Tag>Dinheiro: {manual.CASH}</Tag>
+          <Tag>Cartão: {manual.CARD}</Tag>
+          {manual.NOT_INFORMED > 0 && (
+            <Tag>Não informado: {manual.NOT_INFORMED}</Tag>
+          )}
+          {stats.withNotes != null && (
+            <Tag color="blue">Com observação: {stats.withNotes}</Tag>
+          )}
+        </Space>
+      )}
     </div>
   );
 }

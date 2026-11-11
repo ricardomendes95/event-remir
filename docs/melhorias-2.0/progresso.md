@@ -10,6 +10,12 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 
 ---
 
+## 2026-11-11 — Req. 9 (tela de inscrições)
+
+Carregamento só após escolher o evento (lembrado na sessão), filtros server-side (status, lote, pagamento, individual/grupo, busca), `paymentDate` derivada no servidor, Drawer de detalhes com linha do tempo, comprovante individual reutilizando a impressão pública (SUPPORT pode, Q12), botões Cancelar/Reativar (ADMIN+) com indicador de estorno em aberto, `export-admin`/impressão/estatísticas com os campos do req. 1 e remoção da rota/modal manual órfãos. Testado por perfil no servidor local; validação visual em 375px fica pendente. Detalhes em `melhorias/09-tela-inscricoes.md`.
+
+---
+
 ## 2026-11-11 — Req. 12 (cancelamento e estorno)
 
 Modelo `RefundRequest` (aditivo, banco local), rotas públicas do participante (pedir/desistir, validadas por CPF), tela admin `/admin/refund-requests` (WhatsApp, contato, negar, registrar estorno manual, cancelar sem estorno, reativar), cancelamento direto gerando histórico administrativo e restrição a ADMIN+. Estorno por participante, inclusive em pedido em grupo. Testado na API local; E2E mobile fica para o teste final. Aguardando aprovação do Ricardo.

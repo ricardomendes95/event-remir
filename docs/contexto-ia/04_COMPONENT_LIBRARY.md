@@ -25,7 +25,7 @@ há identidade visual própria (páginas públicas institucionais).
 | `ConsentPreferencesButton` | Reabre o banner de consentimento | Rodapé e `/privacidade` | — |
 | `StructuredData` | JSON-LD para SEO | Páginas públicas indexáveis | Admin |
 | `SearchComprovante` | Busca pública de inscrição por CPF | Home/página de evento | Buscas do admin (têm filtros próprios) |
-| `RegistrationProofModal` | Comprovante com QR code; inclui "Solicitar cancelamento" / "Desistir do cancelamento" (inscrição confirmada) | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante |
+| `RegistrationProofModal` | Comprovante com QR code; inclui "Solicitar cancelamento" / "Desistir do cancelamento" (inscrição confirmada) | Exibir comprovante em qualquer contexto | Não recriar variações de comprovante; a impressão vive em `lib/registrationProofPrint.ts` e é reusada pela ação "Imprimir comprovante" do admin |
 | `AutoShowProofModal` | Abre o comprovante automaticamente pós-fluxo | Retornos de fluxo de inscrição | — |
 | `PaymentResultPage` | Corpo das páginas `/payment/*` | Páginas de retorno de gateway | — |
 | `EmbeddedBrowserWarningModal` | Aviso p/ navegador embutido (Instagram etc.) | Junto de `redirectToPayment` | Nunca chamar isolado sem contexto de redirect |
@@ -57,12 +57,12 @@ há identidade visual própria (páginas públicas institucionais).
 | `AdminHeader` | Chrome/navegação do admin | |
 | `EventModal` | CRUD de evento (form completo, banner, rich text, camisa, lotes de inscrição, form dinâmico, toggle de inscrição em grupo) | |
 | `DynamicFormBuilder` | Construtor visual dos campos dinâmicos | Par do `DynamicFormRenderer` |
-| `ManualRegistrationModal` | Inscrição manual pelo admin | `paymentMethod = MANUAL` |
 | `UserManagement` / `UserModal` / `ChangePasswordModal` | Gestão de admins | Restrito a SUPER_ADMIN |
 | `RegistrationsPrintReport` | Impressão de inscrições (listas por tamanho de camisa) | |
-| `registrations/RegistrationFilters` | Filtros da listagem | |
-| `registrations/RegistrationTable` | Tabela de inscrições | Coluna Pagamento: tag do sub-método manual, responsável e indicador/tooltip de observação; tag "Grupo" (responsável) sob o participante de pedido em grupo |
-| `registrations/RegistrationStats` | Cards de estatísticas | |
+| `registrations/RegistrationFilters` | Seletor de evento (obrigatório) + busca, status, lote, pagamento, individual/grupo | Nada é carregado sem evento escolhido |
+| `registrations/RegistrationTable` | Tabela de inscrições | Coluna Pagamento: tag do sub-método manual, responsável e indicador/tooltip de observação; tag "Grupo" (responsável) sob o participante de pedido em grupo; tag "Estorno em aberto"; ações: detalhes, status, Cancelar/Reativar (ADMIN+), comprovante, editar, excluir |
+| `registrations/RegistrationStats` | Cards de estatísticas | Resumo de manuais por sub-método, "com observação" e estornos em aberto (por perfil) |
+| `registrations/RegistrationDetailDrawer` | Detalhes da inscrição + linha do tempo (Drawer) | Usa o payload já sanitizado por perfil |
 | `registrations/RegistrationModal` | Detalhe/edição de inscrição | Campos condicionais: sub-método (Manual), responsável (Dinheiro), observação (500 caracteres) |
 
 ## Domínio `home` (`components/home`)

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
+import { canViewRegistrationNotes } from "@/lib/permissions";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
@@ -8,6 +9,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get("eventId");
     const status = searchParams.get("status") ?? "ALL";
+    const canSeeNotes = canViewRegistrationNotes(
+      request.headers.get("x-user-role")
+    );
 
     if (!eventId) {
       return NextResponse.json(
@@ -59,6 +63,9 @@ export async function GET(request: NextRequest) {
           phone: true,
           status: true,
           paymentMethod: true,
+          manualPaymentType: true,
+          cashResponsible: true,
+          notes: true,
           createdAt: true,
           checkedInAt: true,
           dynamicFormData: true,
@@ -132,6 +139,11 @@ export async function GET(request: NextRequest) {
           phone: r.phone,
           status: r.status,
           paymentMethod: r.paymentMethod,
+          manualPaymentType: r.manualPaymentType ?? null,
+          // CHECKIN não vê observação nem responsável (defensivo: a rota
+          // hoje só admite ADMIN/SUPER_ADMIN)
+          cashResponsible: canSeeNotes ? r.cashResponsible : null,
+          notes: canSeeNotes ? r.notes : null,
           createdAt: r.createdAt.toISOString(),
           checkedInAt: r.checkedInAt?.toISOString() ?? null,
           dynamicFormData: (r.dynamicFormData as Record<string, unknown>) ?? {},

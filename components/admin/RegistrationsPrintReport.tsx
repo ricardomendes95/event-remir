@@ -22,6 +22,9 @@ function formatDynamicValue(value: unknown): string {
   return String(value) || "—";
 }
 
+import { formatPaymentSummary } from "@/lib/registrationPaymentLabel";
+import type { ManualPaymentTypeValue } from "@/backend/schemas/registrationSchemas";
+
 interface PrintRegistration {
   id: string;
   name: string;
@@ -33,6 +36,10 @@ interface PrintRegistration {
   dynamicFormData: Record<string, unknown>;
   wantsShirt?: boolean;
   shirtSize?: string | null;
+  paymentMethod?: string | null;
+  manualPaymentType?: ManualPaymentTypeValue | null;
+  cashResponsible?: string | null;
+  notes?: string | null;
 }
 
 interface PrintData {
@@ -161,6 +168,8 @@ export default function RegistrationsPrintReport({ data }: RegistrationsPrintRep
             <th style={headerCell}>Telefone</th>
             <th style={headerCell}>Status</th>
             <th style={headerCell}>Data Inscrição</th>
+            <th style={headerCell}>Pagamento</th>
+            <th style={headerCell}>Observação</th>
             {hasShirt && <th style={headerCell}>Camisa</th>}
             {dynamicFields.map((f) => (
               <th key={f.id} style={headerCell}>
@@ -183,6 +192,8 @@ export default function RegistrationsPrintReport({ data }: RegistrationsPrintRep
                 {STATUS_LABEL[reg.status] ?? reg.status}
               </td>
               <td style={cell}>{dayjs(reg.createdAt).format("DD/MM/YYYY HH:mm")}</td>
+              <td style={cell}>{formatPaymentSummary(reg)}</td>
+              <td style={cell}>{reg.notes || "—"}</td>
               {hasShirt && (
                 <td style={cell}>
                   {reg.wantsShirt ? `Sim (${reg.shirtSize ?? "—"})` : "Não"}

@@ -13,7 +13,11 @@ import {
   Tooltip,
   Badge,
   Row,
+  Dropdown,
+  Empty,
+  Alert,
 } from "antd";
+import type { MenuProps } from "antd";
 
 const { Title } = Typography;
 import {
@@ -26,44 +30,18 @@ import {
   ExclamationCircleOutlined,
   PrinterOutlined,
   MessageOutlined,
+  EyeOutlined,
+  MoreOutlined,
+  FileTextOutlined,
+  StopOutlined,
+  UndoOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
-import {
-  MANUAL_PAYMENT_TYPE_LABELS,
-  type ManualPaymentTypeValue,
-} from "@/backend/schemas/registrationSchemas";
+import { MANUAL_PAYMENT_TYPE_LABELS } from "@/backend/schemas/registrationSchemas";
+import { hasOpenRefund, type AdminRegistration as Registration } from "./types";
 
 const { Option } = Select;
-
-interface Registration {
-  id: string;
-  name: string;
-  email: string | null;
-  cpf: string;
-  phone: string | null;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
-  paymentId?: string;
-  paymentMethod?: string;
-  manualPaymentType?: ManualPaymentTypeValue | null;
-  cashResponsible?: string | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  batch?: { id: string; name: string } | null;
-  order?: {
-    id: string;
-    status: string;
-    registrations: { id: string; name: string }[];
-    _count: { registrations: number };
-  } | null;
-  event: {
-    id: string;
-    title: string;
-    price: number;
-    startDate: string;
-  };
-}
 
 interface RegistrationTableProps {
   registrations: Registration[];
@@ -81,6 +59,13 @@ interface RegistrationTableProps {
   onEditRegistration: (registration: Registration) => void;
   onChangeStatus: (registrationId: string, newStatus: string) => void;
   onDeleteRegistration: (registrationId: string) => void;
+  onViewDetails: (registration: Registration) => void;
+  onPrintProof: (registration: Registration) => void;
+  onCancelRegistration: (registration: Registration) => void;
+  onReactivateRegistration: (registration: Registration) => void;
+  /** Erro de carregamento (exibe alerta com "tentar novamente") */
+  errorMessage?: string | null;
+  onRetry?: () => void;
   onPrint?: () => void;
   isPrinting?: boolean;
   printDisabled?: boolean;
@@ -88,6 +73,8 @@ interface RegistrationTableProps {
   showValues?: boolean;
   /** true para perfil CHECKIN: sem criar/editar/excluir/imprimir */
   readOnly?: boolean;
+  /** true para ADMIN/SUPER_ADMIN: cancelar, reativar e excluir (req. 12) */
+  canManage?: boolean;
 }
 
 export default function RegistrationTable({
@@ -99,11 +86,18 @@ export default function RegistrationTable({
   onEditRegistration,
   onChangeStatus,
   onDeleteRegistration,
+  onViewDetails,
+  onPrintProof,
+  onCancelRegistration,
+  onReactivateRegistration,
+  errorMessage = null,
+  onRetry,
   onPrint,
   isPrinting = false,
   printDisabled = false,
   showValues = true,
   readOnly = false,
+  canManage = false,
 }: RegistrationTableProps) {
   // Função para formatar CPF
   const formatCPF = (value: string) => {
@@ -131,6 +125,13 @@ export default function RegistrationTable({
         <div>
           <div className="font-medium">{text}</div>
           <div className="text-sm text-gray-500">{record.email ?? "—"}</div>
+          {hasOpenRefund(record) && (
+            <Tooltip title="Há uma solicitação de estorno aberta para esta inscrição">
+              <Tag color="volcano" className="mt-1" data-testid="refund-open-tag">
+                Estorno em aberto
+              </Tag>
+            </Tooltip>
+          )}
           {record.order && (
             <Tooltip
               title={`Compra em grupo com ${record.order._count.registrations} inscrições`}
@@ -167,7 +168,7 @@ export default function RegistrationTable({
       render: (event) => (
         <div>
           <div className="font-medium">{event.title}</div>
-          {showValues && event.price != null && (
+          {showValues && event?.price != null && (
             <div className="text-sm text-gray-500">
               R$ {event.price.toFixed(2)}
             </div>
@@ -231,13 +232,6 @@ export default function RegistrationTable({
       title: "Status",
       dataIndex: "status",
       key: "status",
-      filters: [
-        { text: "Confirmado", value: "CONFIRMED" },
-        { text: "Pendente", value: "PENDING" },
-        { text: "Cancelado", value: "CANCELLED" },
-        { text: "Falha no Pagamento", value: "PAYMENT_FAILED" },
-      ],
-      onFilter: (value, record) => record.status === value,
       render: (
         status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED"
       ) => {
@@ -296,60 +290,143 @@ export default function RegistrationTable({
     {
       title: "Ações",
       key: "actions",
-      width: 120,
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="Editar">
-            <Button
-              icon={<EditOutlined />}
-              size="small"
-              onClick={() => onEditRegistration(record)}
-            />
-          </Tooltip>
+      width: 270,
+      fixed: "right",
+      render: (_, record) => {
+        const cancelled = record.status === "CANCELLED";
+        const menuItems: MenuProps["items"] = [
+          {
+            key: "proof",
+            icon: <FileTextOutlined />,
+            label: "Imprimir comprovante",
+            onClick: () => onPrintProof(record),
+          },
+          ...(!readOnly
+            ? [
+                {
+                  key: "edit",
+                  icon: <EditOutlined />,
+                  label: "Editar",
+                  onClick: () => onEditRegistration(record),
+                },
+              ]
+            : []),
+        ];
 
-          <Tooltip title="Alterar Status">
-            <Select
-              size="small"
-              value={record.status}
-              style={{ width: 100 }}
-              onChange={(value) => onChangeStatus(record.id, value)}
-            >
-              <Option value="CONFIRMED">
-                <Tag color="green" className="m-0 p-1.5">
-                  Confirmado
-                </Tag>
-              </Option>
-              <Option value="PENDING">
-                <Tag color="orange" className="m-0 p-1.5">
-                  Pendente
-                </Tag>
-              </Option>
-              <Option value="CANCELLED">
-                <Tag color="red" className="m-0 p-1.5">
-                  Cancelado
-                </Tag>
-              </Option>
-            </Select>
-          </Tooltip>
-
-          <Popconfirm
-            title="Tem certeza que deseja excluir esta inscrição?"
-            onConfirm={() => onDeleteRegistration(record.id)}
-            okText="Sim"
-            cancelText="Não"
-          >
-            <Tooltip title="Excluir">
-              <Button icon={<DeleteOutlined />} size="small" danger />
+        return (
+          <Space size="small" wrap>
+            <Tooltip title="Ver detalhes e histórico">
+              <Button
+                icon={<EyeOutlined />}
+                size="small"
+                aria-label="Ver detalhes"
+                onClick={() => onViewDetails(record)}
+              />
             </Tooltip>
-          </Popconfirm>
-        </Space>
-      ),
+
+            {!readOnly && (
+              <Tooltip
+                title={
+                  cancelled
+                    ? "Use Reativar para voltar a inscrição"
+                    : "Alterar status"
+                }
+              >
+                <Select
+                  size="small"
+                  value={record.status}
+                  style={{ width: 108 }}
+                  disabled={cancelled}
+                  onChange={(value) => onChangeStatus(record.id, value)}
+                >
+                  <Option value="CONFIRMED">
+                    <Tag color="green" className="m-0 p-1.5">
+                      Confirmado
+                    </Tag>
+                  </Option>
+                  <Option value="PENDING">
+                    <Tag color="orange" className="m-0 p-1.5">
+                      Pendente
+                    </Tag>
+                  </Option>
+                  <Option value="CANCELLED" disabled>
+                    <Tag color="red" className="m-0 p-1.5">
+                      Cancelado
+                    </Tag>
+                  </Option>
+                  <Option value="PAYMENT_FAILED" disabled>
+                    <Tag color="red" className="m-0 p-1.5">
+                      Falha
+                    </Tag>
+                  </Option>
+                </Select>
+              </Tooltip>
+            )}
+
+            {canManage && cancelled && (
+              <Popconfirm
+                title="Reativar esta inscrição?"
+                description="Volta para Confirmado e encerra a solicitação de estorno em aberto. Exige vaga disponível."
+                onConfirm={() => onReactivateRegistration(record)}
+                okText="Reativar"
+                cancelText="Não"
+              >
+                <Button size="small" icon={<UndoOutlined />}>
+                  Reativar
+                </Button>
+              </Popconfirm>
+            )}
+            {canManage && !cancelled && (
+              <Popconfirm
+                title="Cancelar esta inscrição?"
+                description={
+                  record.paymentMethod === "FREE"
+                    ? "A vaga é liberada."
+                    : "A vaga é liberada e uma solicitação de estorno é registrada para a organização acompanhar."
+                }
+                onConfirm={() => onCancelRegistration(record)}
+                okText="Cancelar inscrição"
+                okButtonProps={{ danger: true }}
+                cancelText="Voltar"
+              >
+                <Button size="small" danger icon={<StopOutlined />}>
+                  Cancelar
+                </Button>
+              </Popconfirm>
+            )}
+
+            {canManage && (
+              <Popconfirm
+                title="Excluir esta inscrição?"
+                description="A exclusão é definitiva."
+                onConfirm={() => onDeleteRegistration(record.id)}
+                okText="Excluir"
+                okButtonProps={{ danger: true }}
+                cancelText="Não"
+              >
+                <Tooltip title="Excluir">
+                  <Button
+                    icon={<DeleteOutlined />}
+                    size="small"
+                    danger
+                    aria-label="Excluir"
+                  />
+                </Tooltip>
+              </Popconfirm>
+            )}
+
+            <Dropdown menu={{ items: menuItems }} trigger={["click"]}>
+              <Button
+                size="small"
+                icon={<MoreOutlined />}
+                aria-label="Mais ações"
+              />
+            </Dropdown>
+          </Space>
+        );
+      },
     },
   ];
-
-  const visibleColumns = readOnly
-    ? columns.filter((column) => column.key !== "actions")
-    : columns;
 
   return (
     <Card>
@@ -394,14 +471,38 @@ export default function RegistrationTable({
         </Space>
       </Row>
 
+      {errorMessage && (
+        <Alert
+          type="error"
+          showIcon
+          className="mb-4"
+          message={errorMessage}
+          action={
+            onRetry && (
+              <Button size="small" onClick={onRetry}>
+                Tentar novamente
+              </Button>
+            )
+          }
+        />
+      )}
+
       <Table
-        columns={visibleColumns}
+        columns={columns}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="Nenhuma inscrição encontrada com estes filtros"
+            />
+          ),
+        }}
         dataSource={registrations}
         rowKey="id"
         loading={loading}
         pagination={pagination}
         onChange={onTableChange}
-        scroll={{ x: 1000 }}
+        scroll={{ x: 1200 }}
       />
     </Card>
   );

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getEventBatchState } from "@/backend/services/eventBatchService";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { buildRegistrationWhere } from "@/backend/utils/registrationFilters";
+import { withPaymentDate } from "@/backend/utils/paymentDate";
+import { canViewFinancialValues } from "@/lib/permissions";
 import { zodErrorResponse } from "@/backend/utils/validationResponse";
 import { AdminRegistrationCreateSchema } from "@/backend/schemas/registrationSchemas";
 import { validateShirtSelection } from "@/backend/utils/shirtPricing";
@@ -15,36 +18,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    const status = searchParams.get("status");
-    const eventId = searchParams.get("eventId");
-    const search = searchParams.get("search");
-
-    // Construir filtros
-    const where: Prisma.RegistrationWhereInput = {};
-
-    if (status && status !== "ALL") {
-      where.status = status as "PENDING" | "CONFIRMED" | "CANCELLED";
-    }
-
-    if (eventId && eventId !== "ALL") {
-      where.eventId = eventId;
-    }
-
-    if (search) {
-      const searchConditions: Prisma.RegistrationWhereInput[] = [
-        { name: { contains: search, mode: "insensitive" } },
-        { email: { contains: search, mode: "insensitive" } },
-        { event: { title: { contains: search, mode: "insensitive" } } },
-      ];
-
-      // Só adicionar busca por CPF se houver dígitos
-      const cleanCpf = search.replace(/\D/g, "");
-      if (cleanCpf) {
-        searchConditions.push({ cpf: { contains: cleanCpf } });
-      }
-
-      where.OR = searchConditions;
-    }
+    const where = buildRegistrationWhere(searchParams, { includeSearch: true });
+    const role = request.headers.get("x-user-role");
+    const showFinancials = canViewFinancialValues(role);
 
     // Buscar inscrições com paginação usando helper de retry
     const [registrations, total] = await withPrismaRetry(async () =>
@@ -74,6 +50,22 @@ export async function GET(request: NextRequest) {
                 startDate: true,
               },
             },
+            // Histórico de estorno (req. 12): só para quem vê valores
+            ...(showFinancials
+              ? {
+                  refundRequests: {
+                    select: {
+                      id: true,
+                      origin: true,
+                      status: true,
+                      resolution: true,
+                      createdAt: true,
+                      resolvedAt: true,
+                    },
+                    orderBy: { createdAt: "desc" as const },
+                  },
+                }
+              : {}),
           },
           orderBy: {
             createdAt: "desc",
@@ -87,8 +79,8 @@ export async function GET(request: NextRequest) {
 
     // CHECKIN/SUPPORT não veem valores financeiros (ADR-002)
     const items = sanitizeRegistrationsForRole(
-      registrations,
-      request.headers.get("x-user-role")
+      registrations.map(withPaymentDate),
+      role
     );
 
     return NextResponse.json({

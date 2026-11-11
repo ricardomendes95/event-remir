@@ -12,43 +12,34 @@ import {
   Space,
 } from "antd";
 import { UserAddOutlined, PrinterOutlined } from "@ant-design/icons";
+import { Empty, Skeleton } from "antd";
+import QRCode from "qrcode";
 import dayjs from "dayjs";
 import {
   RegistrationStats,
   RegistrationFilters,
   RegistrationTable,
   RegistrationModal,
+  RegistrationDetailDrawer,
+  DEFAULT_REGISTRATION_FILTERS,
+  type AdminRegistration as Registration,
+  type RegistrationFilterValues,
 } from "../../../components/admin/registrations";
+import {
+  openProofPrintWindow,
+  type ProofPrintData,
+} from "@/lib/registrationProofPrint";
 import RegistrationsPrintReport from "../../../components/admin/RegistrationsPrintReport";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 import type { EventFormMode } from "@/types/event";
 import { useAuth } from "@/hooks/useAuth";
 import { canViewFinancialValues } from "@/lib/permissions";
 
-const { Title, Text } = Typography;
+import { formatPaymentSummary, escapeHtml } from "@/lib/registrationPaymentLabel";
 
-interface Registration {
-  id: string;
-  name: string;
-  email: string | null;
-  cpf: string;
-  phone: string | null;
-  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
-  paymentId?: string;
-  paymentMethod?: string;
-  manualPaymentType?: "PIX" | "CASH" | "CARD" | null;
-  cashResponsible?: string | null;
-  notes?: string | null;
-  createdAt: string;
-  updatedAt: string;
-  dynamicFormData?: Record<string, unknown>;
-  event: {
-    id: string;
-    title: string;
-    price: number;
-    startDate: string;
-  };
-}
+const EVENT_STORAGE_KEY = "admin.registrations.eventId";
+
+const { Title, Text } = Typography;
 
 interface Event {
   id: string;
@@ -59,6 +50,8 @@ interface Event {
   isFree?: boolean;
   formMode?: EventFormMode;
   dynamicFormFields?: unknown;
+  batches?: Array<{ id: string; name: string }>;
+  shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
   fixedFieldsConfig?: { email?: { required: boolean }; phone?: { required: boolean } };
 }
 
@@ -104,6 +97,10 @@ interface PrintData {
     dynamicFormData: Record<string, unknown>;
     wantsShirt?: boolean;
     shirtSize?: string | null;
+    paymentMethod?: string | null;
+    manualPaymentType?: "PIX" | "CASH" | "CARD" | null;
+    cashResponsible?: string | null;
+    notes?: string | null;
   }>;
   stats: {
     total: number;
@@ -126,25 +123,48 @@ export default function RegistrationsPage() {
   const readOnly = user?.role === "CHECKIN";
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingRegistration, setEditingRegistration] =
     useState<Registration | null>(null);
+  const [detailRegistration, setDetailRegistration] =
+    useState<Registration | null>(null);
+  const [proofPrintingId, setProofPrintingId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState("");
   const [searchInput, setSearchInput] = useState(""); // input do usuário
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [eventFilter, setEventFilter] = useState<string>("ALL");
+  const [filters, setFilters] = useState<
+    Omit<RegistrationFilterValues, "search">
+  >({
+    status: DEFAULT_REGISTRATION_FILTERS.status,
+    batch: DEFAULT_REGISTRATION_FILTERS.batch,
+    payment: DEFAULT_REGISTRATION_FILTERS.payment,
+    group: DEFAULT_REGISTRATION_FILTERS.group,
+  });
+  // Nenhum dado de inscrição é buscado antes de escolher um evento (req. 9)
+  const [eventFilter, setEventFilter] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
     showSizeChanger: true,
-    showQuickJumper: true,
+    showQuickJumper: false,
     showTotal: (total: number, range: [number, number]) =>
       `${range[0]}-${range[1]} de ${total} inscrições`,
   });
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<{
+    total: number;
+    confirmed: number;
+    pending: number;
+    cancelled: number;
+    totalRevenue: number | null;
+    nonManualRevenue: number | null;
+    manualByType?: { PIX: number; CASH: number; CARD: number; NOT_INFORMED: number };
+    withNotes?: number | null;
+    openRefunds?: number | null;
+  }>({
     total: 0,
     confirmed: 0,
     pending: 0,
@@ -163,61 +183,55 @@ export default function RegistrationsPage() {
   );
   const [separateByShirt, setSeparateByShirt] = useState(false);
 
-  // Buscar estatísticas
-  const fetchStats = useCallback(async () => {
-    try {
-      // Construir parâmetros da query (apenas filtros de status e evento, não search)
+  // Parâmetros de filtro compartilhados por listagem e estatísticas
+  const buildFilterParams = useCallback(
+    (withSearch: boolean) => {
       const params = new URLSearchParams();
+      if (eventFilter) params.append("eventId", eventFilter);
+      if (filters.status !== "ALL") params.append("status", filters.status);
+      if (filters.batch !== "ALL") params.append("batchId", filters.batch);
+      if (filters.payment !== "ALL")
+        params.append("paymentMethod", filters.payment);
+      if (filters.group !== "ALL") params.append("group", filters.group);
+      if (withSearch && searchText.trim())
+        params.append("search", searchText.trim());
+      return params;
+    },
+    [eventFilter, filters, searchText]
+  );
 
-      if (statusFilter !== "ALL") {
-        params.append("status", statusFilter);
-      }
-      if (eventFilter !== "ALL") {
-        params.append("eventId", eventFilter);
-      }
-      // Não incluir search - estatísticas devem ignorar a busca
-
-      const response = await fetch(`/api/registrations/stats?${params}`);
+  // Buscar estatísticas (ignoram a busca textual)
+  const fetchStats = useCallback(async () => {
+    if (!eventFilter) return;
+    try {
+      const response = await fetch(
+        `/api/registrations/stats?${buildFilterParams(false)}`
+      );
       const data = await response.json();
-      console.log("Estatísticas de inscrições:", data);
-
       if (data.success) {
         setStats(data.data);
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
     }
-  }, [statusFilter, eventFilter]); // Removido searchText das dependências
+  }, [eventFilter, buildFilterParams]);
 
   // Buscar inscrições
   const fetchRegistrations = useCallback(
     async (page = 1, pageSize = 10) => {
+      if (!eventFilter) return;
       setLoading(true);
+      setLoadError(null);
       try {
-        // Construir parâmetros da query
-        const params = new URLSearchParams({
-          page: page.toString(),
-          limit: pageSize.toString(),
-        });
-
-        if (statusFilter !== "ALL") {
-          params.append("status", statusFilter);
-        }
-        if (eventFilter !== "ALL") {
-          params.append("eventId", eventFilter);
-        }
-        if (searchText.trim()) {
-          params.append("search", searchText.trim());
-        }
+        const params = buildFilterParams(true);
+        params.append("page", page.toString());
+        params.append("limit", pageSize.toString());
 
         const response = await fetch(`/api/registrations?${params}`);
         const data = await response.json();
 
         if (data.success) {
-          const registrationsList = data.data.items || [];
-          setRegistrations(registrationsList);
-
-          // Atualizar paginação
+          setRegistrations(data.data.items || []);
           setPagination((prev) => ({
             ...prev,
             current: data.data.pagination.page,
@@ -225,37 +239,47 @@ export default function RegistrationsPage() {
             pageSize: data.data.pagination.limit,
           }));
         } else {
-          message.error("Erro ao carregar inscrições");
+          setLoadError(data.error || "Não foi possível carregar as inscrições.");
         }
       } catch (error) {
-        message.error("Erro ao carregar inscrições");
+        setLoadError("Não foi possível carregar as inscrições.");
         console.error("Error fetching registrations:", error);
       } finally {
         setLoading(false);
       }
     },
-    [statusFilter, eventFilter, searchText]
+    [eventFilter, buildFilterParams]
   );
 
-  // Buscar eventos para o filtro e formulário
+  // Buscar eventos para o seletor e o formulário
   const fetchEvents = useCallback(async () => {
     try {
-      const response = await fetch("/api/events");
+      const response = await fetch("/api/events?limit=100");
       const data = await response.json();
 
       if (data.success) {
-        setEvents(data.data.items || []);
+        const items: Event[] = data.data.items || [];
+        setEvents(items);
+        // Restaura o último evento escolhido nesta sessão (se ainda existir)
+        try {
+          const saved = sessionStorage.getItem(EVENT_STORAGE_KEY);
+          if (saved && items.some((e) => e.id === saved)) {
+            setEventFilter(saved);
+          }
+        } catch {
+          // sessionStorage indisponível: segue sem lembrar a seleção
+        }
       }
     } catch (error) {
       console.error("Error fetching events:", error);
+    } finally {
+      setEventsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchRegistrations(1, 10); // página inicial
-    fetchStats(); // buscar estatísticas iniciais
     fetchEvents();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchEvents]);
 
   // Debounce para o search
   useEffect(() => {
@@ -266,21 +290,37 @@ export default function RegistrationsPage() {
     return () => clearTimeout(timeoutId);
   }, [searchInput]);
 
-  // Quando filtros mudam, buscar nova página
+  // Evento, filtros ou busca mudaram: volta à página 1 (só com evento escolhido)
   useEffect(() => {
+    if (!eventFilter) {
+      setRegistrations([]);
+      return;
+    }
     fetchRegistrations(1, pagination.pageSize);
-  }, [
-    statusFilter,
-    eventFilter,
-    searchText,
-    fetchRegistrations,
-    pagination.pageSize,
-  ]);
-
-  // Atualizar estatísticas apenas quando filtros de status ou evento mudarem
-  useEffect(() => {
     fetchStats();
-  }, [statusFilter, eventFilter, fetchStats]);
+  }, [fetchRegistrations, fetchStats]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleEventChange = (eventId: string) => {
+    setEventFilter(eventId);
+    // o lote pertence ao evento: limpa o filtro de lote ao trocar
+    setFilters((prev) => ({ ...prev, batch: "ALL" }));
+    try {
+      sessionStorage.setItem(EVENT_STORAGE_KEY, eventId);
+    } catch {
+      // ignorado
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearchInput("");
+    setSearchText("");
+    setFilters({
+      status: DEFAULT_REGISTRATION_FILTERS.status,
+      batch: DEFAULT_REGISTRATION_FILTERS.batch,
+      payment: DEFAULT_REGISTRATION_FILTERS.payment,
+      group: DEFAULT_REGISTRATION_FILTERS.group,
+    });
+  };
 
   // Função para formatar CPF
   const formatCPF = (value: string) => {
@@ -431,16 +471,96 @@ export default function RegistrationsPage() {
     }
   };
 
+  const refreshAll = () => {
+    fetchRegistrations(pagination.current, pagination.pageSize);
+    fetchStats();
+  };
+
+  // Cancelar (gera solicitação de estorno administrativa) ou reativar (exige vaga)
+  const handleCancelRegistration = async (registration: Registration) => {
+    try {
+      const response = await fetch(`/api/registrations/${registration.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CANCELLED" }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        message.success(
+          registration.paymentMethod === "FREE"
+            ? "Inscrição cancelada."
+            : "Inscrição cancelada. Solicitação de estorno registrada."
+        );
+        refreshAll();
+      } else {
+        message.error(data.error || "Erro ao cancelar inscrição");
+      }
+    } catch {
+      message.error("Erro ao cancelar inscrição");
+    }
+  };
+
+  const handleReactivateRegistration = async (registration: Registration) => {
+    try {
+      const response = await fetch(`/api/registrations/${registration.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "CONFIRMED" }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        message.success("Inscrição reativada.");
+        refreshAll();
+      } else {
+        // 409: sem vaga disponível (mensagem vem do servidor)
+        message.error(data.error || "Erro ao reativar inscrição");
+      }
+    } catch {
+      message.error("Erro ao reativar inscrição");
+    }
+  };
+
+  // Comprovante individual: mesmo documento (e mesma rota pública) do participante
+  const handlePrintProof = async (registration: Registration) => {
+    // Abre a janela já no clique, antes do fetch, para não ser bloqueada
+    const target = window.open("", "_blank");
+    if (!target) {
+      message.warning("Permita pop-ups para imprimir o comprovante");
+      return;
+    }
+    setProofPrintingId(registration.id);
+    try {
+      const response = await fetch("/api/registrations/get-by-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationId: registration.id }),
+      });
+      if (!response.ok) throw new Error("get-by-id falhou");
+      const proof: ProofPrintData = await response.json();
+      const qr = await QRCode.toDataURL(proof.id, {
+        width: 200,
+        margin: 2,
+        color: { dark: "#000000", light: "#FFFFFF" },
+      }).catch(() => "");
+      openProofPrintWindow(proof, qr, target);
+    } catch {
+      target.close();
+      message.error("Não foi possível gerar o comprovante");
+    } finally {
+      setProofPrintingId(null);
+    }
+  };
+
   // Buscar dados e abrir modal de impressão
   const handlePrint = async () => {
-    if (!eventFilter || eventFilter === "ALL") {
+    if (!eventFilter) {
       message.warning("Selecione um evento específico para imprimir");
       return;
     }
     setIsPrinting(true);
     try {
       const params = new URLSearchParams({ eventId: eventFilter });
-      if (statusFilter !== "ALL") params.append("status", statusFilter);
+      if (filters.status !== "ALL") params.append("status", filters.status);
 
       const response = await fetch(`/api/registrations/export-admin?${params}`);
       const data = await response.json();
@@ -519,6 +639,8 @@ export default function RegistrationsPage() {
               ${statusLabel[reg.status] ?? reg.status}
             </td>
             <td>${dayjs(reg.createdAt).format("DD/MM/YYYY HH:mm")}</td>
+            <td>${escapeHtml(formatPaymentSummary(reg))}</td>
+            <td>${reg.notes ? escapeHtml(reg.notes) : "—"}</td>
             ${shirtCell}
             ${dynamicCells}
           </tr>`;
@@ -530,7 +652,7 @@ export default function RegistrationsPage() {
   <table>
     <thead>
       <tr>
-        <th>#</th><th>Nome</th><th>Email</th><th>CPF</th><th>Telefone</th><th>Status</th><th>Data Inscrição</th>${shirtHeader}${dynamicHeaders}
+        <th>#</th><th>Nome</th><th>Email</th><th>CPF</th><th>Telefone</th><th>Status</th><th>Data Inscrição</th><th>Pagamento</th><th>Observação</th>${shirtHeader}${dynamicHeaders}
       </tr>
     </thead>
     <tbody>${list.map((r, i) => renderRow(r, i)).join("")}</tbody>
@@ -655,39 +777,76 @@ export default function RegistrationsPage() {
         <Text type="secondary">Gerencie todas as inscrições dos eventos</Text>
       </div>
 
-      {/* Estatísticas */}
-      <RegistrationStats stats={stats} showValues={showValues} />
-
       {/* Filtros e Busca */}
       <RegistrationFilters
         searchInput={searchInput}
-        statusFilter={statusFilter}
-        eventFilter={eventFilter}
+        values={filters}
+        eventId={eventFilter}
         events={events}
         onSearchChange={setSearchInput}
-        onStatusChange={setStatusFilter}
-        onEventChange={setEventFilter}
-        onRefresh={() => {
-          fetchRegistrations(pagination.current, pagination.pageSize);
-          fetchStats();
-        }}
+        onEventChange={handleEventChange}
+        onChange={(patch) => setFilters((prev) => ({ ...prev, ...patch }))}
+        onClear={handleClearFilters}
+        onRefresh={refreshAll}
       />
 
-      {/* Tabela */}
-      <RegistrationTable
-        registrations={registrations}
-        loading={loading}
-        pagination={pagination}
-        onTableChange={handleTableChange}
-        onNewRegistration={handleNewRegistration}
-        onEditRegistration={handleEditRegistration}
-        onChangeStatus={handleChangeStatus}
-        onDeleteRegistration={handleDeleteRegistration}
-        onPrint={handlePrint}
-        isPrinting={isPrinting}
-        printDisabled={!eventFilter || eventFilter === "ALL"}
+      {eventsLoading ? (
+        <Skeleton active paragraph={{ rows: 4 }} />
+      ) : !eventFilter ? (
+        <Empty
+          className="py-12"
+          description={
+            events.length === 0
+              ? "Nenhum evento cadastrado ainda"
+              : "Selecione um evento para ver as inscrições"
+          }
+        />
+      ) : (
+        <>
+          {/* Estatísticas */}
+          <RegistrationStats stats={stats} showValues={showValues} />
+
+          {/* Tabela */}
+          <RegistrationTable
+            registrations={registrations}
+            loading={loading}
+            errorMessage={loadError}
+            onRetry={refreshAll}
+            pagination={pagination}
+            onTableChange={handleTableChange}
+            onNewRegistration={handleNewRegistration}
+            onEditRegistration={handleEditRegistration}
+            onChangeStatus={handleChangeStatus}
+            onDeleteRegistration={handleDeleteRegistration}
+            onViewDetails={setDetailRegistration}
+            onPrintProof={handlePrintProof}
+            onCancelRegistration={handleCancelRegistration}
+            onReactivateRegistration={handleReactivateRegistration}
+            onPrint={handlePrint}
+            isPrinting={isPrinting}
+            printDisabled={!eventFilter}
+            showValues={showValues}
+            readOnly={readOnly}
+            canManage={showValues}
+          />
+        </>
+      )}
+
+      <RegistrationDetailDrawer
+        registration={detailRegistration}
+        open={!!detailRegistration}
+        onClose={() => setDetailRegistration(null)}
+        dynamicFields={
+          (events.find((e) => e.id === detailRegistration?.event.id)
+            ?.dynamicFormFields as DynamicField[] | undefined) ?? []
+        }
+        eventHasShirt={
+          !!events.find((e) => e.id === detailRegistration?.event.id)
+            ?.shirtConfig?.enabled
+        }
         showValues={showValues}
-        readOnly={readOnly}
+        onPrintProof={handlePrintProof}
+        printing={proofPrintingId === detailRegistration?.id}
       />
 
       {/* Modal de Criar/Editar Inscrição */}

@@ -71,10 +71,6 @@ const routeRules: RouteRule[] = [
   { prefix: "/api/admin/financial", roles: ["SUPER_ADMIN", "ADMIN"] },
   { prefix: "/api/admin/refund-requests", roles: ["SUPER_ADMIN", "ADMIN"] },
   { prefix: "/api/admin/dashboard", roles: ALL_ROLES },
-  {
-    prefix: "/api/admin/registrations/manual",
-    roles: ["SUPER_ADMIN", "ADMIN", "SUPPORT"],
-  },
   { prefix: "/api/checkin", roles: ["SUPER_ADMIN", "ADMIN", "CHECKIN"] },
   { prefix: "/api/upload", roles: ["SUPER_ADMIN", "ADMIN", "SUPPORT"] },
   // Cobre /api/registrations/export e /api/registrations/export-admin
