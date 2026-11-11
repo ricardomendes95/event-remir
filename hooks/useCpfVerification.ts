@@ -1,6 +1,16 @@
 import { useState, useCallback, useRef } from "react";
 import { isValidCpf } from "@/utils/cpfValidator";
 
+/** Contexto da compra em grupo (só primeiros nomes dos demais participantes). */
+export interface ExistingOrderContext {
+  id: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
+  totalValue: number;
+  participantsCount: number;
+  otherParticipants: string[];
+  canLeave: boolean;
+}
+
 export interface ExistingRegistration {
   id: string;
   name: string;
@@ -15,6 +25,9 @@ export interface ExistingRegistration {
   eventHasShirt: boolean;
   /** Valor da inscrição já resolvido no servidor (com camisa, se escolhida). */
   amountPaid: number;
+  /** Compra em grupo a que a inscrição pertence (null = inscrição individual). */
+  orderId?: string | null;
+  order?: ExistingOrderContext | null;
   event: {
     title: string;
     price: number;

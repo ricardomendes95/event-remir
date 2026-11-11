@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Modal, Form, message, Steps } from "antd";
-import { CreditCard, CheckCircle } from "lucide-react";
+import { Modal, Form, message, Steps, type FormInstance } from "antd";
+import { CreditCard, CheckCircle, AlertCircle } from "lucide-react";
 import { Event } from "@/types/event";
 import { z } from "zod";
 
@@ -12,9 +12,16 @@ import {
   ExistingRegistrationAlert,
   RegistrationForm,
   DynamicFormRenderer,
+  BatchParticipantsSection,
+  BatchOrderSummary,
+  batchTotal,
+  GroupProofModal,
   registrationSchema,
   freeRegistrationSchema,
   type RegistrationFormData,
+  type BatchExtra,
+  type BatchOrderPerson,
+  type GroupProofData,
 } from "../registration";
 import { RegistrationProofModal } from "../RegistrationProofModal";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
@@ -25,6 +32,7 @@ import { useDeviceDetection } from "@/hooks/useDeviceDetection";
 
 import { redirectToPayment } from "@/utils/paymentRedirect";
 import { INFINITEPAY_PAYMENT_HINT } from "@/backend/utils/paymentFees";
+import { MAX_BATCH_SIZE } from "@/backend/schemas/batchRegistrationSchemas";
 
 const { Step } = Steps;
 
@@ -56,6 +64,9 @@ export default function EventRegistrationModal({
   // Configuração de camisa (apenas evento pago com a opção habilitada)
   const shirtConfig =
     !isFreeEvent && event.shirtConfig?.enabled ? event.shirtConfig : null;
+
+  // Inscrição em grupo (vários participantes numa mesma compra)
+  const batchAllowed = !!event.allowBatchRegistration;
 
   // Estados principais
   const [loading, setLoading] = useState(false);
@@ -103,6 +114,26 @@ export default function EventRegistrationModal({
 
   // Estados para modais
   const [proofModalOpen, setProofModalOpen] = useState(false);
+
+  // Estados da compra em grupo: o responsável é o formulário principal; as
+  // demais pessoas ficam em `extras` (cada uma com o próprio formulário).
+  const [batchEnabled, setBatchEnabled] = useState(false);
+  const [extras, setExtras] = useState<BatchExtra[]>([]);
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [errorKeys, setErrorKeys] = useState<string[]>([]);
+  const [batchErrorLines, setBatchErrorLines] = useState<
+    { key: string; text: string }[]
+  >([]);
+  const [shirtErrors, setShirtErrors] = useState<Record<string, string>>({});
+  const [retryOrderId, setRetryOrderId] = useState<string | null>(null);
+  const [groupProof, setGroupProof] = useState<GroupProofData | null>(null);
+  const [groupActionLoading, setGroupActionLoading] = useState(false);
+  const [pendingFieldErrors, setPendingFieldErrors] = useState<
+    { key: string; field: string; message: string }[]
+  >([]);
+  const extraFormsRef = useRef<Record<string, FormInstance>>({});
+  const batchActive =
+    batchAllowed && batchEnabled && extras.length > 0 && !isUpdatingPayment;
 
   // Form instance
   const [form] = Form.useForm();
@@ -184,7 +215,21 @@ export default function EventRegistrationModal({
           { title: "Pagamento", description: "" },
         ];
 
-  // Função original simplificada (manter compatibilidade)
+  const redirectToCheckout = (redirectUrl: string) => {
+    const result = redirectToPayment(redirectUrl);
+    // Limpar loading após delay para permitir redirecionamento
+    setTimeout(() => {
+      setLoading(false);
+      setGroupActionLoading(false);
+    }, 2000);
+
+    if (result.fallbackNeeded) {
+      setManualCheckoutUrl(redirectUrl);
+      message.warning(
+        "Se a página de pagamento não abrir, clique no botão abaixo ou abra no navegador externo.",
+      );
+    }
+  };
 
   const handleCheckReceipt = () => {
     if (!existingRegistration) return;
@@ -309,6 +354,550 @@ export default function EventRegistrationModal({
         message.error("Por favor, verifique os dados obrigatórios");
       }
     }
+  };
+
+
+  // ---------------------------------------------------------------------
+  // Compra em grupo
+  // ---------------------------------------------------------------------
+  const newExtra = (): BatchExtra => ({
+    key: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    values: {},
+    wantsShirt: false,
+    shirtSize: null,
+  });
+
+  const extraHasData = (key: string) => {
+    const v = extraFormsRef.current[key]?.getFieldsValue(true) as
+      | Record<string, unknown>
+      | undefined;
+    return !!v && Object.values(v).some((x) => !!x && String(x).trim() !== "");
+  };
+
+  const confirmIfFilled = (removed: BatchExtra[], onOk: () => void) => {
+    if (removed.some((e) => extraHasData(e.key))) {
+      Modal.confirm({
+        title: "Remover os dados já preenchidos?",
+        content:
+          removed.length > 1
+            ? "As últimas pessoas já têm dados digitados e eles serão apagados."
+            : "Esta pessoa já tem dados digitados e eles serão apagados.",
+        okText: "Remover",
+        cancelText: "Manter",
+        onOk,
+      });
+    } else {
+      onOk();
+    }
+  };
+
+  const clearBatchFeedback = () => {
+    setErrorKeys([]);
+    setBatchErrorLines([]);
+    setShirtErrors({});
+    setPendingFieldErrors([]);
+  };
+
+  const handleBatchEnabledChange = (enabled: boolean) => {
+    clearBatchFeedback();
+    if (enabled) {
+      const first = newExtra();
+      setExtras([first]);
+      setOpenKey(first.key);
+      setBatchEnabled(true);
+    } else {
+      confirmIfFilled(extras, () => {
+        setBatchEnabled(false);
+        setExtras([]);
+        setOpenKey(null);
+        setRetryOrderId(null);
+      });
+    }
+  };
+
+  const handleBatchCountChange = (count: number) => {
+    const target = Math.min(MAX_BATCH_SIZE, Math.max(2, count));
+    const wanted = target - 1;
+    if (wanted === extras.length) return;
+    if (wanted > extras.length) {
+      const added = Array.from({ length: wanted - extras.length }, newExtra);
+      setExtras((prev) => [...prev, ...added]);
+      setOpenKey(added[0].key);
+    } else {
+      confirmIfFilled(extras.slice(wanted), () => {
+        setExtras((prev) => prev.slice(0, wanted));
+        setOpenKey(null);
+      });
+    }
+  };
+
+  const handleRemoveExtra = (key: string) => {
+    const target = extras.find((e) => e.key === key);
+    if (!target) return;
+    confirmIfFilled([target], () => {
+      setExtras((prev) => prev.filter((e) => e.key !== key));
+      setOpenKey(null);
+    });
+  };
+
+  const handleRegisterExtraForm = (key: string, f: FormInstance | null) => {
+    if (f) extraFormsRef.current[key] = f;
+    else delete extraFormsRef.current[key];
+  };
+
+  const personLabel = (key: string, mainName?: string) => {
+    if (key === "main") return `Pessoa 1 (${mainName || "responsável"})`;
+    const i = extras.findIndex((e) => e.key === key);
+    const name = String(
+      extraFormsRef.current[key]?.getFieldValue("name") ??
+        extras[i]?.values.name ??
+        "",
+    ).trim();
+    return `Pessoa ${i + 2}${name ? ` (${name})` : ""}`;
+  };
+
+  // Valida o formulário principal + o de cada pessoa adicional. Serve também ao
+  // evento sem lote (extras vazio), no lugar do submit "BOTH".
+  const handleContinue = async () => {
+    clearBatchFeedback();
+    const schema = isFreeEvent ? freeRegistrationSchema : registrationSchema;
+    const failedKeys: string[] = [];
+    const lines: { key: string; text: string }[] = [];
+
+    let mainValues:
+      | (RegistrationFormData & { dynamicFormData?: Record<string, unknown> })
+      | null = null;
+    try {
+      mainValues = await form.validateFields();
+    } catch {
+      failedKeys.push("main");
+    }
+
+    const collected: BatchExtra[] = [];
+    if (batchActive) {
+      for (const ex of extras) {
+        const f = extraFormsRef.current[ex.key];
+        try {
+          const values = (await f.validateFields()) as Record<string, unknown>;
+          schema.parse({
+            name: values.name,
+            email: values.email,
+            cpf: values.cpf,
+            phone: values.phone,
+          });
+          collected.push({ ...ex, values });
+        } catch {
+          failedKeys.push(ex.key);
+        }
+      }
+
+      // CPF repetido entre as pessoas da mesma compra
+      const seen = new Map<string, string>();
+      const entries: [string, FormInstance][] = [
+        ["main", form],
+        ...extras.map((e) => [e.key, extraFormsRef.current[e.key]] as [string, FormInstance]),
+      ];
+      for (const [key, f] of entries) {
+        const digits = String(f?.getFieldValue("cpf") ?? "").replace(/\D/g, "");
+        if (digits.length !== 11) continue;
+        if (seen.has(digits)) {
+          f.setFields([
+            {
+              name: "cpf",
+              errors: [
+                `Este CPF já foi informado para ${personLabel(seen.get(digits)!)}`,
+              ],
+            },
+          ]);
+          if (!failedKeys.includes(key)) failedKeys.push(key);
+        } else {
+          seen.set(digits, key);
+        }
+      }
+    }
+
+    if (failedKeys.length > 0 || !mainValues) {
+      for (const key of failedKeys) {
+        lines.push({
+          key,
+          text: `${personLabel(key, String(form.getFieldValue("name") ?? ""))}: confira os campos em vermelho`,
+        });
+      }
+      setErrorKeys(failedKeys);
+      setBatchErrorLines(batchActive ? lines : []);
+      const firstExtra = failedKeys.find((k) => k !== "main");
+      if (failedKeys.includes("main")) {
+        document
+          .getElementById("registration-top")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (firstExtra) {
+        setOpenKey(firstExtra);
+      }
+      message.error("Por favor, verifique os dados informados");
+      return;
+    }
+
+    try {
+      const fixed: RegistrationFormData = {
+        name: mainValues.name,
+        email: mainValues.email,
+        cpf: mainValues.cpf,
+        phone: mainValues.phone,
+      };
+      setFormData(schema.parse(fixed) as RegistrationFormData);
+      setDynamicFormData(mainValues.dynamicFormData ?? null);
+      if (batchActive) setExtras(collected);
+      handleNextStep();
+    } catch {
+      message.error("Por favor, verifique os dados informados");
+    }
+  };
+
+  const batchPeople = (): BatchOrderPerson[] => [
+    {
+      key: "main",
+      name: formData?.name ?? "",
+      isResponsible: true,
+      wantsShirt,
+      shirtSize,
+      error: shirtErrors.main,
+    },
+    ...extras.map((e) => ({
+      key: e.key,
+      name: String(e.values.name ?? ""),
+      isResponsible: false,
+      wantsShirt: e.wantsShirt,
+      shirtSize: e.shirtSize,
+      error: shirtErrors[e.key],
+    })),
+  ];
+
+  const handleBatchShirtChange = (
+    key: string,
+    wants: boolean,
+    size: string | null,
+  ) => {
+    setShirtErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    if (key === "main") {
+      setWantsShirt(wants);
+      setShirtSize(wants ? size : null);
+    } else {
+      setExtras((prev) =>
+        prev.map((e) =>
+          e.key === key
+            ? { ...e, wantsShirt: wants, shirtSize: wants ? size : null }
+            : e,
+        ),
+      );
+    }
+  };
+
+  const participantPayload = (
+    fixed: { name?: string; email?: string; cpf?: string; phone?: string },
+    dynamic: Record<string, unknown> | null | undefined,
+  ) => ({
+    name: fixed.name,
+    email: fixed.email,
+    cpf: fixed.cpf,
+    phone: fixed.phone,
+    ...(showDynamic && dynamic ? { dynamicFormData: dynamic } : {}),
+  });
+
+  // Erros por participante devolvidos pelo servidor ({ index, field, message }).
+  // 0 = responsável; 1.. = extras. Camisa fica na etapa de pagamento; o resto
+  // volta para a etapa de dados e marca o campo exato no cartão certo.
+  const applyServerErrors = (
+    errors: { index: number; field: string; message: string }[],
+  ) => {
+    const keyOf = (index: number) =>
+      index === 0 ? "main" : (extras[index - 1]?.key ?? "main");
+    const shirt: Record<string, string> = {};
+    const fieldErrors: { key: string; field: string; message: string }[] = [];
+    const lines: { key: string; text: string }[] = [];
+    const keys = new Set<string>();
+
+    for (const err of errors) {
+      const key = keyOf(err.index);
+      if (err.field === "shirtSize" || err.field === "wantsShirt") {
+        shirt[key] = err.message;
+        continue;
+      }
+      fieldErrors.push({ key, field: err.field, message: err.message });
+      keys.add(key);
+      lines.push({
+        key,
+        text: `${personLabel(key, formData?.name)}: ${err.message}`,
+      });
+    }
+
+    setShirtErrors(shirt);
+    if (fieldErrors.length === 0) return;
+
+    setErrorKeys([...keys]);
+    setBatchErrorLines(lines);
+    setPendingFieldErrors(fieldErrors);
+    const firstExtra = [...keys].find((k) => k !== "main");
+    setOpenKey(keys.has("main") ? null : (firstExtra ?? null));
+    setCurrentStep(0);
+  };
+
+  // Aplica os erros do servidor depois que a etapa de dados remontou.
+  useEffect(() => {
+    if (currentStep !== 0 || pendingFieldErrors.length === 0) return;
+    const t = setTimeout(() => {
+      for (const err of pendingFieldErrors) {
+        const f = err.key === "main" ? form : extraFormsRef.current[err.key];
+        if (!f) continue;
+        const name = err.field.startsWith("dynamicFormData.")
+          ? ["dynamicFormData", err.field.slice("dynamicFormData.".length)]
+          : err.field;
+        f.setFields([{ name, errors: [err.message] }]);
+      }
+      setPendingFieldErrors([]);
+      document
+        .getElementById("batch-errors")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [currentStep, pendingFieldErrors, form]);
+
+  const readJson = async (response: Response) => {
+    try {
+      return await response.json();
+    } catch {
+      return {};
+    }
+  };
+
+  const handleBatchPaidSubmit = async () => {
+    if (!formData) {
+      message.error("Dados incompletos");
+      return;
+    }
+
+    const people = batchPeople();
+    if (shirtConfig) {
+      const missing: Record<string, string> = {};
+      for (const p of people) {
+        if (p.wantsShirt && !p.shirtSize) {
+          missing[p.key] = "Escolha o tamanho da camisa";
+        }
+      }
+      if (Object.keys(missing).length > 0) {
+        setShirtErrors(missing);
+        message.warning("Escolha o tamanho da camisa de cada pessoa");
+        return;
+      }
+    }
+    setShirtErrors({});
+
+    setLoading(true);
+    let redirectAttempted = false;
+    setManualCheckoutUrl(null);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      // Pedido já criado (gateway falhou antes): só gera um novo link.
+      const response = retryOrderId
+        ? await fetch("/api/payments/update-batch-preference", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: retryOrderId }),
+            signal: controller.signal,
+          })
+        : await fetch("/api/payments/create-batch-preference", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              eventId: event.id,
+              participants: [
+                {
+                  ...participantPayload(formData, dynamicFormData),
+                  ...(shirtConfig
+                    ? { wantsShirt, shirtSize: wantsShirt ? shirtSize : null }
+                    : {}),
+                },
+                ...extras.map((e) => ({
+                  ...participantPayload(
+                    e.values as { name?: string; email?: string; cpf?: string; phone?: string },
+                    e.values.dynamicFormData as Record<string, unknown> | undefined,
+                  ),
+                  ...(shirtConfig
+                    ? {
+                        wantsShirt: e.wantsShirt,
+                        shirtSize: e.wantsShirt ? e.shirtSize : null,
+                      }
+                    : {}),
+                })),
+              ],
+            }),
+            signal: controller.signal,
+          });
+
+      clearTimeout(timeoutId);
+      const body = await readJson(response);
+
+      if (!response.ok) {
+        if (Array.isArray(body.errors) && body.errors.length > 0) {
+          applyServerErrors(body.errors);
+          message.error(
+            body.error ?? "Corrija os dados destacados para continuar",
+          );
+          return;
+        }
+        if (response.status === 502 && body.data?.orderId) {
+          setRetryOrderId(body.data.orderId);
+          message.error(
+            "Sua compra foi registrada, mas o pagamento não abriu. Toque em \"Ir para o pagamento\" para tentar de novo.",
+          );
+          return;
+        }
+        throw new Error(body.error || "Erro ao processar pagamento");
+      }
+
+      const checkoutUrl: string | undefined = body.data?.checkoutUrl;
+      if (checkoutUrl) {
+        redirectAttempted = true;
+        redirectToCheckout(checkoutUrl);
+      } else {
+        message.error("Erro: Link de pagamento não foi gerado");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        message.error("Conexão lenta. Tente novamente.");
+      } else {
+        message.error(
+          error instanceof Error ? error.message : "Erro ao processar inscrição",
+        );
+      }
+    } finally {
+      if (!redirectAttempted) setLoading(false);
+    }
+  };
+
+  const handleBatchFreeSubmit = async () => {
+    if (!formData) {
+      message.error("Dados incompletos");
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch("/api/registrations/create-free-batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: event.id,
+          participants: [
+            participantPayload(formData, dynamicFormData),
+            ...extras.map((e) =>
+              participantPayload(
+                e.values as { name?: string; email?: string; cpf?: string; phone?: string },
+                e.values.dynamicFormData as Record<string, unknown> | undefined,
+              ),
+            ),
+          ],
+        }),
+      });
+      const body = await readJson(response);
+
+      if (!response.ok) {
+        if (Array.isArray(body.errors) && body.errors.length > 0) {
+          applyServerErrors(body.errors);
+          message.error(
+            body.error ?? "Corrija os dados destacados para continuar",
+          );
+          return;
+        }
+        throw new Error(body.error || "Erro ao processar inscrição");
+      }
+
+      setGroupProof({
+        eventTitle: body.data?.eventTitle ?? event.name,
+        status: "CONFIRMED",
+        totalValue: null,
+        participants: body.data?.registrations ?? [],
+      });
+      setFreeRegistrationId(body.data?.registrations?.[0]?.id ?? "group");
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "Erro ao processar inscrição",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Pedido pendente em grupo: continuar o pagamento do grupo todo.
+  const handleContinueOrder = async () => {
+    const orderId = existingRegistration?.order?.id;
+    if (!orderId) return;
+    setGroupActionLoading(true);
+    setManualCheckoutUrl(null);
+    let redirected = false;
+    try {
+      const response = await fetch("/api/payments/update-batch-preference", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
+      const body = await readJson(response);
+      if (!response.ok || !body.data?.checkoutUrl) {
+        throw new Error(body.error || "Não foi possível abrir o pagamento");
+      }
+      redirected = true;
+      redirectToCheckout(body.data.checkoutUrl);
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "Erro ao abrir o pagamento",
+      );
+    } finally {
+      if (!redirected) setGroupActionLoading(false);
+    }
+  };
+
+  // Sair do grupo e seguir sozinho: o servidor recalcula o pedido para quem
+  // fica; depois a pessoa continua pelo fluxo individual de "continuar pagamento".
+  const handleLeaveOrder = () => {
+    if (!existingRegistration) return;
+    const registration = existingRegistration;
+    Modal.confirm({
+      title: "Sair do grupo?",
+      content:
+        "Você deixa de fazer parte desta compra e passa a pagar só a sua inscrição. O valor do grupo é recalculado para as outras pessoas.",
+      okText: "Sair e pagar sozinho",
+      cancelText: "Voltar",
+      onOk: async () => {
+        setGroupActionLoading(true);
+        try {
+          const response = await fetch(
+            `/api/registrations/${registration.id}/leave-order`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cpf: registration.cpf.replace(/\D/g, "") }),
+            },
+          );
+          const body = await readJson(response);
+          if (!response.ok) {
+            throw new Error(body.error || "Não foi possível sair do grupo");
+          }
+          message.success("Pronto, você saiu do grupo. Agora é só pagar a sua inscrição.");
+          handleContinuePayment();
+        } catch (error) {
+          message.error(
+            error instanceof Error ? error.message : "Erro ao sair do grupo",
+          );
+        } finally {
+          setGroupActionLoading(false);
+        }
+      },
+    });
   };
 
   // Submit final para eventos gratuitos
@@ -494,8 +1083,58 @@ export default function EventRegistrationModal({
     setIsUpdatingPayment(false);
     setExistingRegistrationId(null);
 
+    // Reset da compra em grupo
+    setBatchEnabled(false);
+    setExtras([]);
+    setOpenKey(null);
+    clearBatchFeedback();
+    setRetryOrderId(null);
+    setGroupProof(null);
+    setManualCheckoutUrl(null);
+    extraFormsRef.current = {};
+
     onClose();
   };
+
+  // Fallback manual para iOS/Instagram: exibe botão se o redirect falhar
+  const manualFallbackBlock = (
+    <>
+      {manualCheckoutUrl && (
+        <div
+          ref={fallbackRef}
+          className="mt-6 p-4 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-lg text-center shadow-lg animate-fade-in"
+        >
+          <p className="mb-3 text-white font-bold text-base drop-shadow">
+            ⚠️ Não foi possível abrir o pagamento automaticamente.
+            <br />
+            Toque no botão abaixo para abrir manualmente.
+            <br />
+            Se não funcionar, copie o link e abra no navegador externo
+            (Safari).
+          </p>
+          <div className="bg-[#015C91] hover:bg-[#2C82B5] rounded-xl px-8 py-4 shadow-2xl border-4 border-white ">
+            <a
+              href={manualCheckoutUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-white rounded-xl font-extrabold text-xl  "
+              style={{
+                minWidth: 240,
+                letterSpacing: 1,
+                textDecoration: "none",
+                color: "white",
+              }}
+            >
+              🚀 Abrir Pagamento Manualmente
+            </a>
+          </div>
+          <div className="mt-3 text-xs break-all text-white/80 select-all">
+            {manualCheckoutUrl}
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -523,10 +1162,11 @@ export default function EventRegistrationModal({
         footer={null}
         width={800}
         destroyOnHidden
+        maskClosable={!batchEnabled}
       >
         {/* Etapa 0: Dados pessoais OU Método de pagamento (se updating) */}
         {currentStep === 0 && !isUpdatingPayment && (
-          <div>
+          <div id="registration-top">
             <EventSummary event={event} />
 
             {/* Formulário fixo (sempre obrigatório) + dinâmico quando aplicável */}
@@ -537,7 +1177,25 @@ export default function EventRegistrationModal({
                     registration={existingRegistration}
                     onCheckReceipt={handleCheckReceipt}
                     onContinuePayment={handleContinuePayment}
+                    onContinueOrder={handleContinueOrder}
+                    onLeaveOrder={handleLeaveOrder}
+                    groupLoading={groupActionLoading}
                   />
+                )}
+                {showExistingOptions && manualFallbackBlock}
+
+                {batchAllowed && batchEnabled && (
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-blue-800">
+                    <span className="px-2 py-1 bg-blue-100 rounded">
+                      Pessoa 1
+                    </span>
+                    Responsável pela compra
+                    {errorKeys.includes("main") && (
+                      <span className="text-xs px-2 py-1 rounded bg-red-100 text-red-700">
+                        Corrigir
+                      </span>
+                    )}
+                  </div>
                 )}
 
                 <RegistrationForm
@@ -552,7 +1210,7 @@ export default function EventRegistrationModal({
                   onSubmit={handleFormSubmit}
                   onCancel={showDynamic ? undefined! : handleCancel}
                   onCpfChange={handleCpfChange}
-                  hideButtons={showDynamic}
+                  hideButtons={showDynamic || batchAllowed}
                   submitLabel={isFreeEvent ? "Continuar" : undefined}
                 />
 
@@ -565,14 +1223,78 @@ export default function EventRegistrationModal({
                       loading={loading}
                       hideButtons
                     />
+                  </div>
+                )}
+
+                {batchAllowed && !showExistingOptions && (
+                  <BatchParticipantsSection
+                    enabled={batchEnabled}
+                    onEnabledChange={handleBatchEnabledChange}
+                    count={extras.length + 1}
+                    onCountChange={handleBatchCountChange}
+                    extras={extras}
+                    openKey={openKey}
+                    onOpenKeyChange={setOpenKey}
+                    errorKeys={errorKeys}
+                    isFree={isFreeEvent}
+                    emailRequired={emailRequired}
+                    phoneRequired={phoneRequired}
+                    dynamicFields={dynamicFields}
+                    showDynamic={showDynamic}
+                    mainForm={form}
+                    onRegisterForm={handleRegisterExtraForm}
+                    onRemoveExtra={handleRemoveExtra}
+                  />
+                )}
+
+                {batchErrorLines.length > 0 && (
+                  <div
+                    id="batch-errors"
+                    role="alert"
+                    className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
+                  >
+                    <p className="flex items-center gap-2 font-medium text-red-800 mb-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Corrija os dados destacados para continuar
+                    </p>
+                    <ul className="space-y-1">
+                      {batchErrorLines.map((line, i) => (
+                        <li key={i}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (line.key === "main") {
+                                document
+                                  .getElementById("registration-top")
+                                  ?.scrollIntoView({ behavior: "smooth" });
+                              } else {
+                                setOpenKey(line.key);
+                              }
+                            }}
+                            className="text-sm text-red-700 underline text-left"
+                          >
+                            {line.text}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {((showDynamic && dynamicFields.length > 0) || batchAllowed) && (
+                  <div>
                     <div className="mt-6 pt-4 border-t flex flex-col sm:flex-row gap-3">
                       <button
                         type="button"
-                        onClick={handleBothFormsSubmit}
+                        onClick={batchAllowed ? handleContinue : handleBothFormsSubmit}
                         disabled={loading || showExistingOptions}
                         className="flex-1 sm:order-2 px-4 py-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 font-medium"
                       >
-                        {loading ? "Processando..." : "Continuar"}
+                        {loading
+                          ? "Processando..."
+                          : batchActive
+                            ? `Continuar com ${extras.length + 1} pessoas`
+                            : "Continuar"}
                       </button>
                       <button
                         type="button"
@@ -590,7 +1312,7 @@ export default function EventRegistrationModal({
         )}
 
         {/* Etapa 1 (gratuito): Confirmação e submit */}
-        {currentStep === 1 && isFreeEvent && !isUpdatingPayment && (
+        {currentStep === 1 && isFreeEvent && !isUpdatingPayment && !batchActive && (
           <div>
             <div className="mb-6">
               <h3 className="text-lg font-medium mb-4">Confirmar Inscrição</h3>
@@ -665,8 +1387,121 @@ export default function EventRegistrationModal({
         )}
 
         {/* Etapa 0 (updating) ou 1 (pago): Seleção de método de pagamento */}
+        {/* Compra em grupo (gratuita): conferência das pessoas */}
+        {currentStep === 1 && batchActive && isFreeEvent && formData && (
+          <div data-testid="batch-free-confirm">
+            <h3 className="text-lg font-medium mb-1">
+              Confirmar {extras.length + 1} inscrições
+            </h3>
+            <p className="text-gray-600 mb-4 text-sm">
+              Confira as pessoas. Todas serão inscritas de uma vez.
+            </p>
+            <ul className="space-y-2 mb-4">
+              {[
+                { key: "main", name: formData.name, cpf: formData.cpf },
+                ...extras.map((e) => ({
+                  key: e.key,
+                  name: String(e.values.name ?? ""),
+                  cpf: String(e.values.cpf ?? ""),
+                })),
+              ].map((p, i) => (
+                <li key={p.key} className="bg-gray-50 p-3 rounded-lg">
+                  <p className="text-xs text-gray-500">
+                    Pessoa {i + 1}
+                    {i === 0 && " · Responsável pela compra"}
+                  </p>
+                  <p className="font-medium">{p.name}</p>
+                  <p className="text-sm text-gray-600">CPF {p.cpf}</p>
+                </li>
+              ))}
+            </ul>
+            <div className="bg-green-50 border border-green-200 p-3 rounded-lg mb-4">
+              <p className="text-green-800 font-medium text-sm">
+                Inscrições gratuitas — nenhum pagamento necessário.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row justify-between gap-3">
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                disabled={loading}
+                className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 w-full sm:w-auto"
+                style={{ minHeight: "48px" }}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchFreeSubmit}
+                disabled={loading}
+                className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                style={{ minHeight: "56px" }}
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <CheckCircle className="h-5 w-5" />
+                  {loading
+                    ? "Processando..."
+                    : `Finalizar ${extras.length + 1} inscrições`}
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Compra em grupo (paga): camisa por pessoa + total */}
+        {currentStep === 1 && batchActive && !isFreeEvent && formData && (
+          <div>
+            <BatchOrderSummary
+              people={batchPeople()}
+              shirtConfig={shirtConfig}
+              basePrice={event.price}
+              batchName={event.activeBatch?.name}
+              formatCurrency={formatCurrency}
+              onShirtChange={handleBatchShirtChange}
+            />
+            <div className="sticky bottom-0 bg-white pt-3 pb-1 flex flex-col sm:flex-row justify-between gap-3">
+              <button
+                type="button"
+                onClick={handlePreviousStep}
+                disabled={loading}
+                style={{ minHeight: "48px" }}
+                className="px-4 py-3 border border-gray-300 rounded hover:bg-gray-50 w-full sm:w-auto"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchPaidSubmit}
+                disabled={loading}
+                style={{
+                  minHeight: "56px",
+                  WebkitTapHighlightColor: "rgba(0,0,0,0.1)",
+                }}
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  {loading
+                    ? "Processando..."
+                    : `Ir para o pagamento · ${formatCurrency(
+                        batchTotal(
+                          batchPeople(),
+                          event.price,
+                          shirtConfig ? shirtConfig.priceWithShirt : null,
+                        ),
+                      )}`}
+                </div>
+              </button>
+            </div>
+            {manualFallbackBlock}
+          </div>
+        )}
+
         {((currentStep === 0 && isUpdatingPayment) ||
-          (currentStep === 1 && !isUpdatingPayment && !isFreeEvent)) &&
+          (currentStep === 1 &&
+            !isUpdatingPayment &&
+            !isFreeEvent &&
+            !batchActive)) &&
           formData && (
             <div>
               {isUpdatingPayment && (
@@ -841,44 +1676,17 @@ export default function EventRegistrationModal({
                 </button>
               </div>
 
-              {/* Fallback manual para iOS/Instagram: exibe botão se redirect falhar */}
-              {manualCheckoutUrl && (
-                <div
-                  ref={fallbackRef}
-                  className="mt-6 p-4 bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 rounded-lg text-center shadow-lg animate-fade-in"
-                >
-                  <p className="mb-3 text-white font-bold text-base drop-shadow">
-                    ⚠️ Não foi possível abrir o pagamento automaticamente.
-                    <br />
-                    Toque no botão abaixo para abrir manualmente.
-                    <br />
-                    Se não funcionar, copie o link e abra no navegador externo
-                    (Safari).
-                  </p>
-                  <div className="bg-[#015C91] hover:bg-[#2C82B5] rounded-xl px-8 py-4 shadow-2xl border-4 border-white ">
-                    <a
-                      href={manualCheckoutUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block text-white rounded-xl font-extrabold text-xl  "
-                      style={{
-                        minWidth: 240,
-                        letterSpacing: 1,
-                        textDecoration: "none",
-                        color: "white",
-                      }}
-                    >
-                      🚀 Abrir Pagamento Manualmente
-                    </a>
-                  </div>
-                  <div className="mt-3 text-xs break-all text-white/80 select-all">
-                    {manualCheckoutUrl}
-                  </div>
-                </div>
-              )}
+              {manualFallbackBlock}
             </div>
           )}
       </Modal>
+
+      {/* Comprovante consolidado da compra em grupo */}
+      <GroupProofModal
+        open={!!groupProof}
+        onClose={handleCancel}
+        data={groupProof}
+      />
 
       {/* Modal de Comprovante */}
       <RegistrationProofModal

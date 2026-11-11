@@ -65,10 +65,10 @@ Matriz completa na seção 20 do RFC (unitários, integração, webhook, concorr
 - [x] Q6 respondida (incluir `leave-order`, ADR-003)
 - [x] Schema (`Order` conforme ADR-001) + `db push` (só banco local)
 - [x] Backend (create-batch-preference, create-free-batch, webhook, continuar pagamento, leave-order)
-- [ ] Frontend (extensão inline do modal, comprovante consolidado, alerta de grupo)
+- [x] Frontend (extensão inline do modal, comprovante consolidado, alerta de grupo, toggle e indicação no admin)
 - [x] Compatibilidade `order_nsu` legado verificada (webhook individual testado; ramo legado intocado)
-- [~] Testes de backend feitos (ver abaixo); E2E mobile e `../testes.md` dependem do frontend
-- [ ] Documentação atualizada (`docs/FLUXO_INSCRICAO.md`, RFC marcado como implementado)
+- [~] Testes de backend e de frontend (desktop) feitos; E2E mobile real e `../testes.md` pendentes
+- [x] Documentação atualizada (`docs/FLUXO_INSCRICAO.md`, `04_COMPONENT_LIBRARY.md`, RFC marcado como implementado)
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
@@ -128,9 +128,17 @@ Todas retornam `{ success, data | error, errors? }`. Erros por participante: `er
 - Gratuito em lote: 3 `CONFIRMED` (`FREE`, sem `orderId`), já inscrito (409), vagas (409), tipo de evento errado (400).
 - `npx tsc --noEmit`, `npm run lint` (só warnings preexistentes) e `npm run build` limpos.
 
+### Frontend (Fase 7) — 2026-11-11
+
+Extensão inline do `EventRegistrationModal` (checkbox, quantidade, cartões recolhíveis, camisa por pessoa, total, erros por cartão/campo), `BatchParticipantsSection`, `BatchOrderSummary`, `GroupProofModal` (novos, em `components/registration`), Opção C no `ExistingRegistrationAlert`, retorno do checkout e `AutoShowProofModal` para `ord_`, toggle `allowBatchRegistration` no `EventModal`, tag de grupo na `RegistrationTable` (`GET /api/registrations` passou a incluir `order`). Descrição de UX em `docs/FLUXO_INSCRICAO.md`.
+
+**Testes (servidor local, gateway simulado; dados removidos)**: lote pago de 3 com camisa (total R$ 330, payload ao gateway correto, 3 inscrições no mesmo pedido); CPF repetido no lote (erro no cartão certo); CPF já inscrito vindo do servidor (409 marcado no cartão e campo certos); voltar da etapa de pagamento preserva dados e camisa; continuar pagamento do grupo; sair do grupo (pedido recalculado para R$ 230) e pagar sozinho; retorno do checkout com lista do grupo e comprovante consolidado → individual; lote gratuito de 2; fluxo individual gratuito sem regressão; API do admin devolve o pedido. tsc/lint/build limpos.
+
+**Desvios do RFC**: a Opção C usa os mesmos dados do `search-by-cpf` (sem tela nova); o comprovante consolidado lista as pessoas e abre o comprovante individual de cada uma (não há PDF/QR único do grupo); cartões ficam montados (ocultos) em vez de desmontados, para não perder dados.
+
 ### Pendências
 
-- **Frontend (Fase 7)**: checkbox/quantidade/accordion no `EventRegistrationModal`, camisa por participante, total, alerta de grupo (`ExistingRegistrationAlert`), comprovante por participante, toggle `allowBatchRegistration` no `EventModal`.
+- Verificação visual em viewport mobile real (375px) e dentro do navegador do Instagram/WhatsApp: a janela do navegador de automação não reduziu o viewport, então só foi testado em desktop; cobrir no E2E mobile final. Tag de grupo e toggle do admin não foram vistos no navegador (só a API e o tsc).
 - Verificar em ambiente real (sandbox InfinitePay) se `amount` do webhook é mesmo o total enviado no link (base da salvaguarda 9.7); a suposição segue o comentário do webhook individual.
 - Concorrência lote × individual na última vaga (individual sem lock) e job de expiração de `PENDING` antigos (RFC seção 17): fora desta entrega.
 - E2E mobile, vídeo de evidência e `../testes.md` após o frontend; RFC só será marcado como implementado depois dele.

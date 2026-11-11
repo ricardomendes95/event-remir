@@ -47,6 +47,7 @@ interface RegistrationFormProps {
   isFree?: boolean;
   emailRequired?: boolean;
   phoneRequired?: boolean;
+  namePlaceholder?: string;
   onSubmit: (values: RegistrationFormData) => Promise<void>;
   onCancel: () => void;
   onCpfChange: (cpf: string) => void;
@@ -63,6 +64,7 @@ export function RegistrationForm({
   isFree = false,
   emailRequired,
   phoneRequired,
+  namePlaceholder = "Digite seu nome completo",
   onSubmit,
   onCancel,
   onCpfChange,
@@ -197,7 +199,7 @@ export function RegistrationForm({
             { min: 2, message: "Nome deve ter pelo menos 2 caracteres" },
           ]}
         >
-          <Input placeholder="Digite seu nome completo" size="large" />
+          <Input placeholder={namePlaceholder} size="large" />
         </Form.Item>
 
         <Form.Item

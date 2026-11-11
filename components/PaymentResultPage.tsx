@@ -19,11 +19,19 @@ interface RegistrationData {
   status: string;
 }
 
+interface OrderData {
+  id: string;
+  status: string;
+  totalValue: number;
+  participants: { id: string; name: string; status: string }[];
+}
+
 export default function PaymentResultPage({ type }: PaymentResultPageProps) {
   const [loading, setLoading] = useState(true);
   const [registration, setRegistration] = useState<RegistrationData | null>(
     null
   );
+  const [order, setOrder] = useState<OrderData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
@@ -63,6 +71,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
 
         if (data.success) {
           setRegistration(data.registration);
+          setOrder(data.order ?? null);
           setError(null);
 
           // Na tela de sucesso, a confirmação vem do webhook e pode demorar
@@ -158,7 +167,9 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
         icon: <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />,
         status: "success" as const,
         title: "Pagamento Aprovado!",
-        subTitle: "Sua inscrição foi confirmada com sucesso.",
+        subTitle: order
+          ? `As ${order.participants.length} inscrições foram confirmadas com sucesso.`
+          : "Sua inscrição foi confirmada com sucesso.",
         extra: [
           <Button
             key="comprovante"
@@ -166,7 +177,7 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
             onClick={handleViewComprovante}
           >
             <FileText className="h-4 w-4 mr-2" />
-            Ver Comprovante
+            {order ? "Ver Comprovantes" : "Ver Comprovante"}
           </Button>,
           <Button key="home" onClick={handleGoHome}>
             <Home className="h-4 w-4 mr-2" />
@@ -308,7 +319,34 @@ export default function PaymentResultPage({ type }: PaymentResultPageProps) {
           extra={resultContent.extra}
         />
 
-        {registration && (
+        {order && (
+          <div className="mt-6 p-4 bg-gray-50 rounded-lg" data-testid="order-details">
+            <h4 className="font-medium text-gray-900 mb-2">
+              Compra em grupo ({order.participants.length} pessoas)
+            </h4>
+            <ul className="mb-2">
+              {order.participants.map((p) => (
+                <li key={p.id} className="text-sm">
+                  {p.name}
+                  <span className="text-gray-500">
+                    {" "}
+                    ·{" "}
+                    {p.status === "CONFIRMED"
+                      ? "Confirmada"
+                      : p.status === "PENDING"
+                        ? "Pendente"
+                        : "Cancelada"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <Paragraph className="mb-0">
+              <strong>Total:</strong> R$ {order.totalValue.toFixed(2).replace(".", ",")}
+            </Paragraph>
+          </div>
+        )}
+
+        {registration && !order && (
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h4 className="font-medium text-gray-900 mb-2">
               Detalhes da Inscrição

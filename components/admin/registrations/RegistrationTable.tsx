@@ -51,6 +51,12 @@ interface Registration {
   createdAt: string;
   updatedAt: string;
   batch?: { id: string; name: string } | null;
+  order?: {
+    id: string;
+    status: string;
+    registrations: { id: string; name: string }[];
+    _count: { registrations: number };
+  } | null;
   event: {
     id: string;
     title: string;
@@ -125,6 +131,20 @@ export default function RegistrationTable({
         <div>
           <div className="font-medium">{text}</div>
           <div className="text-sm text-gray-500">{record.email ?? "—"}</div>
+          {record.order && (
+            <Tooltip
+              title={`Compra em grupo com ${record.order._count.registrations} inscrições`}
+            >
+              <Tag color="blue" className="mt-1" data-testid="group-tag">
+                Grupo
+                {record.order.registrations[0]?.id === record.id
+                  ? " · Responsável"
+                  : record.order.registrations[0]
+                    ? ` · Resp.: ${record.order.registrations[0].name}`
+                    : ""}
+              </Tag>
+            </Tooltip>
+          )}
         </div>
       ),
     },

@@ -53,6 +53,19 @@ export async function GET(request: NextRequest) {
           where,
           include: {
             batch: { select: { id: true, name: true } },
+            // Compra em grupo: o responsável é a inscrição mais antiga do pedido
+            order: {
+              select: {
+                id: true,
+                status: true,
+                registrations: {
+                  select: { id: true, name: true },
+                  orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+                  take: 1,
+                },
+                _count: { select: { registrations: true } },
+              },
+            },
             event: {
               select: {
                 id: true,

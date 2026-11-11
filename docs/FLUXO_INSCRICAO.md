@@ -290,6 +290,46 @@ rotas para o frontend).
   `registrationId`. `search-by-cpf` devolve `orderId` e `order` (total, quantidade,
   primeiros nomes dos demais, `canLeave`) — nunca CPF/e-mail/telefone de terceiros.
 
+### Frontend do lote (`EventRegistrationModal`)
+
+Extensão inline do modal existente (sem wizard); o fluxo individual é o padrão e
+continua igual quando o checkbox fica desmarcado ou o evento não tem a flag.
+
+- **Dados**: logo após o formulário do responsável (Pessoa 1), o checkbox
+  "Inscrever mais pessoas nesta mesma compra" (só se `allowBatchRegistration`).
+  Marcado, aparece o seletor de quantidade (2 a `MAX_BATCH_SIZE`, "contando com
+  você") e um cartão recolhível por pessoa (`BatchParticipantsSection`) com nome
+  visível e status (Preenchido / Faltam dados / Corrigir). Os cartões ficam
+  montados (só ocultos) e os valores são recolhidos ao avançar, então nada se perde
+  ao voltar; reduzir a quantidade ou desmarcar com dados preenchidos pede
+  confirmação; com o grupo ativo o modal não fecha ao tocar fora. Botão "Usar
+  e-mail e telefone do responsável" em cada cartão.
+- **Validação**: cada cartão valida o próprio formulário (mesmas regras do
+  individual) + CPF repetido entre as pessoas; erros abrem o cartão e há um
+  resumo clicável. Erros do servidor (`errors[{index, field, message}]`, 422/409)
+  voltam à etapa de dados, abrem o cartão do `index` e marcam o campo exato
+  (inclusive `dynamicFormData.<id>`); erros de camisa ficam na etapa de pagamento.
+- **Pagamento (pago)**: `BatchOrderSummary` lista cada pessoa com o preço, a
+  escolha de camisa (sem/com + tamanho) e o total do pedido; botão
+  "Ir para o pagamento · R$ total". Chama `create-batch-preference` e redireciona
+  a `data.checkoutUrl` (mesmo fallback manual do individual). Se o gateway falha
+  (502 com `data.orderId`), o próximo toque chama `update-batch-preference` em
+  vez de criar outro pedido.
+- **Gratuito**: confirmação com a lista de pessoas; `create-free-batch`; abre o
+  comprovante consolidado.
+- **CPF em pedido pendente (Opção C)**: o `ExistingRegistrationAlert` mostra o
+  grupo (quantidade, primeiros nomes, total) e dois botões: "Continuar pagamento
+  do grupo" (`update-batch-preference`) e "Sair do grupo e me inscrever sozinho"
+  (confirmação → `leave-order` → segue o fluxo individual de continuar pagamento).
+- **Comprovante**: após o pagamento, `payments/success?order_nsu=ord_...` mostra
+  as pessoas e o total e leva a `?registration_id=ord_...&comprovante=true`, que
+  abre o `GroupProofModal` (consolidado); cada pessoa abre o
+  `RegistrationProofModal` individual (QR de check-in). A busca por CPF segue
+  devolvendo o comprovante individual.
+- **Admin**: toggle "Inscrição em grupo" no `EventModal`; a tabela de inscrições
+  mostra a tag "Grupo" (responsável ou "Resp.: nome") — `GET /api/registrations`
+  inclui `order`.
+
 ## Inscrição manual pelo admin
 
 Criada/editada no `RegistrationModal` (`POST /api/registrations` e

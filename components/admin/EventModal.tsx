@@ -48,6 +48,7 @@ interface Event {
   bannerUrl?: string;
   isActive: boolean;
   isFree?: boolean;
+  allowBatchRegistration?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];
   fixedFieldsConfig?: {
@@ -122,6 +123,7 @@ export default function EventModal({
         registrationStartDate: dayjs(editingEvent.registrationStartDate),
         registrationEndDate: dayjs(editingEvent.registrationEndDate),
         isFree: editingEvent.isFree ?? false,
+        allowBatchRegistration: editingEvent.allowBatchRegistration ?? false,
         formMode: editingEvent.formMode ?? "FIXED_ONLY",
         dynamicFormFields: editingEvent.dynamicFormFields ?? [],
         batches: (editingEvent.batches ?? []).map((b) => ({
@@ -143,7 +145,11 @@ export default function EventModal({
       clearErrors();
     } else if (visible && !editingEvent) {
       form.resetFields();
-      form.setFieldsValue({ isFree: false, formMode: "FIXED_ONLY" });
+      form.setFieldsValue({
+        isFree: false,
+        allowBatchRegistration: false,
+        formMode: "FIXED_ONLY",
+      });
       slugManuallyEdited.current = false;
       clearErrors();
     }
@@ -197,6 +203,7 @@ export default function EventModal({
           ? undefined
           : serializeBatches(values.batches, !!values.shirtConfig?.enabled),
         isFree: isFreeVal,
+        allowBatchRegistration: !!values.allowBatchRegistration,
         formMode: formModeVal,
         dynamicFormFields:
           formModeVal === "FIXED_ONLY"
@@ -551,6 +558,16 @@ export default function EventModal({
                 }
               }}
             />
+          </Form.Item>
+
+          {/* Inscrição em grupo */}
+          <Form.Item
+            name="allowBatchRegistration"
+            label="Inscrição em grupo"
+            valuePropName="checked"
+            extra="Permite que uma pessoa inscreva até 10 participantes em uma única compra. O fluxo individual continua disponível."
+          >
+            <Switch checkedChildren="Permitida" unCheckedChildren="Desativada" />
           </Form.Item>
 
           {/* Modo do formulário */}

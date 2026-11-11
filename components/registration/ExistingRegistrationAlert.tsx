@@ -1,5 +1,6 @@
 import { Button } from "antd";
-import { Search, Receipt, CreditCard } from "lucide-react";
+import { Search, Receipt, CreditCard, Users } from "lucide-react";
+import type { ExistingOrderContext } from "@/hooks/useCpfVerification";
 
 interface ExistingRegistration {
   id: string;
@@ -16,19 +17,34 @@ interface ExistingRegistration {
     date: string;
     location: string;
   };
+  order?: ExistingOrderContext | null;
 }
 
 interface ExistingRegistrationAlertProps {
   registration: ExistingRegistration;
   onCheckReceipt: () => void;
   onContinuePayment: () => void;
+  /** Continuar o pagamento do grupo todo (inscrição pendente em pedido em grupo). */
+  onContinueOrder?: () => void;
+  /** Sair do grupo para se inscrever sozinho (Opção C do RFC). */
+  onLeaveOrder?: () => void;
+  groupLoading?: boolean;
 }
+
+const formatBRL = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
 export function ExistingRegistrationAlert({
   registration,
   onCheckReceipt,
   onContinuePayment,
+  onContinueOrder,
+  onLeaveOrder,
+  groupLoading = false,
 }: ExistingRegistrationAlertProps) {
+  const order = registration.order ?? null;
+  const pendingInGroup =
+    !!order && order.status === "PENDING" && registration.status === "PENDING";
+
   return (
     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
       <div className="flex items-start space-x-3">
@@ -74,6 +90,52 @@ export function ExistingRegistrationAlert({
             </p>
           </div>
 
+          {order && (
+            <div
+              className="bg-white border border-yellow-300 rounded p-3 mb-4 text-sm"
+              data-testid="group-alert"
+            >
+              <p className="flex items-center gap-2 font-medium text-yellow-900">
+                <Users className="h-4 w-4" />
+                Esta inscrição faz parte de uma compra em grupo
+              </p>
+              <p className="text-yellow-800 mt-1">
+                {order.participantsCount} pessoas
+                {order.otherParticipants.length > 0 &&
+                  ` (você e ${order.otherParticipants.join(", ")})`}
+                {pendingInGroup && ` · Total do grupo ${formatBRL(order.totalValue)}`}
+              </p>
+            </div>
+          )}
+
+          {pendingInGroup ? (
+            <div className="flex flex-col gap-2">
+              <Button
+                type="primary"
+                icon={<CreditCard className="h-4 w-4" />}
+                onClick={onContinueOrder}
+                loading={groupLoading}
+                className="w-full"
+                style={{ minHeight: "48px", height: "auto", whiteSpace: "normal" }}
+              >
+                Continuar pagamento do grupo ({formatBRL(order!.totalValue)})
+              </Button>
+              {order!.canLeave && (
+                <Button
+                  onClick={onLeaveOrder}
+                  disabled={groupLoading}
+                  className="w-full"
+                  style={{ minHeight: "48px", height: "auto", whiteSpace: "normal" }}
+                >
+                  Sair do grupo e me inscrever sozinho
+                </Button>
+              )}
+              <p className="text-xs text-yellow-700">
+                Se você sair, o valor do grupo é recalculado para quem fica e
+                você segue com o pagamento só da sua inscrição.
+              </p>
+            </div>
+          ) : (
           <div className="flex flex-col sm:flex-row gap-2">
             {registration.status === "CONFIRMED" && (
               <Button
@@ -108,6 +170,7 @@ export function ExistingRegistrationAlert({
               </Button>
             )}
           </div>
+          )}
         </div>
       </div>
     </div>

@@ -156,6 +156,7 @@ export interface EventFormData {
   shirtConfig?: { enabled: boolean; priceWithShirt: number; sizes: string[] };
   batches?: BatchFormValue[];
   isFree?: boolean;
+  allowBatchRegistration?: boolean;
   formMode?: "FIXED_ONLY" | "DYNAMIC_ONLY" | "BOTH";
   dynamicFormFields?: DynamicField[];
   fixedFieldsConfig?: {

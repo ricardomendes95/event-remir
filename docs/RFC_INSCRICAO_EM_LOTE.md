@@ -1,6 +1,6 @@
 # RFC — Inscrição em Lote (múltiplos participantes, um único pagamento)
 
-**Status:** Proposto — revisão 2
+**Status:** Implementado (backend e frontend; E2E mobile pendente) — revisão 2
 **Autor da análise:** Claude Code (a pedido de Ricardo Mendes)
 **Documento de origem:** `doc/ANALISE_DE_VIABILIDADE_DA_FEATURE_DE_INSCRICAO_EM_LOTE.md`
 **Revisão 2:** incorpora decisões de produto discutidas após leitura da v1 — ver "Anexo — Registro desta revisão" ao final para o changelog completo.

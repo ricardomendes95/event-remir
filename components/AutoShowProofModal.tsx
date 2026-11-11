@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RegistrationProofModal } from "./RegistrationProofModal";
+import { GroupProofModal, type GroupProofData } from "./registration";
 import { message } from "antd";
 
 interface RegistrationData {
@@ -26,6 +27,7 @@ export function AutoShowProofModal() {
   const [modalOpen, setModalOpen] = useState(false);
   const [registrationData, setRegistrationData] =
     useState<RegistrationData | null>(null);
+  const [groupData, setGroupData] = useState<GroupProofData | null>(null);
   const [isClient, setIsClient] = useState(false);
 
   const router = useRouter();
@@ -46,6 +48,28 @@ export function AutoShowProofModal() {
 
       if ((registrationId || paymentId) && showComprovante === "true") {
         try {
+          // Compra em grupo (order_nsu "ord_<id>"): comprovante consolidado
+          if (registrationId?.startsWith("ord_")) {
+            const res = await fetch(
+              `/api/payments/status?registrationId=${encodeURIComponent(registrationId)}`
+            );
+            const body = res.ok ? await res.json() : null;
+            if (body?.success && body.order) {
+              setGroupData({
+                eventTitle: body.registration.event,
+                status: body.order.status,
+                totalValue: body.order.totalValue,
+                participants: body.order.participants,
+              });
+              if (body.order.status === "CONFIRMED") {
+                message.success(
+                  "Inscrições confirmadas! Aqui estão os comprovantes."
+                );
+              }
+            }
+            return;
+          }
+
           // Buscar dados da inscrição
           const response = await fetch(`/api/registrations/get-by-id`, {
             method: "POST",
@@ -80,6 +104,7 @@ export function AutoShowProofModal() {
   const handleCloseModal = () => {
     setModalOpen(false);
     setRegistrationData(null);
+    setGroupData(null);
 
     // Limpar query params da URL
     const url = new URL(window.location.href);
@@ -92,10 +117,17 @@ export function AutoShowProofModal() {
   };
 
   return (
-    <RegistrationProofModal
-      open={modalOpen}
-      onClose={handleCloseModal}
-      preloadedData={registrationData}
-    />
+    <>
+      <RegistrationProofModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        preloadedData={registrationData}
+      />
+      <GroupProofModal
+        open={!!groupData}
+        onClose={handleCloseModal}
+        data={groupData}
+      />
+    </>
   );
 }

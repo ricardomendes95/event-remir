@@ -10,6 +10,12 @@ Diário de trabalho, sessão a sessão, do mais recente para o mais antigo. Toda
 
 ---
 
+## 2026-11-11 — Req. 2 (inscrição em lote): frontend
+
+Extensão inline do `EventRegistrationModal` (checkbox, quantidade, cartões recolhíveis, camisa por pessoa, total), Opção C, comprovante consolidado, toggle e tag de grupo no admin. Testado em desktop no servidor local com gateway simulado; E2E em viewport mobile e no navegador do Instagram ficam para o teste final. Aguardando aprovação do Ricardo.
+
+---
+
 ## 2026-11-11 — Req. 2 (inscrição em lote): backend
 
 Schema `Order` (ADR-001) + `Registration.orderId` + `Event.allowBatchRegistration` no banco local; rotas `create-batch-preference`, `create-free-batch`, `update-batch-preference` e `leave-order`; webhook, `payments/status`, `get-by-id` e `search-by-cpf` roteando por `ord_`; lock `FOR UPDATE` na checagem de vagas (lote e quota). 61 verificações locais passaram; tsc/lint/build limpos. Desvio principal: a salvaguarda de link obsoleto compara o `amount` do webhook com o total atual (o `transaction_nsu` só existe após o pagamento). **Próximo passo:** frontend do lote (Fase 7) conforme o contrato em `melhorias/02-inscricao-em-lote.md`.

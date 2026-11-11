@@ -45,20 +45,23 @@ há identidade visual própria (páginas públicas institucionais).
 | `RegistrationForm` | Campos fixos (nome, CPF, e-mail, telefone) com obrigatoriedade dinâmica | Único lugar que define os campos fixos |
 | `DynamicFormRenderer` | Renderiza os 8 tipos de campo dinâmico + `buildRules` | Única implementação permitida de campos dinâmicos |
 | `EventSummary` | Resumo do evento dentro do fluxo de inscrição | |
-| `ExistingRegistrationAlert` | Alerta de CPF já inscrito + ações (comprovante/continuar) | Par obrigatório do `useCpfVerification` |
+| `ExistingRegistrationAlert` | Alerta de CPF já inscrito + ações (comprovante/continuar); em pedido em grupo pendente oferece continuar o grupo ou sair (Opção C) | Par obrigatório do `useCpfVerification` |
+| `BatchParticipantsSection` | Checkbox "Inscrever mais pessoas", quantidade e cartões recolhíveis (um formulário por pessoa, reaproveita `RegistrationForm`/`DynamicFormRenderer`) | Só no `EventRegistrationModal`, com `allowBatchRegistration` |
+| `BatchOrderSummary` | Etapa de pagamento do grupo: pessoas, camisa por pessoa e total | Só compra em grupo paga |
+| `GroupProofModal` | Comprovante consolidado da compra em grupo; abre o `RegistrationProofModal` de cada pessoa | Pós-compra em grupo (paga ou gratuita) |
 
 ## Domínio `admin` (`components/admin`)
 
 | Componente | Responsabilidade | Notas |
 |---|---|---|
 | `AdminHeader` | Chrome/navegação do admin | |
-| `EventModal` | CRUD de evento (form completo, banner, rich text, camisa, lotes de inscrição, form dinâmico) | |
+| `EventModal` | CRUD de evento (form completo, banner, rich text, camisa, lotes de inscrição, form dinâmico, toggle de inscrição em grupo) | |
 | `DynamicFormBuilder` | Construtor visual dos campos dinâmicos | Par do `DynamicFormRenderer` |
 | `ManualRegistrationModal` | Inscrição manual pelo admin | `paymentMethod = MANUAL` |
 | `UserManagement` / `UserModal` / `ChangePasswordModal` | Gestão de admins | Restrito a SUPER_ADMIN |
 | `RegistrationsPrintReport` | Impressão de inscrições (listas por tamanho de camisa) | |
 | `registrations/RegistrationFilters` | Filtros da listagem | |
-| `registrations/RegistrationTable` | Tabela de inscrições | Coluna Pagamento: tag do sub-método manual, responsável e indicador/tooltip de observação |
+| `registrations/RegistrationTable` | Tabela de inscrições | Coluna Pagamento: tag do sub-método manual, responsável e indicador/tooltip de observação; tag "Grupo" (responsável) sob o participante de pedido em grupo |
 | `registrations/RegistrationStats` | Cards de estatísticas | |
 | `registrations/RegistrationModal` | Detalhe/edição de inscrição | Campos condicionais: sub-método (Manual), responsável (Dinheiro), observação (500 caracteres) |
 
