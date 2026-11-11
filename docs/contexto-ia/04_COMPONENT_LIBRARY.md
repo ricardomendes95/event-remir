@@ -85,6 +85,7 @@ novas seções institucionais para manter grid e espaçamento.
 |---|---|---|
 | `LivesContent` | Corpo da página pública `/lives`: busca `/api/lives` e mostra live atual, próximas e anteriores; sem API key mostra só o embed da live atual + link do canal | Tailwind (site público). Dados vêm de `backend/services/youtubeLivesService` |
 | `LiveFacade` | Miniatura com botão "toque para assistir"; só então carrega o iframe `youtube-nocookie.com` | Usar para qualquer embed de terceiros (LGPD + 3G) |
+| `RecentVideos` | Últimos vídeos do canal em blocos; o escolhido abre grande acima da lista | Página `/lives` | Não abrir vídeo dentro do bloco pequeno |
 
 ## `ui` (`components/ui`)
 

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, Radio, Youtube } from "lucide-react";
 import { LiveFacade } from "./LiveFacade";
+import { RecentVideos } from "./RecentVideos";
 
 interface LiveVideo {
   id: string;
@@ -34,15 +35,6 @@ const formatDateTime = (iso: string | null) =>
         month: "long",
         hour: "2-digit",
         minute: "2-digit",
-      })
-    : "";
-
-const formatDate = (iso: string | null) =>
-  iso
-    ? new Date(iso).toLocaleDateString("pt-BR", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
       })
     : "";
 
@@ -192,36 +184,7 @@ export const LivesContent = () => {
         </section>
       )}
 
-      {recent.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Últimos vídeos e transmissões
-          </h2>
-          {/* Celular: blocos lado a lado com rolagem lateral; telas maiores: grade. */}
-          <ul className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-5">
-            {recent.map((video) => (
-              <li
-                key={video.id}
-                className="w-[75%] shrink-0 snap-start space-y-2 sm:w-[45%] md:w-auto"
-              >
-                <LiveFacade
-                  src={embedUrl(video.id)}
-                  title={video.title}
-                  thumbnail={video.thumbnail}
-                  label="Assistir"
-                  compact
-                />
-                <p className="line-clamp-2 text-sm font-medium text-gray-900">
-                  {video.title}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatDate(video.publishedAt)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      {recent.length > 0 && <RecentVideos videos={recent} />}
 
       <div className="text-center">
         <ChannelLink>Ver todas no canal do YouTube</ChannelLink>
