@@ -32,6 +32,8 @@ export interface Event {
     sizes: string[];
     /** Prazo (ISO) para compra posterior da camisa; vazio = sem prazo. */
     purchaseDeadline?: string | null;
+    /** Foto opcional da camisa (URL do Cloudinary). */
+    imageUrl?: string;
   };
   registrationEndDate?: string;
   /** Lote vigente; `price` e `shirtConfig` já vêm com os valores do lote. */

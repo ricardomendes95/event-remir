@@ -23,6 +23,7 @@ import {
   type BatchOrderPerson,
   type GroupProofData,
 } from "../registration";
+import { ShirtPhoto } from "@/components/registration/ShirtPhoto";
 import { RegistrationProofModal } from "../RegistrationProofModal";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 
@@ -1529,6 +1530,12 @@ export default function EventRegistrationModal({
                       ? "Você pode alterar sua escolha antes de pagar."
                       : "Escolha sua inscrição. Você vê o valor antes de pagar."}
                   </p>
+
+                  {shirtConfig.imageUrl && (
+                    <div className="mb-3">
+                      <ShirtPhoto src={shirtConfig.imageUrl} size="md" />
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-3">
                     {/* Sem camisa */}

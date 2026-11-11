@@ -17,6 +17,7 @@ há identidade visual própria (páginas públicas institucionais).
 | `AntdProvider` | ConfigProvider/tema AntD + patch React 19 | Já aplicado no layout raiz | Nunca instanciar de novo |
 | `Header` / `Footer` | Chrome das páginas públicas | Páginas públicas novas | Admin (usa `AdminHeader`) |
 | `ImageUpload` | Upload de imagem via Cloudinary com preview | Qualquer upload de imagem | Upload de outros tipos de arquivo |
+| `ShirtPhoto` | Miniatura da foto da camisa com ampliação e transformação Cloudinary (`utils/cloudinaryImage.ts`) | Etapa de camisa e compra posterior | Imagens que não sejam a da camisa |
 | `MoneyInput` | Entrada de valores monetários BRL | Todo campo de dinheiro | Números não monetários (usar InputNumber) |
 | `RichTextEditor` (+`LineHeight`) | Editor Tiptap p/ descrição de eventos | Texto rico no admin | Campos de texto simples |
 | `CountdownTimer` | Contagem regressiva de evento | Destaque de urgência em evento | — |
@@ -74,6 +75,13 @@ há identidade visual própria (páginas públicas institucionais).
 `LocationSection`, `Card`, `Container` — seções institucionais da igreja.
 Identidade visual própria (Tailwind + tokens). Usar `Container`/`Card` ao criar
 novas seções institucionais para manter grid e espaçamento.
+
+## Domínio `lives` (`components/lives`)
+
+| Componente | Responsabilidade | Notas |
+|---|---|---|
+| `LivesContent` | Corpo da página pública `/lives`: busca `/api/lives` e mostra live atual, próximas e anteriores; sem API key mostra só o embed da live atual + link do canal | Tailwind (site público). Dados vêm de `backend/services/youtubeLivesService` |
+| `LiveFacade` | Miniatura com botão "toque para assistir"; só então carrega o iframe `youtube-nocookie.com` | Usar para qualquer embed de terceiros (LGPD + 3G) |
 
 ## `ui` (`components/ui`)
 

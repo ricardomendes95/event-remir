@@ -1,5 +1,6 @@
 "use client";
 
+import { ShirtPhoto } from "@/components/registration/ShirtPhoto";
 import { INFINITEPAY_PAYMENT_HINT } from "@/backend/utils/paymentFees";
 
 export interface BatchOrderPerson {
@@ -13,7 +14,11 @@ export interface BatchOrderPerson {
 
 interface BatchOrderSummaryProps {
   people: BatchOrderPerson[];
-  shirtConfig: { priceWithShirt: number; sizes: string[] } | null;
+  shirtConfig: {
+    priceWithShirt: number;
+    sizes: string[];
+    imageUrl?: string;
+  } | null;
   basePrice: number;
   batchName?: string | null;
   formatCurrency: (value: number) => string;
@@ -46,6 +51,12 @@ export function BatchOrderSummary({
           ? "Escolha a camisa de cada pessoa. Você vê o total antes de pagar."
           : "Confira as pessoas e o total antes de pagar."}
       </p>
+
+      {shirtConfig?.imageUrl && (
+        <div className="mb-4">
+          <ShirtPhoto src={shirtConfig.imageUrl} size="md" />
+        </div>
+      )}
 
       <ul className="space-y-3 mb-4">
         {people.map((p, i) => (

@@ -43,6 +43,9 @@ priorizar, nesta ordem:
   localização.
 - **Listagem de eventos** (`/eventos`) e **página do evento** (`/eventos/[slug]`,
   com SEO: `sitemap.ts`, `robots.ts`, `StructuredData`).
+- **Transmissões ao vivo** (`/lives`): live atual, próximas e anteriores do
+  canal `@ministerioremir3524` via YouTube Data API v3 (`/api/lives`, cache em
+  memória; `YOUTUBE_API_KEY` opcional, sem ela usa embed). Sem banco.
 - **Inscrição**: modal multi-etapas (`EventRegistrationModal`) — o coração do
   produto.
 - **Comprovante**: busca por CPF (`SearchComprovante`) e modal de comprovante

@@ -1,6 +1,6 @@
 # Requisito 4 — Foto da camisa
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: 🛠 Implementado (aguardando testes manuais e aprovação)
 - **Ordem no roadmap**: 10ª
 - **Requisito original**: `../requisitos.md` (item 4)
 - **RFC escrito em**: 2026-07-24
@@ -65,13 +65,15 @@ _Nenhuma — requisito autocontido._
 ## Checklist
 
 - [x] Análise técnica completa (2026-07-24)
-- [ ] Schema Zod de `shirtConfig` atualizado
-- [ ] Upload no painel admin
-- [ ] Exibição na etapa de escolha da camisa (mobile testado)
+- [x] Schema Zod de `shirtConfig` atualizado
+- [x] Upload no painel admin
+- [x] Exibição na etapa de escolha da camisa (mobile ainda não testado em dispositivo)
 - [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+**Arquivos**: `backend/schemas/eventSchemas.ts` (`imageUrl` opcional), `types/event.ts`, `hooks/useEventValidation.ts`, `components/admin/EventModal.tsx` (campo `ImageUpload` na seção Camisa), `utils/cloudinaryImage.ts` (transformações `w_800`/`w_240`, `q_auto,f_auto`), `components/registration/ShirtPhoto.tsx` (miniatura com ampliação, `loading="lazy"`, dimensão fixa, `alt`, `onError` esconde), exibida em `EventRegistrationModal` (individual), `BatchOrderSummary` (grupo) e `ShirtPurchaseCard` (req. 5; `shirtPurchaseService` devolve `imageUrl`).
+
+**Testes**: `tsc` e `lint` sem erros novos; `build` passou numa cópia do projeto (o `.next` compartilhado colidiu com a tarefa paralela); Zod rejeita `imageUrl` inválida. Pendente: salvar evento com/sem foto e conferir a API pública no servidor local, e teste visual mobile.

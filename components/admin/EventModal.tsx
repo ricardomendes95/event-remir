@@ -62,6 +62,7 @@ interface Event {
     sizes: string[];
     /** Prazo (ISO) para compra posterior da camisa; vazio = sem prazo. */
     purchaseDeadline?: string | null;
+    imageUrl?: string;
   };
   batches?: {
     id: string;
@@ -213,6 +214,7 @@ export default function EventModal({
                 purchaseDeadline: values.shirtConfig.purchaseDeadline
                   ? dayjs(values.shirtConfig.purchaseDeadline).toISOString()
                   : null,
+                imageUrl: values.shirtConfig.imageUrl || undefined,
               }
             : undefined,
         batches: isFreeVal
@@ -771,6 +773,15 @@ export default function EventModal({
                       </div>
                     )}
                   </Form.List>
+
+                  <Form.Item
+                    name={["shirtConfig", "imageUrl"]}
+                    label="Foto da camisa (opcional)"
+                    tooltip="Aparece para o participante na escolha da camisa. Sem foto, a tela fica como antes."
+                    className="mt-4"
+                  >
+                    <ImageUpload />
+                  </Form.Item>
 
                   <Form.Item
                     name={["shirtConfig", "purchaseDeadline"]}

@@ -38,6 +38,7 @@ export interface ShirtPurchaseView {
   price: number;
   sizes: string[];
   deadline: string | null;
+  imageUrl: string | null;
   /** Existe pedido de camisa aguardando pagamento (continuar pagamento). */
   pending: { orderId: string; shirtSize: string | null } | null;
 }
@@ -74,6 +75,7 @@ export async function getShirtPurchaseView(
     price,
     sizes: shirt.sizes,
     deadline: shirt.purchaseDeadline ?? null,
+    imageUrl: shirt.imageUrl ?? null,
     pending: pendingOrder
       ? {
           orderId: pendingOrder.id,

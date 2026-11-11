@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Modal, message } from "antd";
 import { Shirt } from "lucide-react";
+import { ShirtPhoto } from "@/components/registration/ShirtPhoto";
 import { redirectToPayment } from "@/utils/paymentRedirect";
 
 export interface ShirtPurchaseOffer {
@@ -11,6 +12,7 @@ export interface ShirtPurchaseOffer {
   price: number;
   sizes: string[];
   deadline: string | null;
+  imageUrl?: string | null;
   pending: { orderId: string; shirtSize: string | null } | null;
 }
 
@@ -114,6 +116,7 @@ export function ShirtPurchaseCard({
           </p>
         </div>
       </div>
+      {offer.imageUrl && <ShirtPhoto src={offer.imageUrl} size="md" />}
       <Button
         type="primary"
         block

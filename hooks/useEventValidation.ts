@@ -159,6 +159,7 @@ export interface EventFormData {
     sizes: string[];
     /** Prazo (ISO) para compra posterior da camisa; vazio = sem prazo. */
     purchaseDeadline?: string | null;
+    imageUrl?: string;
   };
   batches?: BatchFormValue[];
   isFree?: boolean;

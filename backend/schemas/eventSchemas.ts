@@ -49,6 +49,8 @@ export const ShirtConfigSchema = z.object({
     .datetime("Prazo para compra da camisa inválido")
     .nullable()
     .optional(),
+  // Foto opcional da camisa (URL do Cloudinary devolvida pelo upload)
+  imageUrl: z.string().url("URL da foto da camisa inválida").optional(),
 });
 
 // Lote de inscrição: período, vagas (opcional), prioridade e preço próprio.
