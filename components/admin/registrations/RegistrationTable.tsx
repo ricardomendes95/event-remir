@@ -25,9 +25,14 @@ import {
   CloseCircleOutlined,
   ExclamationCircleOutlined,
   PrinterOutlined,
+  MessageOutlined,
 } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import dayjs from "dayjs";
+import {
+  MANUAL_PAYMENT_TYPE_LABELS,
+  type ManualPaymentTypeValue,
+} from "@/backend/schemas/registrationSchemas";
 
 const { Option } = Select;
 
@@ -39,6 +44,10 @@ interface Registration {
   phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
+  paymentMethod?: string;
+  manualPaymentType?: ManualPaymentTypeValue | null;
+  cashResponsible?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
   event: {
@@ -144,6 +153,53 @@ export default function RegistrationTable({
           )}
         </div>
       ),
+    },
+    {
+      title: "Pagamento",
+      key: "payment",
+      render: (_, record) => {
+        const manualLabel = record.manualPaymentType
+          ? MANUAL_PAYMENT_TYPE_LABELS[record.manualPaymentType]
+          : null;
+        const tag =
+          record.paymentMethod === "MANUAL" ? (
+            record.manualPaymentType ? (
+              <Tag color={record.manualPaymentType === "CASH" ? "gold" : "orange"}>
+                Manual · {manualLabel}
+              </Tag>
+            ) : (
+              <Tag>Manual (não informado)</Tag>
+            )
+          ) : record.paymentMethod === "FREE" ? (
+            <Tag color="green">Gratuito</Tag>
+          ) : record.paymentMethod ? (
+            <Tag color="blue">InfinitePay</Tag>
+          ) : (
+            "—"
+          );
+
+        return (
+          <div>
+            {tag}
+            {record.manualPaymentType === "CASH" && record.cashResponsible && (
+              <div className="text-sm text-gray-500">
+                Com: {record.cashResponsible}
+              </div>
+            )}
+            {record.notes && (
+              <Tooltip title={record.notes}>
+                <Tag
+                  icon={<MessageOutlined />}
+                  className="mt-1 cursor-help"
+                  aria-label="Ver observação"
+                >
+                  Observação
+                </Tag>
+              </Tooltip>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: "Status",
@@ -319,7 +375,7 @@ export default function RegistrationTable({
         loading={loading}
         pagination={pagination}
         onChange={onTableChange}
-        scroll={{ x: 800 }}
+        scroll={{ x: 1000 }}
       />
     </Card>
   );

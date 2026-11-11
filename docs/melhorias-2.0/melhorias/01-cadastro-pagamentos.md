@@ -1,6 +1,6 @@
 # Requisito 1 — Cadastro de participantes e pagamentos
 
-- **Status**: 🔍 RFC pronto (aguardando aprovação)
+- **Status**: ✅ Implementado (aguardando aprovação do Ricardo)
 - **Ordem no roadmap**: 2ª
 - **Requisito original**: `../requisitos.md` (item 1)
 - **RFC escrito em**: 2026-07-24
@@ -115,14 +115,20 @@ enum ManualPaymentType {
 - [x] Análise técnica completa (2026-07-24)
 - [x] Decisão: campos tipados vs `paymentDetails` JSON → **tipados** (D1)
 - [x] Q1/Q2 respondidas pelo Ricardo (2026-07-24: campo próprio; ADMIN+SUPPORT)
-- [ ] Alteração de schema + `db push`
-- [ ] Backend (schemas Zod, rotas com retry)
-- [ ] Frontend (form manual, tabelas, financeiro)
-- [ ] Exportações/relatórios atualizados
-- [ ] Testes (ver `../testes.md`)
-- [ ] Documentação atualizada
+- [x] Alteração de schema + `db push`
+- [x] Backend (schemas Zod, rotas com retry)
+- [x] Frontend (form manual, tabelas, financeiro)
+- [x] Exportações/relatórios atualizados
+- [x] Testes (rotas via curl no banco local; UI não testada em navegador)
+- [x] Documentação atualizada
 - [ ] Aprovação do Ricardo
 
 ## Progresso / Arquivos alterados / Testes realizados / Pendências
 
-_(preencher durante a implementação)_
+**Arquivos alterados**: `prisma/schema.prisma`, `backend/schemas/registrationSchemas.ts`, `backend/utils/validationResponse.ts` (novo), `backend/utils/registrationSerializer.ts`, `backend/types/registration.ts` (removido, sem uso) e `backend/types/index.ts`, `lib/permissions.ts` (`canViewRegistrationNotes`), `app/api/registrations/route.ts`, `app/api/registrations/[id]/route.ts`, `app/api/admin/financial/route.ts`, `app/admin/registrations/page.tsx`, `app/admin/financial/page.tsx`, `components/admin/registrations/RegistrationModal.tsx` e `RegistrationTable.tsx`, `docs/FLUXO_INSCRICAO.md`, `docs/contexto-ia/04_COMPONENT_LIBRARY.md`.
+
+**Implementação**: `db push` aplicado só no Postgres local; default de `paymentMethod` removido (create-preference, create-free, POST /api/registrations e `/api/admin/registrations/manual` já setam o campo). Zod `AdminRegistrationCreateSchema`/`AdminRegistrationUpdateSchema` (substituem o `ManualRegistrationSchema` órfão), com 422 + `errors[]`. No PUT o estado final (enviado + salvo) é validado na rota e só quando o envio toca no pagamento; trocar a origem para não-Manual limpa sub-método/responsável. `withPrismaRetry` em todas as operações Prisma de POST/GET/PUT/DELETE de `/api/registrations` e no financeiro. Serializer: CHECKIN recebe `notes`/`cashResponsible` nulos (SUPPORT e acima veem). Rotas públicas (`get-by-id`, `search-by-cpf`) usam seleção explícita de campos e não expõem os novos.
+
+**Testes realizados** (servidor local na porta 3111, banco local): POST Manual sem método → 422 com `errors[]`; POST Dinheiro com responsável e observação → 200; responsável com PIX, tipo manual com InfinitePay e observação com 501 caracteres → 422; PUT só de status em manual → 200; PUT PIX limpa responsável; PUT para InfinitePay limpa sub-método; GET como CHECKIN → `notes`/`cashResponsible` nulos; GET como SUPPORT → vê os campos e `paymentId` nulo; PUT como CHECKIN → 403; `get-by-id` público sem os campos; `/api/admin/financial` com `manualBreakdown` e `cashResponsibles`. `npx tsc --noEmit`, `npm run lint` (só avisos antigos) e `npm run build` limpos.
+
+**Pendências**: validação visual do modal em 375px e da tabela/financeiro em navegador; `app/api/admin/registrations/manual/route.ts` (sem uso na UI) continua criando Manual sem sub-método (aparece como "Manual (não informado)"); `RegistrationStats`/exportações de lista (`export-admin`, impressão) não incluem os campos novos.

@@ -18,6 +18,11 @@ import { z } from "zod";
 import { DynamicFormRenderer } from "@/components/registration/DynamicFormRenderer";
 import type { DynamicField } from "@/backend/schemas/dynamicFormSchemas";
 import type { EventFormMode } from "@/types/event";
+import {
+  MANUAL_PAYMENT_TYPE_LABELS,
+  REGISTRATION_NOTES_MAX_LENGTH,
+  type ManualPaymentTypeValue,
+} from "@/backend/schemas/registrationSchemas";
 
 const { Option } = Select;
 
@@ -41,6 +46,9 @@ const registrationSchema = z.object({
     .enum(["INFINITE_PAY", "MERCADO_PAGO", "MANUAL"])
     .default("MANUAL"),
   dynamicFormData: z.record(z.string(), z.unknown()).optional(),
+  manualPaymentType: z.enum(["PIX", "CASH", "CARD"]).nullish(),
+  cashResponsible: z.string().max(100).nullish(),
+  notes: z.string().max(REGISTRATION_NOTES_MAX_LENGTH).nullish(),
 });
 
 interface Event {
@@ -64,6 +72,10 @@ interface Registration {
   phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
+  paymentMethod?: string;
+  manualPaymentType?: ManualPaymentTypeValue | null;
+  cashResponsible?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
   dynamicFormData?: Record<string, unknown>;
@@ -85,6 +97,10 @@ interface RegistrationFormData {
   dynamicFormData?: Record<string, unknown>;
   wantsShirt?: boolean;
   shirtSize?: string;
+  paymentMethod?: string;
+  manualPaymentType?: ManualPaymentTypeValue | null;
+  cashResponsible?: string | null;
+  notes?: string | null;
 }
 
 interface RegistrationModalProps {
@@ -130,6 +146,14 @@ export default function RegistrationModal({
   const watchedWantsShirt = Form.useWatch("wantsShirt", form) as
     | boolean
     | undefined;
+
+  const watchedPaymentMethod = Form.useWatch("paymentMethod", form) as
+    | string
+    | undefined;
+  const watchedManualType = Form.useWatch("manualPaymentType", form) as
+    | ManualPaymentTypeValue
+    | undefined;
+  const isManual = watchedPaymentMethod === "MANUAL";
 
   const formatCPF = (value: string) => {
     const cpf = value.replace(/\D/g, "");
@@ -226,7 +250,7 @@ export default function RegistrationModal({
         </Row>
 
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               name="name"
               label="Nome Completo"
@@ -238,7 +262,7 @@ export default function RegistrationModal({
               <Input placeholder="Nome completo" size="large" />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               name="email"
               label="Email"
@@ -262,7 +286,7 @@ export default function RegistrationModal({
         </Row>
 
         <Row gutter={16}>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               name="cpf"
               label="CPF"
@@ -281,7 +305,7 @@ export default function RegistrationModal({
               />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} sm={12}>
             <Form.Item
               name="phone"
               label="Telefone"
@@ -335,7 +359,16 @@ export default function RegistrationModal({
               initialValue="MANUAL"
               rules={[{ required: true, message: "Método de pagamento é obrigatório" }]}
             >
-              <Select placeholder="Selecione o método de pagamento" size="large">
+              <Select
+                placeholder="Selecione o método de pagamento"
+                size="large"
+                onChange={(value: string) => {
+                  if (value !== "MANUAL") {
+                    form.setFieldValue("manualPaymentType", undefined);
+                    form.setFieldValue("cashResponsible", undefined);
+                  }
+                }}
+              >
                 <Option value="INFINITE_PAY">
                   <Tag color="blue">InfinitePay</Tag>
                 </Option>
@@ -343,6 +376,67 @@ export default function RegistrationModal({
                   <Tag color="orange">Manual</Tag>
                 </Option>
               </Select>
+            </Form.Item>
+          </Col>
+          {isManual && (
+            <Col span={24}>
+              <Form.Item
+                name="manualPaymentType"
+                label="Como foi pago?"
+                rules={[
+                  { required: true, message: "Informe como foi pago (PIX, Dinheiro ou Cartão)" },
+                ]}
+              >
+                <Select
+                  placeholder="PIX, Dinheiro ou Cartão"
+                  size="large"
+                  onChange={(value: string) => {
+                    if (value !== "CASH") {
+                      form.setFieldValue("cashResponsible", undefined);
+                    }
+                  }}
+                >
+                  {(
+                    Object.keys(
+                      MANUAL_PAYMENT_TYPE_LABELS
+                    ) as ManualPaymentTypeValue[]
+                  ).map((type) => (
+                    <Option key={type} value={type}>
+                      {MANUAL_PAYMENT_TYPE_LABELS[type]}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          )}
+          {isManual && watchedManualType === "CASH" && (
+            <Col span={24}>
+              <Form.Item
+                name="cashResponsible"
+                label="Responsável pelo dinheiro"
+                extra="Quem está com o dinheiro recebido (opcional)."
+                rules={[{ max: 100, message: "Nome muito longo" }]}
+              >
+                <Input placeholder="Nome de quem recebeu" size="large" maxLength={100} />
+              </Form.Item>
+            </Col>
+          )}
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={24}>
+            <Form.Item
+              name="notes"
+              label="Observação"
+              extra="Só para a equipe. Não aparece para o participante."
+            >
+              <Input.TextArea
+                rows={3}
+                size="large"
+                maxLength={REGISTRATION_NOTES_MAX_LENGTH}
+                showCount
+                placeholder="Ex.: pagou em dinheiro com a irmã. Não registre dados sensíveis desnecessários."
+              />
             </Form.Item>
           </Col>
         </Row>

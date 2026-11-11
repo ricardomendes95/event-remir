@@ -58,9 +58,9 @@ há identidade visual própria (páginas públicas institucionais).
 | `UserManagement` / `UserModal` / `ChangePasswordModal` | Gestão de admins | Restrito a SUPER_ADMIN |
 | `RegistrationsPrintReport` | Impressão de inscrições (listas por tamanho de camisa) | |
 | `registrations/RegistrationFilters` | Filtros da listagem | |
-| `registrations/RegistrationTable` | Tabela de inscrições | |
+| `registrations/RegistrationTable` | Tabela de inscrições | Coluna Pagamento: tag do sub-método manual, responsável e indicador/tooltip de observação |
 | `registrations/RegistrationStats` | Cards de estatísticas | |
-| `registrations/RegistrationModal` | Detalhe/edição de inscrição | |
+| `registrations/RegistrationModal` | Detalhe/edição de inscrição | Campos condicionais: sub-método (Manual), responsável (Dinheiro), observação (500 caracteres) |
 
 ## Domínio `home` (`components/home`)
 

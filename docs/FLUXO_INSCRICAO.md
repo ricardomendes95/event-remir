@@ -29,6 +29,8 @@ Cada inscrição vira uma `Registration`:
 - `paymentId`: referência do provedor (ou `free_<timestamp>_<rand>` em gratuito)
 - `dynamicFormData` (JSON): respostas sanitizadas do formulário dinâmico
 - `wantsShirt` / `shirtSize`: seleção de camisa
+- `notes` (até 500 caracteres), `manualPaymentType` (`PIX | CASH | CARD`) e
+  `cashResponsible`: dados **administrativos** (ver "Inscrição manual pelo admin")
 
 O CPF é sempre gravado **sem formatação** (apenas dígitos) e é a chave de
 deduplicação por evento.
@@ -181,3 +183,28 @@ gratuito**; **pago só admite `FIXED_ONLY` ou `BOTH`**; valores e seleção de c
 sempre recalculados no servidor.
 </content>
 </invoke>
+
+## Inscrição manual pelo admin
+
+Criada/editada no `RegistrationModal` (`POST /api/registrations` e
+`PUT /api/registrations/[id]`, validados por `AdminRegistrationCreateSchema` /
+`AdminRegistrationUpdateSchema`; erros voltam em 422 com `errors[]`).
+
+- Origem do pagamento: `InfinitePay` ou `Manual`. Com **Manual**, "Como foi
+  pago?" (PIX, Dinheiro ou Cartão) é obrigatório; com outra origem, é proibido.
+- Com **Dinheiro**, o campo opcional "Responsável pelo dinheiro"
+  (`cashResponsible`) indica quem está com o valor; só vale para `CASH`.
+- **Observação** (`notes`, até 500 caracteres) vale para qualquer origem e é
+  só para a equipe.
+- Na edição, trocar a origem para algo que não é Manual limpa o sub-método e o
+  responsável. Mudar só o status não valida o pagamento (manuais antigas
+  continuam editáveis).
+- Inscrições manuais antigas têm `manualPaymentType = null` e aparecem como
+  "Manual (não informado)" na tabela e no financeiro.
+- Visibilidade: ADMIN, SUPER_ADMIN e SUPPORT veem e editam observação e
+  responsável; CHECKIN não recebe `notes`/`cashResponsible`
+  (`canViewRegistrationNotes` + `registrationSerializer`). Rotas públicas
+  (comprovante, busca por CPF) nunca os devolvem.
+- Financeiro (`/admin/financial`): Manual quebrado por PIX/Dinheiro/Cartão/Não
+  informado, total em espécie destacado, responsáveis pelo dinheiro listados e
+  CSV com "Pagamento Manual", "Responsável pelo Dinheiro" e "Observação".

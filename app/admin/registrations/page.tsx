@@ -35,6 +35,10 @@ interface Registration {
   phone: string | null;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "PAYMENT_FAILED";
   paymentId?: string;
+  paymentMethod?: string;
+  manualPaymentType?: "PIX" | "CASH" | "CARD" | null;
+  cashResponsible?: string | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
   dynamicFormData?: Record<string, unknown>;
@@ -68,6 +72,9 @@ interface RegistrationFormData {
   dynamicFormData?: Record<string, unknown>;
   wantsShirt?: boolean;
   shirtSize?: string;
+  manualPaymentType?: "PIX" | "CASH" | "CARD" | null;
+  cashResponsible?: string | null;
+  notes?: string | null;
 }
 
 interface PrintData {
@@ -329,6 +336,16 @@ export default function RegistrationsPage() {
         eventId: formValues.eventId,
         status: formValues.status,
         paymentMethod: formValues.paymentMethod ?? "MANUAL",
+        manualPaymentType:
+          formValues.paymentMethod === "MANUAL"
+            ? formValues.manualPaymentType ?? null
+            : null,
+        cashResponsible:
+          formValues.paymentMethod === "MANUAL" &&
+          formValues.manualPaymentType === "CASH"
+            ? formValues.cashResponsible?.trim() || null
+            : null,
+        notes: formValues.notes?.trim() || null,
         ...(formValues.dynamicFormData ? { dynamicFormData: formValues.dynamicFormData } : {}),
         wantsShirt: formValues.wantsShirt ?? false,
         shirtSize: formValues.wantsShirt ? formValues.shirtSize ?? null : null,

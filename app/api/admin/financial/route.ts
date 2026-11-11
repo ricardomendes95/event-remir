@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { resolveBaseValue } from "@/backend/utils/shirtPricing";
 
@@ -61,20 +61,22 @@ export async function GET(request: NextRequest) {
     };
 
     // Buscar todas as inscrições com dados dos eventos
-    const registrations = await prisma.registration.findMany({
-      where: whereClause,
-      include: {
-        event: {
-          select: {
-            id: true,
-            title: true,
-            price: true,
-            startDate: true,
-            shirtConfig: true,
+    const registrations = await withPrismaRetry(() =>
+      prisma.registration.findMany({
+        where: whereClause,
+        include: {
+          event: {
+            select: {
+              id: true,
+              title: true,
+              price: true,
+              startDate: true,
+              shirtConfig: true,
+            },
           },
         },
-      },
-    });
+      })
+    );
 
     // Usa o paymentMethod REAL gravado na inscrição.
     // "InfinitePay" = pagamento online via gateway (inclui o legado Mercado Pago,
@@ -143,6 +145,48 @@ export async function GET(request: NextRequest) {
     const manualConfirmedRevenue = manualRegistrations
       .filter((r) => r.status === "CONFIRMED")
       .reduce((sum, r) => sum + revenueOf(r), 0);
+
+    // Quebra do Manual por sub-método. Legado sem sub-método vai em UNSPECIFIED.
+    type ManualBucket = "PIX" | "CASH" | "CARD" | "UNSPECIFIED";
+    const manualBreakdown = {} as Record<
+      ManualBucket,
+      { registrations: number; totalRevenue: number; confirmedRevenue: number }
+    >;
+    for (const bucket of ["PIX", "CASH", "CARD", "UNSPECIFIED"] as const) {
+      const inBucket = manualRegistrations.filter(
+        (r) => (r.manualPaymentType ?? "UNSPECIFIED") === bucket
+      );
+      manualBreakdown[bucket] = {
+        registrations: inBucket.length,
+        totalRevenue: inBucket.reduce((sum, r) => sum + revenueOf(r), 0),
+        confirmedRevenue: inBucket
+          .filter((r) => r.status === "CONFIRMED")
+          .reduce((sum, r) => sum + revenueOf(r), 0),
+      };
+    }
+
+    // Quem está com o dinheiro em espécie (apenas pagamentos em Dinheiro).
+    const responsibleMap = new Map<
+      string,
+      { name: string; registrations: number; totalRevenue: number; confirmedRevenue: number }
+    >();
+    for (const r of manualRegistrations) {
+      if (r.manualPaymentType !== "CASH") continue;
+      const name = r.cashResponsible?.trim() || "Sem responsável informado";
+      const entry = responsibleMap.get(name) ?? {
+        name,
+        registrations: 0,
+        totalRevenue: 0,
+        confirmedRevenue: 0,
+      };
+      entry.registrations += 1;
+      entry.totalRevenue += revenueOf(r);
+      if (r.status === "CONFIRMED") entry.confirmedRevenue += revenueOf(r);
+      responsibleMap.set(name, entry);
+    }
+    const cashResponsibles = Array.from(responsibleMap.values()).sort(
+      (a, b) => b.confirmedRevenue - a.confirmedRevenue
+    );
 
     // Agrupar por evento
     const eventGroups = registrationsWithPaymentMethod.reduce(
@@ -287,6 +331,8 @@ export async function GET(request: NextRequest) {
       manualTotalRevenue,
       manualConfirmedRevenue,
       manualRegistrations: manualRegistrations.length,
+      manualBreakdown,
+      cashResponsibles,
       eventBreakdown,
       dailyRevenue,
     };
@@ -304,6 +350,9 @@ export async function GET(request: NextRequest) {
           participantPhone: reg.phone,
           status: reg.status,
           paymentMethod: reg.paymentMethod,
+          manualPaymentType: reg.manualPaymentType,
+          cashResponsible: reg.cashResponsible,
+          notes: reg.notes,
           eventPrice: reg.event.price,
           amountPaid: revenueOf(reg),
           wantsShirt: reg.wantsShirt ?? false,

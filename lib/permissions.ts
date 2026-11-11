@@ -33,6 +33,13 @@ export function canViewFinancialValues(role: string | null | undefined): boolean
   return isAdminRole(role) && (FULL_ACCESS_ROLES as string[]).includes(role);
 }
 
+/** Observação administrativa e responsável pelo dinheiro: CHECKIN não vê. */
+export function canViewRegistrationNotes(
+  role: string | null | undefined
+): boolean {
+  return isAdminRole(role) && role !== "CHECKIN";
+}
+
 interface RouteRule {
   /** Prefixo do pathname (match por startsWith, primeira regra vence). */
   prefix: string;

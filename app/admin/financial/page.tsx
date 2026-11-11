@@ -34,6 +34,15 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
+type ManualBucket = "PIX" | "CASH" | "CARD" | "UNSPECIFIED";
+
+const MANUAL_BUCKET_LABELS: Record<ManualBucket, string> = {
+  PIX: "PIX",
+  CASH: "Dinheiro",
+  CARD: "Cartão",
+  UNSPECIFIED: "Não informado",
+};
+
 interface FinancialData {
   totalRevenue: number;
   confirmedRevenue: number;
@@ -49,6 +58,16 @@ interface FinancialData {
   manualTotalRevenue: number;
   manualConfirmedRevenue: number;
   manualRegistrations: number;
+  manualBreakdown: Record<
+    ManualBucket,
+    { registrations: number; totalRevenue: number; confirmedRevenue: number }
+  >;
+  cashResponsibles: Array<{
+    name: string;
+    registrations: number;
+    totalRevenue: number;
+    confirmedRevenue: number;
+  }>;
   eventBreakdown: EventFinancialData[];
   dailyRevenue: DailyRevenueData[];
 }
@@ -128,6 +147,9 @@ export default function FinancialPage() {
             participantPhone: string;
             status: string;
             paymentMethod: string;
+            manualPaymentType?: "PIX" | "CASH" | "CARD" | null;
+            cashResponsible?: string | null;
+            notes?: string | null;
             eventPrice: number;
             amountPaid?: number;
             wantsShirt?: boolean;
@@ -148,6 +170,12 @@ export default function FinancialPage() {
                 : reg.paymentMethod === "FREE"
                 ? "Gratuito"
                 : "InfinitePay",
+            "Pagamento Manual":
+              reg.paymentMethod === "MANUAL"
+                ? MANUAL_BUCKET_LABELS[reg.manualPaymentType ?? "UNSPECIFIED"]
+                : "",
+            "Responsável pelo Dinheiro": reg.cashResponsible ?? "",
+            Observação: reg.notes ?? "",
             "Valor Pago": `R$ ${Number(
               reg.amountPaid ?? reg.eventPrice
             ).toFixed(2)}`,
@@ -599,6 +627,96 @@ export default function FinancialPage() {
           </Card>
         </Col>
       </Row>
+
+      {/* Detalhe do pagamento manual */}
+      {financialData.manualRegistrations > 0 && (
+        <Card
+          title="Pagamentos manuais por forma de pagamento"
+          className="mb-6"
+        >
+          <Row gutter={[16, 16]}>
+            {(["PIX", "CASH", "CARD", "UNSPECIFIED"] as ManualBucket[])
+              .filter(
+                (bucket) =>
+                  bucket !== "UNSPECIFIED" ||
+                  financialData.manualBreakdown.UNSPECIFIED.registrations > 0
+              )
+              .map((bucket) => {
+                const item = financialData.manualBreakdown[bucket];
+                const isCash = bucket === "CASH";
+                return (
+                  <Col xs={24} sm={12} lg={6} key={bucket}>
+                    <Card
+                      size="small"
+                      style={
+                        isCash
+                          ? { borderColor: "#faad14", background: "#fffbe6" }
+                          : undefined
+                      }
+                    >
+                      <Statistic
+                        title={
+                          bucket === "UNSPECIFIED"
+                            ? "Manual (não informado)"
+                            : isCash
+                              ? "Em espécie (Dinheiro)"
+                              : MANUAL_BUCKET_LABELS[bucket]
+                        }
+                        value={item.confirmedRevenue}
+                        precision={2}
+                        prefix="R$"
+                        valueStyle={{
+                          color: isCash ? "#d48806" : "#52c41a",
+                          fontSize: isCash ? "22px" : "18px",
+                        }}
+                      />
+                      <div className="text-sm text-gray-500 mt-1">
+                        confirmado · {item.registrations} inscrição(ões) · total R${" "}
+                        {item.totalRevenue.toFixed(2)}
+                      </div>
+                    </Card>
+                  </Col>
+                );
+              })}
+          </Row>
+          {financialData.cashResponsibles.length > 0 && (
+            <>
+              <Divider />
+              <Typography.Text strong>
+                Quem está com o dinheiro em espécie
+              </Typography.Text>
+              <Table
+                className="mt-2"
+                size="small"
+                pagination={false}
+                rowKey="name"
+                dataSource={financialData.cashResponsibles}
+                scroll={{ x: 400 }}
+                columns={[
+                  { title: "Responsável", dataIndex: "name", key: "name" },
+                  {
+                    title: "Inscrições",
+                    dataIndex: "registrations",
+                    key: "registrations",
+                  },
+                  {
+                    title: "Confirmado",
+                    dataIndex: "confirmedRevenue",
+                    key: "confirmedRevenue",
+                    render: (v: number) => `R$ ${v.toFixed(2)}`,
+                  },
+                  {
+                    title: "Total",
+                    dataIndex: "totalRevenue",
+                    key: "totalRevenue",
+                    render: (v: number) => `R$ ${v.toFixed(2)}`,
+                  },
+                ]}
+              />
+            </>
+          )}
+        </Card>
+      )}
 
       {/* Status das Inscrições */}
       <Row gutter={16} className="mb-6">

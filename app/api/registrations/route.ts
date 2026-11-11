@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, withPrismaRetry } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { zodErrorResponse } from "@/backend/utils/validationResponse";
+import { AdminRegistrationCreateSchema } from "@/backend/schemas/registrationSchemas";
 import { validateShirtSelection } from "@/backend/utils/shirtPricing";
-import { sanitizeRegistrationsForRole } from "@/backend/utils/registrationSerializer";
+import {
+  sanitizeRegistrationForRole,
+  sanitizeRegistrationsForRole,
+} from "@/backend/utils/registrationSerializer";
 
 export async function GET(request: NextRequest) {
   try {
@@ -92,26 +97,42 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const EVENT_SELECT = {
+  id: true,
+  title: true,
+  price: true,
+  startDate: true,
+} as const;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const parsed = AdminRegistrationCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return zodErrorResponse(parsed.error);
+    }
+
     const {
       name,
       email,
       cpf,
       phone,
       eventId,
-      status = "CONFIRMED",
-      paymentMethod = "MANUAL",
+      status,
+      paymentMethod,
       dynamicFormData,
       wantsShirt,
       shirtSize,
-    } = body;
+      notes,
+      manualPaymentType,
+      cashResponsible,
+    } = parsed.data;
+    const cpfDigits = cpf.replace(/\D/g, "");
 
     // Validar se o evento existe
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-    });
+    const event = await withPrismaRetry(() =>
+      prisma.event.findUnique({ where: { id: eventId } })
+    );
 
     if (!event) {
       return NextResponse.json(
@@ -133,12 +154,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já existe inscrição com este CPF para o evento
-    const existingRegistration = await prisma.registration.findFirst({
-      where: {
-        cpf: cpf.replace(/\D/g, ""),
-        eventId,
-      },
-    });
+    const existingRegistration = await withPrismaRetry(() =>
+      prisma.registration.findFirst({
+        where: { cpf: cpfDigits, eventId },
+      })
+    );
 
     if (existingRegistration) {
       return NextResponse.json(
@@ -151,35 +171,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar inscrição
-    const registration = await prisma.registration.create({
-      data: {
-        name,
-        email: email || null,
-        cpf: cpf.replace(/\D/g, ""),
-        phone: phone ? phone.replace(/\D/g, "") : null,
-        eventId,
-        status,
-        paymentId: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
-        paymentMethod: paymentMethod,
-        wantsShirt: shirtSelection.wantsShirt,
-        shirtSize: shirtSelection.shirtSize,
-        ...(dynamicFormData ? { dynamicFormData } : {}),
-      },
-      include: {
-        event: {
-          select: {
-            id: true,
-            title: true,
-            price: true,
-            startDate: true,
-          },
+    const registration = await withPrismaRetry(() =>
+      prisma.registration.create({
+        data: {
+          name,
+          email: email || null,
+          cpf: cpfDigits,
+          phone: phone ? phone.replace(/\D/g, "") : null,
+          eventId,
+          status,
+          paymentId: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          paymentMethod,
+          manualPaymentType: manualPaymentType ?? null,
+          cashResponsible: cashResponsible ?? null,
+          notes: notes ?? null,
+          wantsShirt: shirtSelection.wantsShirt,
+          shirtSize: shirtSelection.shirtSize,
+          ...(dynamicFormData
+            ? { dynamicFormData: dynamicFormData as Prisma.InputJsonValue }
+            : {}),
         },
-      },
-    });
+        include: { event: { select: EVENT_SELECT } },
+      })
+    );
 
     return NextResponse.json({
       success: true,
-      data: registration,
+      data: sanitizeRegistrationForRole(
+        registration,
+        request.headers.get("x-user-role")
+      ),
       message: "Inscrição criada com sucesso",
     });
   } catch (error) {
